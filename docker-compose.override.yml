@@ -1,0 +1,42 @@
+services:
+  frame-classifier-service:
+    ports:
+      - "8002:8000"
+  bb-reg-service:
+    ports:
+      - "8001:8000"
+  backend:
+    build:
+      target: development
+    environment:
+      - DEBUG=true
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+      bb-reg-service:
+        condition: service_started
+      frame-classifier-service:
+        condition: service_started
+  frontend:
+    build:
+      target: development
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      backend:
+        condition: service_started
+  postgres:
+    ports:
+      - "5432:5432"
+  redis:
+    ports:
+      - "6379:6379"

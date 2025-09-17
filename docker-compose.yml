@@ -1,0 +1,138 @@
+services:
+  frame-classifier-service:
+    environment:
+      - MLFLOW_URI=http://host.docker.internal:8080
+      - MLFLOW_MODEL_NAME=frame_classifier_224x224
+      - MLFLOW_MODEL_ALIAS=champion
+      - TARGET_IMAGE_HEIGHT=224
+      - TARGET_IMAGE_WIDTH=224
+      - PYTHONUNBUFFERED=1
+    build: 
+      context: frame-classifier-service/
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - iamedic-app-net
+  bb-reg-service:
+    environment:
+      - MLFLOW_URI=http://host.docker.internal:8080
+      - MLFLOW_MODEL_NAME=fetal_structures_bb_regressor_224x224
+      - MLFLOW_MODEL_ALIAS=champion
+      - TARGET_IMAGE_HEIGHT=224
+      - TARGET_IMAGE_WIDTH=224
+      - PYTHONUNBUFFERED=1
+    build: 
+      context: bb-reg-service/
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - iamedic-app-net
+  frontend:
+    build:
+      context: frontend/
+      dockerfile: Dockerfile
+      target: production
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    env_file:
+      - frontend/.env.production
+    networks:
+      - iamedic-app-net
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+  backend:
+    environment:
+      - MLFLOW_URI=http://host.docker.internal:8080
+      - POSTGRES_USER=iamedic
+      - POSTGRES_PASSWORD=iamedic
+      - POSTGRES_DB=iamedic
+      - PYTHONUNBUFFERED=1
+      - DEBUG=false
+    env_file:
+      - backend/.env
+    build: 
+      context: backend/
+      dockerfile: Dockerfile
+      target: production
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      bb-reg-service:
+        condition: service_healthy
+      frame-classifier-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - iamedic-app-net
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=iamedic
+      - POSTGRES_PASSWORD=iamedic
+      - POSTGRES_DB=iamedic
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U iamedic"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - iamedic-app-net
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - iamedic-app-net
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  iamedic-app-net:
+    driver: bridge

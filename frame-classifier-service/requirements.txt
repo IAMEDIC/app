@@ -1,0 +1,5 @@
+fastapi
+uvicorn
+onnxruntime
+pillow
+mlflow==3.1.1
