@@ -2,7 +2,10 @@
 
 # Environment files with secrets
 *.env
+!.env.example
 .env.local
+.env.development
+.env.staging
 .env.production
 
 # Logs

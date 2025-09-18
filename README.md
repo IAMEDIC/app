@@ -75,9 +75,28 @@ This uses optimized production builds without development overrides.
 
 ## 🔧 Configuration
 
+### Environment Setup
+
+**IMPORTANT**: All sensitive credentials must be stored in local `.env` files and **never committed to version control**.
+
+1. **Copy example environment files**:
+   ```bash
+   # Frontend environment
+   cp frontend/.env.example frontend/.env
+   
+   # Backend environment  
+   cp backend/.env.example backend/.env
+   ```
+
+2. **Configure your environment values**:
+   - Update Google OAuth credentials (see Google OAuth Setup below)
+   - Set secure secret keys for production
+   - Configure database passwords
+
 ### Environment Variables
 
 #### Frontend (`frontend/.env`)
+Copy from `frontend/.env.example` and configure:
 ```env
 VITE_API_BASE_URL=http://localhost:8000
 VITE_APP_NAME=IAMEDIC
@@ -86,25 +105,30 @@ VITE_OAUTH_CLIENT_ID=your_google_client_id_here
 ```
 
 #### Backend (`backend/.env`)
+Copy from `backend/.env.example` and configure:
 ```env
-# App Configuration
-APP_NAME=IAMEDIC Backend
+# === Application Settings ===
+APP_NAME=IAMEDIC
 DEBUG=true
-SECRET_KEY=your-super-secret-key-change-in-production
+ENVIRONMENT=development
 
-# Database
-POSTGRES_USER=iamedic
-POSTGRES_PASSWORD=iamedic
-POSTGRES_DB=iamedic
+# === Security ===
+SECRET_KEY=your_secret_key_here_minimum_32_characters
+JWT_SECRET_KEY=your_jwt_secret_key_here_minimum_32_characters
 
-# Google OAuth
-GOOGLE_CLIENT_ID=your_google_client_id_here
-GOOGLE_CLIENT_SECRET=your_google_client_secret_here
-GOOGLE_REDIRECT_URI=http://localhost:8000/api/auth/google/callback
+# === Database Configuration ===
+DATABASE_URL=postgresql://iamedic_user:secure_password@postgres:5432/iamedic_db
 
-# Frontend URL
+# === Google OAuth Configuration ===
+GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_REDIRECT_URI=http://localhost:8000/auth/callback
+
+# === CORS Configuration ===
 FRONTEND_URL=http://localhost:3000
 ```
+
+**See `backend/.env.example` for complete configuration options.**
 
 ### Google OAuth Setup
 
