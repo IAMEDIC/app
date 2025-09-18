@@ -8,6 +8,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import LoginPage from '@/pages/LoginPage';
 import HomePage from '@/pages/HomePage';
 import CallbackPage from '@/pages/CallbackPage';
+import AdminPage from '@/pages/AdminPage';
+import DoctorPage from '@/pages/DoctorPage';
 
 // Components
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -88,6 +90,24 @@ const App: React.FC = () => {
                 element={
                   <ProtectedRoute>
                     <HomePage />
+                  </ProtectedRoute>
+                }
+              />
+              
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute>
+                    <AdminPage />
+                  </ProtectedRoute>
+                }
+              />
+              
+              <Route
+                path="/doctor"
+                element={
+                  <ProtectedRoute>
+                    <DoctorPage />
                   </ProtectedRoute>
                 }
               />

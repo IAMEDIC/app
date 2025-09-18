@@ -1,18 +1,26 @@
+"""
+Service to handle Google OAuth2 authentication
+"""
+
 import secrets
-import json
-from typing import Dict, Any, Optional
+import logging
+from typing import Dict, Any
+
+import requests
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
-from googleapiclient.discovery import build
+# from googleapiclient.discovery import build
 from app.core.config import settings
-from app.core.redis import get_redis
-import logging
+from app.core.cache import redis_client
+
 
 logger = logging.getLogger(__name__)
 
 
 class GoogleOAuthService:
+    """Service to handle Google OAuth2 authentication"""
+
     def __init__(self):
         self.client_config = {
             "web": {
@@ -29,53 +37,63 @@ class GoogleOAuthService:
             'profile'
         ]
 
-    def get_authorization_url(self) -> tuple[str, str]:
+    def get_authorization_url(self, force_consent: bool = False) -> tuple[str, str]:
         """Generate Google OAuth authorization URL"""
         flow = Flow.from_client_config(
             self.client_config,
             scopes=self.scopes
         )
         flow.redirect_uri = settings.google_redirect_uri
-
+        
         # Generate state parameter for security
         state = secrets.token_urlsafe(32)
         
         # Store state in Redis for verification (expires in 10 minutes)
-        redis_client = get_redis()
         redis_client.setex(f"oauth_state:{state}", 600, "valid")
-
-        authorization_url, _ = flow.authorization_url(
-            access_type='offline',
-            include_granted_scopes='true',
-            state=state,
-            prompt='consent'  # Force consent to get refresh token
-        )
-
-        logger.info(f"Generated OAuth URL with state: {state}")
+        
+        # Build authorization URL parameters
+        auth_params = {
+            'access_type': 'offline',
+            'include_granted_scopes': 'true',
+            'state': state,
+        }
+        
+        # Only force consent if explicitly requested (e.g., for first-time users)
+        if force_consent:
+            auth_params['prompt'] = 'consent'
+            logger.info("Generated OAuth URL with forced consent and state: %s", state)
+        else:
+            logger.info("Generated OAuth URL with state: %s", state)
+        
+        authorization_url, _ = flow.authorization_url(**auth_params)
+        
         return authorization_url, state
 
     def verify_state(self, state: str) -> bool:
         """Verify OAuth state parameter"""
-        redis_client = get_redis()
+        logger.debug("🔍 Verifying OAuth state: %s", state)
+        
         stored_state = redis_client.get(f"oauth_state:{state}")
         if stored_state:
             redis_client.delete(f"oauth_state:{state}")  # Use once
+            logger.info("✅ OAuth state verified successfully")
             return True
+        
+        logger.warning("⚠️ Invalid or expired OAuth state: %s", state)
         return False
 
     def exchange_code_for_tokens(self, code: str, state: str) -> Dict[str, Any]:
         """Exchange authorization code for tokens and user info"""
-        if not self.verify_state(state):
-            raise ValueError("Invalid or expired state parameter")
-
-        # Use direct token exchange to avoid scope validation issues
-        return self._direct_token_exchange(code, state)
-
-    def _direct_token_exchange(self, code: str, state: str) -> Dict[str, Any]:
-        """Direct token exchange without strict scope validation"""
-        import requests
+        logger.info("🔄 Starting token exchange process")
         
-        # Exchange code for tokens directly
+        if not self.verify_state(state):
+            logger.error("❌ Token exchange failed: Invalid or expired state parameter")
+            raise ValueError("Invalid or expired state parameter")
+        
+        return self._direct_token_exchange(code)
+
+    def _direct_token_exchange(self, code: str) -> Dict[str, Any]:
+        """Direct token exchange without strict scope validation"""
         token_url = "https://oauth2.googleapis.com/token"
         token_data = {
             'client_id': settings.google_client_id,
@@ -85,21 +103,26 @@ class GoogleOAuthService:
             'redirect_uri': settings.google_redirect_uri,
         }
         
-        logger.info(f"Attempting token exchange with redirect_uri: {settings.google_redirect_uri}")
+        logger.info("🔄 Attempting token exchange with redirect_uri: %s", settings.google_redirect_uri)
         
         try:
-            token_response = requests.post(token_url, data=token_data)
+            token_response = requests.post(token_url, data=token_data, timeout=10)
             token_response.raise_for_status()
             tokens = token_response.json()
+            
+            logger.info("✅ Token exchange successful")
             
             # Get user info using the access token
             user_info_url = "https://www.googleapis.com/oauth2/v2/userinfo"
             headers = {'Authorization': f"Bearer {tokens['access_token']}"}
-            user_response = requests.get(user_info_url, headers=headers)
+            
+            logger.info("🔄 Fetching user information from Google")
+            user_response = requests.get(user_info_url, headers=headers, timeout=10)
             user_response.raise_for_status()
             user_info = user_response.json()
             
-            logger.info(f"Successfully authenticated user via direct exchange: {user_info.get('email')}")
+            logger.info("✅ Successfully authenticated user via direct exchange: %s",
+                        user_info.get('email'))
             
             return {
                 'access_token': tokens['access_token'],
@@ -114,25 +137,32 @@ class GoogleOAuthService:
                 }
             }
         except requests.RequestException as e:
-            logger.error(f"Token exchange request failed: {e}")
+            logger.error("❌ Token exchange request failed: %s", e, exc_info=True)
             if hasattr(e, 'response') and e.response is not None:
-                logger.error(f"Response content: {e.response.text}")
+                logger.error("❌ Response content: %s", e.response.text)
             raise e
 
     def refresh_access_token(self, refresh_token: str) -> Dict[str, Any]:
         """Refresh access token using refresh token"""
-        credentials = Credentials(
-            token=None,
-            refresh_token=refresh_token,
-            token_uri=self.client_config["web"]["token_uri"],
-            client_id=self.client_config["web"]["client_id"],
-            client_secret=self.client_config["web"]["client_secret"]
-        )
-
-        request = Request()
-        credentials.refresh(request)
-
-        return {
-            'access_token': credentials.token,
-            'expires_at': credentials.expiry
-        }
+        logger.info("🔄 Refreshing access token")
+        
+        try:
+            credentials = Credentials(
+                token=None,
+                refresh_token=refresh_token,
+                token_uri=self.client_config["web"]["token_uri"],
+                client_id=self.client_config["web"]["client_id"],
+                client_secret=self.client_config["web"]["client_secret"]
+            )
+            request = Request()
+            credentials.refresh(request)
+            
+            logger.info("✅ Access token refreshed successfully")
+            
+            return {
+                'access_token': credentials.token,
+                'expires_at': credentials.expiry
+            }
+        except Exception as e:
+            logger.error("❌ Token refresh failed: %s", e, exc_info=True)
+            raise e

@@ -52,7 +52,7 @@ services:
     ports:
       - "80:80"
     env_file:
-      - frontend/.env.production
+      - frontend/.env
     networks:
       - iamedic-app-net
     depends_on:

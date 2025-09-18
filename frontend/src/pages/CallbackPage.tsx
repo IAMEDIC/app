@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Box, CircularProgress, Alert, Typography } from '@mui/material';
 import { useAuthStore } from '@/store/authStore';
+import { authService } from '@/services/api';
 
 const CallbackPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -10,7 +11,7 @@ const CallbackPage: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    const handleCallback = () => {
+    const handleCallback = async () => {
       try {
         const token = searchParams.get('token');
         const error = searchParams.get('error');
@@ -26,17 +27,14 @@ const CallbackPage: React.FC = () => {
           throw new Error('Missing authentication data. Please try logging in again.');
         }
 
-        // Create user object
-        const user = {
-          id: userId,
-          email: email,
-          name: name,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
+        // Store token first
+        localStorage.setItem('access_token', token);
+
+        // Fetch complete user data with roles
+        const completeUser = await authService.getCurrentUser();
 
         // Store user data and token
-        login(user, token);
+        login(completeUser, token);
         
         // Redirect to home page
         navigate('/', { replace: true });

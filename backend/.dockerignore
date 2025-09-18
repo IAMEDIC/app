@@ -47,10 +47,7 @@ htmlcov/
 .tox/
 
 # Environment variables
-.env.local
-.env.development
-.env.test
-.env.production
+*.env
 
 # Alembic
 alembic/versions/__pycache__/

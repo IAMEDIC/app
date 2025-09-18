@@ -4,11 +4,25 @@ from .user import (
     UserCreate,
     UserUpdate,
     UserInDB,
+    UserWithRoles,
     Token,
     TokenData,
     GoogleAuthURL,
     GoogleCallback,
     LoginResponse,
+)
+from .user_role import (
+    UserRole,
+    UserRoleCreate,
+    UserRoleUpdate,
+    UserRoleInDB,
+)
+from .doctor_profile import (
+    DoctorProfile,
+    DoctorProfileCreate,
+    DoctorProfileUpdate,
+    DoctorProfileInDB,
+    DoctorProfileApproval,
 )
 
 __all__ = [
@@ -16,9 +30,19 @@ __all__ = [
     "UserCreate",
     "UserUpdate",
     "UserInDB",
+    "UserWithRoles",
     "Token",
     "TokenData",
     "GoogleAuthURL",
     "GoogleCallback",
     "LoginResponse",
+    "UserRole",
+    "UserRoleCreate",
+    "UserRoleUpdate",
+    "UserRoleInDB",
+    "DoctorProfile",
+    "DoctorProfileCreate",
+    "DoctorProfileUpdate",
+    "DoctorProfileInDB",
+    "DoctorProfileApproval",
 ]

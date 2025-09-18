@@ -1,189 +1,101 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   Container,
   Box,
   Typography,
   Card,
-  CardContent,
   Button,
-  Avatar,
-  Chip,
   Grid,
 } from '@mui/material';
 import {
-  Logout as LogoutIcon,
-  MedicalServices as MedicalIcon,
-  Analytics as AnalyticsIcon,
+  AdminPanelSettings as AdminIcon,
+  LocalHospital as DoctorIcon,
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
-import { authService } from '@/services/api';
+import TopBar from '@/components/TopBar';
 
 const HomePage: React.FC = () => {
-  const { user, logout } = useAuthStore();
+  const { user } = useAuthStore();
+  const navigate = useNavigate();
 
-  const handleLogout = async () => {
-    try {
-      await authService.logout();
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      logout();
+  // Auto-redirect based on user role
+  useEffect(() => {
+    if (user?.roles && user.roles.length > 0) {
+      if (user.roles.includes('admin')) {
+        navigate('/admin');
+        return;
+      } else if (user.roles.includes('doctor')) {
+        navigate('/doctor');
+        return;
+      }
+    } else if (user) {
+      // If user is authenticated but has no roles, redirect to doctor registration
+      navigate('/doctor');
+      return;
     }
+  }, [user, navigate]);
+
+  const handleNavigateToAdmin = () => {
+    navigate('/admin');
   };
 
+  const handleNavigateToDoctor = () => {
+    navigate('/doctor');
+  };
+
+  const isAdmin = user?.roles?.includes('admin');
+  const isDoctor = user?.roles?.includes('doctor');
+
+  // If user has roles, they should be redirected by useEffect
+  // This page should rarely be seen as users are auto-redirected
   return (
-    <Container maxWidth="lg">
-      <Box py={4}>
-        {/* Header */}
-        <Box
-          display="flex"
-          justifyContent="space-between"
-          alignItems="center"
-          mb={4}
-          flexWrap="wrap"
-          gap={2}
-        >
-          <Box display="flex" alignItems="center" gap={2}>
-            <img
-              src="/logo.jpg"
-              alt="IAMEDIC"
-              style={{ width: 48, height: 48 }}
-            />
-            <Typography variant="h4" component="h1" fontWeight="bold">
-              IAMEDIC
+    <>
+      <TopBar />
+      <Container maxWidth="md">
+        <Box py={4} textAlign="center">
+          {/* Loading state while redirect happens */}
+          <Card sx={{ p: 4, mb: 4 }}>
+            <Typography variant="h5" gutterBottom>
+              Redirecting...
             </Typography>
-          </Box>
-          
-          <Box display="flex" alignItems="center" gap={2}>
-            <Avatar sx={{ bgcolor: 'primary.main' }}>
-              {user?.name?.charAt(0).toUpperCase()}
-            </Avatar>
-            <Box>
-              <Typography variant="body1" fontWeight="medium">
-                {user?.name}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {user?.email}
-              </Typography>
-            </Box>
-            <Button
-              variant="outlined"
-              startIcon={<LogoutIcon />}
-              onClick={handleLogout}
-              size="small"
-            >
-              Logout
-            </Button>
-          </Box>
+            <Typography variant="body1" color="text.secondary" paragraph>
+              Setting up your account access...
+            </Typography>
+          </Card>
+
+          {/* Quick Actions for users with roles (in case redirection fails) */}
+          {(isAdmin || isDoctor) && (
+            <Grid container spacing={2} justifyContent="center">
+              {isAdmin && (
+                <Grid item>
+                  <Button 
+                    variant="contained" 
+                    startIcon={<AdminIcon />}
+                    onClick={handleNavigateToAdmin}
+                    size="large"
+                  >
+                    Admin Dashboard
+                  </Button>
+                </Grid>
+              )}
+              {isDoctor && (
+                <Grid item>
+                  <Button 
+                    variant="contained" 
+                    startIcon={<DoctorIcon />}
+                    onClick={handleNavigateToDoctor}
+                    size="large"
+                  >
+                    Doctor Dashboard
+                  </Button>
+                </Grid>
+              )}
+            </Grid>
+          )}
         </Box>
-
-        {/* Welcome Message */}
-        <Card sx={{ mb: 4, bgcolor: 'primary.main', color: 'white' }}>
-          <CardContent sx={{ p: 4 }}>
-            <Typography variant="h4" gutterBottom>
-              Welcome to IAMEDIC, {user?.name?.split(' ')[0]}!
-            </Typography>
-            <Typography variant="h6" sx={{ opacity: 0.9 }}>
-              AI-powered ultrasound analysis for third trimester pregnancy scans
-            </Typography>
-            <Box mt={2}>
-              <Chip
-                icon={<MedicalIcon />}
-                label="Medical AI"
-                sx={{ 
-                  bgcolor: 'rgba(255,255,255,0.2)', 
-                  color: 'white',
-                  mr: 1 
-                }}
-              />
-              <Chip
-                icon={<AnalyticsIcon />}
-                label="Advanced Analytics"
-                sx={{ 
-                  bgcolor: 'rgba(255,255,255,0.2)', 
-                  color: 'white' 
-                }}
-              />
-            </Box>
-          </CardContent>
-        </Card>
-
-        {/* Features Grid */}
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  🎯 Automatic Bounding Boxes
-                </Typography>
-                <Typography variant="body2" color="text.secondary" paragraph>
-                  Generate precise bounding boxes for fetal structures in third trimester ultrasound scans using advanced AI models.
-                </Typography>
-                <Button variant="outlined" disabled>
-                  Coming Soon
-                </Button>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  🔍 Frame Classification
-                </Typography>
-                <Typography variant="body2" color="text.secondary" paragraph>
-                  Intelligent classification of ultrasound frames to identify optimal views for analysis.
-                </Typography>
-                <Button variant="outlined" disabled>
-                  Coming Soon
-                </Button>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  📊 MLFlow Integration
-                </Typography>
-                <Typography variant="body2" color="text.secondary" paragraph>
-                  Access ML experiment tracking and model management through integrated MLFlow dashboard.
-                </Typography>
-                <Button variant="outlined" disabled>
-                  Coming Soon
-                </Button>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  🔒 Secure Authentication
-                </Typography>
-                <Typography variant="body2" color="text.secondary" paragraph>
-                  Google OAuth integration ensures secure access to your medical analysis tools.
-                </Typography>
-                <Chip label="Active" color="success" size="small" />
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-
-        {/* Footer */}
-        <Box mt={6} textAlign="center">
-          <Typography variant="body2" color="text.secondary">
-            IAMEDIC - Inteligencia Artificial Médica
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Powered by advanced machine learning for medical imaging analysis
-          </Typography>
-        </Box>
-      </Box>
-    </Container>
+      </Container>
+    </>
   );
 };
 

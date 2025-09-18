@@ -6,6 +6,39 @@ export interface User {
   name: string;
   createdAt: string;
   updatedAt: string;
+  roles?: string[];
+  doctorProfile?: DoctorProfile;
+}
+
+export interface UserRole {
+  id: string;
+  userId: string;
+  role: 'admin' | 'doctor';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DoctorProfile {
+  id: string;
+  userId: string;
+  matriculationId: string;
+  legalName: string;
+  specialization: string;
+  status: 'pending' | 'approved' | 'denied';
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DoctorProfileCreate {
+  matriculationId: string;
+  legalName: string;
+  specialization: string;
+}
+
+export interface DoctorProfileApproval {
+  status: 'approved' | 'denied';
+  notes?: string;
 }
 
 export interface AuthState {
