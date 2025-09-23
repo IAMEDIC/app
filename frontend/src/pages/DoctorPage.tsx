@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Typography, Alert, CircularProgress } from '@mui/material';
+import { Box, Typography, Alert, CircularProgress, Button } from '@mui/material';
 import { useAuthStore } from '@/store/authStore';
 import { DoctorDashboard } from '@/components/DoctorDashboard';
 import { DoctorRegistrationForm } from '@/components/DoctorRegistrationForm';
@@ -27,7 +27,12 @@ const DoctorPage: React.FC = () => {
       if (err.response?.status === 404) {
         // No profile exists yet - this is expected for new doctors
         setDoctorProfile(null);
+      } else if (err.response?.status === 401 || err.response?.status === 403) {
+        // Authentication issue - will be handled by axios interceptor
+        console.log('Authentication error, token refresh should handle this');
+        setError('Authentication issue. Please try again.');
       } else {
+        console.error('Failed to load doctor profile:', err);
         setError('Failed to load doctor profile');
       }
     } finally {
@@ -59,6 +64,13 @@ const DoctorPage: React.FC = () => {
           <Alert severity="error">
             <Typography variant="h6">Error</Typography>
             <Typography>{error}</Typography>
+            <Button 
+              variant="outlined" 
+              onClick={loadDoctorProfile} 
+              sx={{ mt: 2 }}
+            >
+              Retry
+            </Button>
           </Alert>
         </Box>
       </>

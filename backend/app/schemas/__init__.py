@@ -24,6 +24,25 @@ from .doctor_profile import (
     DoctorProfileInDB,
     DoctorProfileApproval,
 )
+from .study import (
+    Study,
+    StudyCreate,
+    StudyUpdate,
+    StudyInDB,
+    StudyWithMedia,
+    StudyListResponse,
+    StudySummary,
+)
+from .media import (
+    Media,
+    MediaCreate,
+    MediaUpdate,
+    MediaInDB,
+    MediaSummary,
+    MediaListResponse,
+    MediaUploadResponse,
+    StorageInfo,
+)
 
 __all__ = [
     "User",
@@ -45,4 +64,19 @@ __all__ = [
     "DoctorProfileUpdate",
     "DoctorProfileInDB",
     "DoctorProfileApproval",
+    "Study",
+    "StudyCreate",
+    "StudyUpdate",
+    "StudyInDB",
+    "StudyWithMedia",
+    "StudyListResponse",
+    "StudySummary",
+    "Media",
+    "MediaCreate",
+    "MediaUpdate",
+    "MediaInDB",
+    "MediaSummary",
+    "MediaListResponse",
+    "MediaUploadResponse",
+    "StorageInfo",
 ]

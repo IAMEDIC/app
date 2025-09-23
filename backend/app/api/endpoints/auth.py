@@ -218,39 +218,86 @@ async def logout(
 
 @router.post("/refresh")
 async def refresh_token(
-    current_user: UserModel = Depends(get_current_active_user),
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """Refresh access token using stored refresh token"""
     try:
-        logger.info("🔄 Token refresh requested for user: %s", current_user.email)
-        r_token: Optional[str] = getattr(current_user, "refresh_token", None)
-        if not r_token:
-            logger.warning("⚠️ No refresh token available for user: %s", current_user.email)
+        # Extract user email from expired JWT without validation
+        auth_header = request.headers.get("authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="No refresh token available"
+                detail="Authorization header required"
             )
+        
+        token = auth_header.split(" ")[1]
+        
+        # Decode JWT without verification to get user email
+        from jose import jwt
+        try:
+            # Decode without verification to get the payload
+            payload = jwt.get_unverified_claims(token)
+            email = payload.get("sub")
+            if not email:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid token format"
+                )
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token format"
+            )
+        
+        logger.info("🔄 Token refresh requested for user: %s", email)
+        
+        # Get user from database
+        user_service = UserService(db)
+        user = user_service.get_by_email(email)
+        if not user or user.is_active is False:
+            logger.warning("⚠️ User not found or inactive: %s", email)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found or inactive"
+            )
+        
+        # Check if user has refresh token
+        r_token: Optional[str] = getattr(user, "refresh_token", None)
+        if not r_token:
+            logger.warning("⚠️ No refresh token available for user: %s", email)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="No refresh token available. Please log in again."
+            )
+        
+        # Refresh Google access token
         oauth_service = GoogleOAuthService()
         token_data = oauth_service.refresh_access_token(r_token)
-        user_service = UserService(db)
+        
+        # Update stored tokens
         user_service.update_tokens(
-            str(current_user.id),
+            str(user.id),
             access_token=token_data['access_token'],
             token_expires_at=token_data['expires_at']
         )
+        
+        # Create new JWT token
         access_token = create_access_token(
-            data={"sub": current_user.email},
+            data={"sub": user.email},
             expires_delta=timedelta(minutes=settings.access_token_expire_minutes)
         )
-        logger.info("✅ Token successfully refreshed for user: %s", current_user.email)
+        
+        logger.info("✅ Token successfully refreshed for user: %s", email)
         return LoginResponse(
-            user=User.model_validate(current_user),
+            user=User.model_validate(user),
             access_token=access_token,
             token_type="bearer"
         )
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error("❌ Token refresh error for user %s: %s", current_user.email, e, exc_info=True)
+        logger.error("❌ Token refresh error: %s", e, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token refresh failed"

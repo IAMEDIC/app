@@ -79,6 +79,8 @@ services:
       dockerfile: Dockerfile
       target: production
     restart: unless-stopped
+    volumes:
+      - media_storage:/app/media_storage
     extra_hosts:
       - "host.docker.internal:host-gateway"  
     depends_on:
@@ -132,6 +134,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  media_storage:
 
 networks:
   iamedic-app-net:

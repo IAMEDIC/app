@@ -9,6 +9,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.models.doctor_profile import DoctorProfile as DoctorProfileModel, DoctorProfileStatus
+from app.models.user_role import UserRole, UserRoleType
 from app.schemas.doctor_profile import DoctorProfile as DoctorProfileSchema, DoctorProfileCreate
 
 logger = logging.getLogger(__name__)
@@ -82,3 +83,11 @@ class DoctorService:
         self.db.refresh(profile)
         logger.info("📝 Doctor profile updated for user %s", user_id)
         return DoctorProfileSchema.model_validate(profile)
+
+    def is_doctor(self, user_id: UUID) -> bool:
+        """Check if user has doctor role"""
+        doctor_role = self.db.query(UserRole).filter(
+            UserRole.user_id == user_id,
+            UserRole.role == UserRoleType.DOCTOR
+        ).first()
+        return doctor_role is not None

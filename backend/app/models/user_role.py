@@ -18,11 +18,10 @@ class UserRoleType(str, Enum):
     DOCTOR = "doctor"
 
 
-# pylint: disable=not-callable
+# pylint: disable=not-callable,line-too-long
 class UserRole(Base):
     """User role model for role-based access control"""
     __tablename__ = "user_roles"
-    
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     role = Column(String, nullable=False, index=True)
@@ -34,6 +33,5 @@ class UserRole(Base):
     __table_args__ = (
         UniqueConstraint('user_id', 'role', name='unique_user_role'),
     )
-
     def __repr__(self):
         return f"<UserRole(user_id='{self.user_id}', role='{self.role}')>"

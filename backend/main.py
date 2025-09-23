@@ -16,6 +16,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.models.user import User as UserModel
 from app.models.user_role import UserRole as UserRoleModel, UserRoleType
+from app.services.admin_service import AdminService
 
 
 # Configure comprehensive logging
@@ -49,9 +50,28 @@ async def lifespan(app: FastAPI):
     logger.info("📊 Database: %s", settings.database_url.split('@')[1] if '@' in settings.database_url else "Not configured")
     # Initialize admin user
     await initialize_admin_user()
+    # Cleanup orphaned media records
+    await cleanup_orphaned_media()
     yield
     # Shutdown
     logger.info("🛑 Shutting down IAMEDIC Backend application")
+
+
+async def cleanup_orphaned_media():
+    """Clean up orphaned media records on startup"""
+    try:
+        # Get database session
+        db_gen = get_db()
+        db: Session = next(db_gen)
+        try:
+            # Create admin service instance and run cleanup
+            admin_service = AdminService(db)
+            result = admin_service.cleanup_orphaned_media()
+            logger.info("🧹 Media cleanup result: %s", result)
+        finally:
+            db.close()
+    except Exception as e: # pylint: disable=broad-except
+        logger.error("❌ Failed to cleanup orphaned media: %s", str(e))
 
 
 async def initialize_admin_user():

@@ -16,6 +16,7 @@ from app.core.database import get_db
 from app.core.security import verify_token
 from app.services.user_service import UserService
 from app.services.admin_service import AdminService
+from app.services.doctor_service import DoctorService
 from app.models.user import User
 
 
@@ -33,13 +34,15 @@ async def get_current_user(
     db: Session = Depends(get_db)
 ) -> User:
     """Get current authenticated user"""
-    logger.debug("🔍 Verifying user authentication")
+    logger.info("🔍 Starting user authentication verification")
     try:
         token = credentials.credentials
+        logger.info("🔍 Token received, verifying...")
         email = verify_token(token)
         if email is None:
             logger.warning("⚠️ Invalid token provided")
             raise credentials_exception
+        logger.info("🔍 Token valid for email: %s", email)
     except Exception as e:
         logger.warning("⚠️ Token verification failed: %s", str(e))
         raise credentials_exception from e
@@ -106,4 +109,38 @@ async def require_admin_role(
             detail="Admin role required"
         )
     logger.debug("✅ Admin access granted: %s", current_user.email)
+    return current_user
+
+
+async def require_doctor_role(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+) -> User:
+    """Require doctor role and approved profile for access"""
+    logger.info("🔍 Checking doctor role for user: %s", current_user.email)
+    doctor_service = DoctorService(db)
+    user_id = cast(UUID, current_user.id)
+    # Check if user has doctor role
+    is_doctor = doctor_service.is_doctor(user_id)
+    logger.info("🔍 Is doctor check result: %s for user %s", is_doctor, current_user.email)
+    if not is_doctor:
+        logger.warning("⚠️ Non-doctor user attempted doctor access: %s", current_user.email)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Doctor role required"
+        )
+    # Check if doctor profile is approved
+    doctor_profile = doctor_service.get_doctor_profile_by_user_id(user_id)
+    logger.info("🔍 Doctor profile: %s (status: %s) for user %s", 
+                doctor_profile.id if doctor_profile else None,
+                doctor_profile.status if doctor_profile else "None",
+                current_user.email)
+    if not doctor_profile or doctor_profile.status != "approved":
+        logger.warning("⚠️ Unapproved doctor attempted access: %s (profile status: %s)", 
+                      current_user.email, doctor_profile.status if doctor_profile else "None")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Approved doctor profile required"
+        )
+    logger.debug("✅ Doctor access granted: %s", current_user.email)
     return current_user

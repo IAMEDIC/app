@@ -173,6 +173,7 @@ async def delete_user(
 
 
 @router.api_route("/mlflow/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
+# pylint: disable=line-too-long
 async def mlflow_proxy(
     path: str,
     request: Request,
@@ -192,7 +193,7 @@ async def mlflow_proxy(
             response = await client.request(
                 method=request.method,
                 url=mlflow_url,
-                headers={k: v for k, v in request.headers.items() 
+                headers={k: v for k, v in request.headers.items()
                         if k.lower() not in ['host', 'authorization']},
                 content=await request.body() if request.method in ["POST", "PUT", "PATCH"] else None
             )
@@ -200,7 +201,7 @@ async def mlflow_proxy(
             return StreamingResponse(
                 iter([response.content]),
                 status_code=response.status_code,
-                headers={k: v for k, v in response.headers.items() 
+                headers={k: v for k, v in response.headers.items()
                         if k.lower() not in ['content-encoding', 'transfer-encoding', 'connection']},
                 media_type=response.headers.get('content-type', 'application/octet-stream')
             )

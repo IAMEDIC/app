@@ -38,7 +38,7 @@ async def register_doctor_profile(
             detail="Doctor profile already exists for this user"
         )
     profile = doctor_service.create_doctor_profile(user_id, profile_data)
-    logger.info("📝 Doctor profile created for user %s with status %s", 
+    logger.info("📝 Doctor profile created for user %s with status %s",
                current_user.email, profile.status)
     return profile
 

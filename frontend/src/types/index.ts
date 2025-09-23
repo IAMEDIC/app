@@ -68,6 +68,83 @@ export interface ThemeConfig {
   mode: 'light' | 'dark';
 }
 
+// Study related types
+export interface Study {
+  id: string;
+  doctor_id: string;
+  alias: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StudyCreate {
+  alias: string;
+}
+
+export interface StudyUpdate {
+  alias?: string;
+}
+
+export interface StudyWithMedia extends Study {
+  media: MediaSummary[];
+}
+
+export interface StudyListResponse {
+  studies: Study[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+// Media related types
+export type MediaType = 'image' | 'video';
+export type UploadStatus = 'uploaded' | 'processing' | 'failed';
+
+export interface Media {
+  id: string;
+  study_id: string;
+  filename: string;
+  file_path: string;
+  file_size: number;
+  mime_type: string;
+  media_type: MediaType;
+  upload_status: UploadStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MediaSummary {
+  id: string;
+  filename: string;
+  file_size: number;
+  mime_type: string;
+  media_type: MediaType;
+  upload_status: UploadStatus;
+  created_at: string;
+}
+
+export interface MediaUploadResponse {
+  media: Media;
+  message: string;
+}
+
+export interface MediaListResponse {
+  media: MediaSummary[];
+  total: number;
+  studyId: string;
+}
+
+export interface StorageInfo {
+  used_bytes: number;
+  total_bytes: number;
+  available_bytes: number;
+  used_percentage: number;
+  used_mb: number;
+  total_mb: number;
+  available_mb: number;
+}
+
 // API response wrapper
 export interface ApiResponse<T> {
   data: T;

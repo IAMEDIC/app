@@ -10,6 +10,7 @@ import HomePage from '@/pages/HomePage';
 import CallbackPage from '@/pages/CallbackPage';
 import AdminPage from '@/pages/AdminPage';
 import DoctorPage from '@/pages/DoctorPage';
+import StudyPage from '@/pages/StudyPage';
 
 // Components
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -108,6 +109,15 @@ const App: React.FC = () => {
                 element={
                   <ProtectedRoute>
                     <DoctorPage />
+                  </ProtectedRoute>
+                }
+              />
+              
+              <Route
+                path="/doctor/study/:studyId"
+                element={
+                  <ProtectedRoute>
+                    <StudyPage />
                   </ProtectedRoute>
                 }
               />

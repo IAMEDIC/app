@@ -4,6 +4,7 @@ Admin service for user and role management operations.
 
 
 import logging
+import os
 from typing import Optional
 from uuid import UUID
 
@@ -12,9 +13,11 @@ from sqlalchemy.orm import Session, joinedload
 from app.models.user import User as UserModel
 from app.models.user_role import UserRole as UserRoleModel, UserRoleType
 from app.models.doctor_profile import DoctorProfile as DoctorProfileModel, DoctorProfileStatus
+from app.models.media import Media as MediaModel
 from app.schemas.user import UserWithRoles
 from app.schemas.user_role import UserRoleCreate
 from app.schemas.doctor_profile import DoctorProfile as DoctorProfileSchema
+from app.core.file_storage import FileStorageService
 
 
 logger = logging.getLogger(__name__)
@@ -156,3 +159,33 @@ class AdminService:
             UserRoleModel.role == UserRoleType.ADMIN.value
         ).first()
         return admin_role is not None
+
+    def cleanup_orphaned_media(self) -> dict:
+        """Remove orphaned media records that don't have corresponding files on disk"""
+        file_storage = FileStorageService()
+        media_records = self.db.query(MediaModel).all()
+        
+        orphaned_count = 0
+        total_count = len(media_records)
+        
+        for media in media_records:
+            # Check if the file exists on disk using the private method
+            file_path = file_storage._get_file_path(str(media.file_path))
+            if not os.path.exists(file_path):
+                logger.info("🗑️ Removing orphaned media record: %s (file not found: %s)", 
+                           media.id, file_path)
+                self.db.delete(media)
+                orphaned_count += 1
+        
+        if orphaned_count > 0:
+            self.db.commit()
+            logger.info("🧹 Cleanup completed: %d orphaned media records removed out of %d total", 
+                       orphaned_count, total_count)
+        else:
+            logger.info("✅ No orphaned media records found (checked %d records)", total_count)
+        
+        return {
+            "total_checked": total_count,
+            "orphaned_removed": orphaned_count,
+            "remaining_records": total_count - orphaned_count
+        }
