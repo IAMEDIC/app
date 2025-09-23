@@ -54,6 +54,7 @@ class PredictionRequest(BaseModel):
 
 class Prediction(BaseModel):
     class_name: str
+    confidence: float
     x_min: float
     y_min: float
     width: float
@@ -61,22 +62,70 @@ class Prediction(BaseModel):
 
 class PredictionResponse(BaseModel):
     predictions: list[Prediction]
+    model_version: str
+
+class ModelInfo(BaseModel):
+    name: str
+    version: str
+    expected_width: int
+    expected_height: int
+    classes: list[str]
 
 class ModelService:
     def __init__(self):
         self.model = None
+        self.model_version = None
         self.load_model()
     
     def load_model(self):
         try: 
             # Load ONNX model (assuming you saved it as ONNX in MLflow)
-            model_version = mlflow_client.get_model_version_by_alias(name=MLFLOW_MODEL_NAME, alias=MLFLOW_MODEL_ALIAS)
-            run_id = model_version.run_id
-            model_file_name = model_version.source.split("/")[-1]
+            model_version_info = mlflow_client.get_model_version_by_alias(name=MLFLOW_MODEL_NAME, alias=MLFLOW_MODEL_ALIAS)
+            run_id = model_version_info.run_id
+            self.model_version = model_version_info.version
+            model_file_name = model_version_info.source.split("/")[-1]
             mlflow.artifacts.download_artifacts(run_id=run_id, dst_path=MODELS_DIR)
             self.model = ort.InferenceSession(f"{MODELS_DIR}/{model_file_name}")
+            print(f"Model loaded successfully. Version: {self.model_version}")
         except Exception as e:
             print(f"Error loading model: {e}")
+            raise
+    
+    def get_model_info(self) -> ModelInfo:
+        """Get model information"""
+        return ModelInfo(
+            name=MLFLOW_MODEL_NAME,
+            version=self.model_version or "unknown",
+            expected_width=TARGET_IMAGE_WIDTH,
+            expected_height=TARGET_IMAGE_HEIGHT,
+            classes=list(CLASS_NAMES.values())
+        )
+    
+    def check_for_model_update(self) -> tuple[bool, str]:
+        """Check if there's a new model version available"""
+        try:
+            model_version_info = mlflow_client.get_model_version_by_alias(name=MLFLOW_MODEL_NAME, alias=MLFLOW_MODEL_ALIAS)
+            latest_version = model_version_info.version
+            needs_update = latest_version != self.model_version
+            return needs_update, latest_version
+        except Exception as e:
+            print(f"Error checking for model update: {e}")
+            return False, self.model_version or "unknown"
+    
+    def reload_model_if_needed(self) -> tuple[bool, str, str]:
+        """Reload model only if there's a new version available"""
+        needs_update, latest_version = self.check_for_model_update()
+        
+        if not needs_update:
+            return False, self.model_version or "unknown", f"Model is already up to date (version {latest_version})"
+        
+        old_version = self.model_version
+        try:
+            print(f"New model version detected: {latest_version} (current: {old_version})")
+            self.load_model()
+            return True, self.model_version or "unknown", f"Model updated from version {old_version} to {self.model_version}"
+        except Exception as e:
+            print(f"Error reloading model: {e}")
             raise
     
     def predict(self, data: np.ndarray) -> np.ndarray:
@@ -97,6 +146,27 @@ def read_root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+@app.get("/model-info", response_model=ModelInfo)
+async def get_model_info():
+    """Get information about the currently loaded model"""
+    try:
+        return model_service.get_model_info()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/reload-model")
+async def reload_model():
+    """Reload the model from MLflow if a new version is available"""
+    try:
+        was_updated, current_version, message = model_service.reload_model_if_needed()
+        return {
+            "updated": was_updated,
+            "current_version": current_version,
+            "message": message
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to check/reload model: {str(e)}")
 
 @app.post("/predict", response_model=PredictionResponse)
 async def predict(request: PredictionRequest):
@@ -126,16 +196,17 @@ async def predict(request: PredictionRequest):
             height = height_rel * original_height
             prediction = Prediction(
                 class_name=class_name,
+                confidence=float(class_prob),
                 x_min=float(x_min),
                 y_min=float(y_min),
                 width=float(width),
                 height=float(height)
             )
             predictions.append(prediction)
-        return PredictionResponse(predictions=predictions)
+        return PredictionResponse(predictions=predictions, model_version=model_service.model_version or "unknown")
     
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

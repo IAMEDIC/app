@@ -151,3 +151,102 @@ export interface ApiResponse<T> {
   message?: string;
   success: boolean;
 }
+
+// AI/ML related types
+export interface ModelInfo {
+  name: string;
+  version: string;
+  expected_width: number;
+  expected_height: number;
+  classes?: string[];
+}
+
+export interface PictureClassificationPrediction {
+  id: string;
+  media_id: string;
+  media_type: MediaType;
+  confidence: number;
+  model_version: string;
+  created_at: string;
+}
+
+export interface PictureClassificationAnnotation {
+  id: string;
+  media_id: string;
+  media_type: MediaType;
+  usefulness: number; // 0 or 1
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PictureBBPrediction {
+  id: string;
+  media_id: string;
+  media_type: MediaType;
+  bb_class: string;
+  confidence: number;
+  x_min: number;
+  y_min: number;
+  width: number;
+  height: number;
+  model_version: string;
+  created_at: string;
+}
+
+export interface PictureBBAnnotation {
+  id: string;
+  media_id: string;
+  media_type: MediaType;
+  bb_class: string;
+  usefulness: number; // 0 or 1
+  x_min: number;
+  y_min: number;
+  width: number;
+  height: number;
+  is_hidden: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClassificationPredictionResponse {
+  prediction?: PictureClassificationPrediction;
+  annotation?: PictureClassificationAnnotation;
+}
+
+export interface BBPredictionResponse {
+  predictions: PictureBBPrediction[];
+  annotations: PictureBBAnnotation[];
+}
+
+export interface MediaPredictionsResponse {
+  media_id: string;
+  classification: ClassificationPredictionResponse;
+  bounding_boxes: BBPredictionResponse;
+}
+
+export interface PredictionRequest {
+  media_id: string;
+  force_refresh?: boolean;
+}
+
+export interface SaveAnnotationsRequest {
+  media_id: string;
+  classification_annotation?: {
+    usefulness: number;
+  };
+  bb_annotations?: {
+    bb_class: string;
+    usefulness: number;
+    x_min: number;
+    y_min: number;
+    width: number;
+    height: number;
+    is_hidden: boolean;
+  }[];
+}
+
+export interface SaveAnnotationsResponse {
+  success: boolean;
+  message: string;
+  saved_count: number;
+}

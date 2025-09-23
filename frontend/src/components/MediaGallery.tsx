@@ -16,6 +16,8 @@ import {
   Tooltip,
   CircularProgress,
   Alert,
+  Tab,
+  Tabs,
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
@@ -23,9 +25,11 @@ import {
   Visibility as ViewIcon,
   VideoFile as VideoIcon,
   Close as CloseIcon,
+  Psychology as AIIcon,
 } from '@mui/icons-material';
 import { MediaSummary } from '@/types';
 import { mediaService } from '@/services/api';
+import AIAnnotationViewer from './AIAnnotationViewer';
 
 interface MediaGalleryProps {
   media: MediaSummary[];
@@ -47,6 +51,9 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
   const [selectedMedia, setSelectedMedia] = useState<MediaSummary | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<MediaSummary | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState(0); // 0: View, 1: AI Annotations
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -81,6 +88,29 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
 
   const handleViewMedia = (mediaItem: MediaSummary) => {
     setSelectedMedia(mediaItem);
+    setActiveTab(0); // Start with view tab
+    setHasUnsavedChanges(false);
+  };
+
+  const handleCloseDialog = () => {
+    if (hasUnsavedChanges) {
+      setShowUnsavedWarning(true);
+    } else {
+      setSelectedMedia(null);
+      setActiveTab(0);
+      setHasUnsavedChanges(false);
+    }
+  };
+
+  const handleForceClose = () => {
+    setSelectedMedia(null);
+    setActiveTab(0);
+    setHasUnsavedChanges(false);
+    setShowUnsavedWarning(false);
+  };
+
+  const handleUnsavedChanges = (hasChanges: boolean) => {
+    setHasUnsavedChanges(hasChanges);
   };
 
   const handleDeleteMedia = async (mediaItem: MediaSummary) => {
@@ -106,7 +136,95 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
     }
   };
 
-  // Component for displaying authenticated images
+  // Component for displaying authenticated images with AI support
+  const AuthenticatedImageWithAI: React.FC<{ 
+    mediaId: string; 
+    alt: string; 
+    showAI?: boolean;
+    onUnsavedChanges?: (hasChanges: boolean) => void;
+  }> = ({ 
+    mediaId, 
+    alt,
+    showAI = false,
+    onUnsavedChanges
+  }) => {
+    const [imageSrc, setImageSrc] = useState<string>('');
+    const [imageLoading, setImageLoading] = useState(true);
+    const [imageError, setImageError] = useState(false);
+
+    useEffect(() => {
+      let isMounted = true;
+      let blobUrl: string | null = null;
+      
+      const loadImage = async () => {
+        try {
+          setImageLoading(true);
+          setImageError(false);
+          
+          // Fetch the media file using authenticated request
+          const blob = await mediaService.downloadMedia(studyId, mediaId);
+          
+          if (isMounted) {
+            blobUrl = URL.createObjectURL(blob);
+            setImageSrc(blobUrl);
+          }
+        } catch (error) {
+          console.error('Failed to load image:', error);
+          if (isMounted) {
+            setImageError(true);
+          }
+        } finally {
+          if (isMounted) {
+            setImageLoading(false);
+          }
+        }
+      };
+
+      loadImage();
+      
+      // Cleanup function
+      return () => {
+        isMounted = false;
+        if (blobUrl) {
+          URL.revokeObjectURL(blobUrl);
+        }
+      };
+    }, [mediaId, studyId]);
+
+    if (imageLoading) {
+      return (
+        <Box display="flex" justifyContent="center" alignItems="center" height="200px">
+          <CircularProgress size={24} />
+        </Box>
+      );
+    }
+
+    if (imageError) {
+      return (
+        <Box display="flex" justifyContent="center" alignItems="center" height="200px">
+          <Typography color="error">Failed to load image</Typography>
+        </Box>
+      );
+    }
+
+    if (showAI) {
+      return (
+        <Box>
+          <Box textAlign="center" mb={2}>
+            <img src={imageSrc} alt={alt} style={{ maxWidth: '100%', height: 'auto' }} />
+          </Box>
+          <AIAnnotationViewer
+            mediaId={mediaId}
+            onUnsavedChanges={onUnsavedChanges || (() => {})}
+          />
+        </Box>
+      );
+    }
+
+    return <img src={imageSrc} alt={alt} style={{ maxWidth: '100%', height: 'auto' }} />;
+  };
+
+  // Component for displaying authenticated images (legacy)
   const AuthenticatedImage: React.FC<{ mediaId: string; alt: string; className?: string }> = ({ 
     mediaId, 
     alt, 
@@ -387,34 +505,63 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
       {/* Media Viewer Dialog */}
       <Dialog
         open={!!selectedMedia}
-        onClose={() => setSelectedMedia(null)}
-        maxWidth="md"
+        onClose={handleCloseDialog}
+        maxWidth={activeTab === 1 ? "lg" : "md"}
         fullWidth
       >
         {selectedMedia && (
           <>
             <DialogTitle>
               <Box display="flex" justifyContent="space-between" alignItems="center">
-                {selectedMedia.filename}
-                <IconButton onClick={() => setSelectedMedia(null)}>
+                <Box>
+                  <Typography variant="h6">{selectedMedia.filename}</Typography>
+                  {hasUnsavedChanges && (
+                    <Chip 
+                      label="Unsaved Changes" 
+                      size="small" 
+                      color="warning" 
+                      sx={{ ml: 1 }}
+                    />
+                  )}
+                </Box>
+                <IconButton onClick={handleCloseDialog}>
                   <CloseIcon />
                 </IconButton>
               </Box>
+
+              {/* Tabs for images only */}
+              {selectedMedia.media_type === 'image' && (
+                <Tabs 
+                  value={activeTab} 
+                  onChange={(_, newValue) => setActiveTab(newValue)}
+                  sx={{ mt: 1 }}
+                >
+                  <Tab label="View" />
+                  <Tab 
+                    label="AI Annotations" 
+                    icon={<AIIcon />}
+                    iconPosition="start"
+                  />
+                </Tabs>
+              )}
             </DialogTitle>
             <DialogContent>
-              <Box textAlign="center">
-                {selectedMedia.media_type === 'image' ? (
-                  <AuthenticatedImage 
-                    mediaId={selectedMedia.id}
-                    alt={selectedMedia.filename}
-                  />
-                ) : (
+              {selectedMedia.media_type === 'image' ? (
+                <AuthenticatedImageWithAI
+                  mediaId={selectedMedia.id}
+                  alt={selectedMedia.filename}
+                  showAI={activeTab === 1}
+                  onUnsavedChanges={handleUnsavedChanges}
+                />
+              ) : (
+                <Box textAlign="center">
                   <AuthenticatedVideo 
                     mediaId={selectedMedia.id}
                     mimeType={selectedMedia.mime_type}
                   />
-                )}
-              </Box>
+                </Box>
+              )}
+              
               <Box mt={2}>
                 <Typography variant="body2" color="text.secondary">
                   Size: {formatFileSize(selectedMedia.file_size)} |
@@ -458,6 +605,29 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
             </DialogActions>
           </>
         )}
+      </Dialog>
+
+      {/* Unsaved Changes Warning Dialog */}
+      <Dialog
+        open={showUnsavedWarning}
+        onClose={() => setShowUnsavedWarning(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Unsaved Changes</DialogTitle>
+        <DialogContent>
+          <Typography>
+            You have unsaved changes to your AI annotations. Do you want to close without saving?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowUnsavedWarning(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleForceClose} color="error" variant="contained">
+            Close Without Saving
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );

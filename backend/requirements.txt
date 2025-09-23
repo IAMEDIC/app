@@ -18,3 +18,5 @@ python-dotenv==1.0.0
 email-validator==2.1.0
 requests==2.31.0
 python-magic==0.4.27
+numpy==1.24.3
+pillow==10.0.1

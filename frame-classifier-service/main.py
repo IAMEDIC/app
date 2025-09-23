@@ -41,23 +41,65 @@ class PredictionRequest(BaseModel):
 
 class PredictionResponse(BaseModel):
     prediction: float
+    model_version: str
+
+class ModelInfo(BaseModel):
+    name: str
+    version: str
+    expected_width: int
+    expected_height: int
 
 class ModelService:
     def __init__(self):
         self.model = None
+        self.model_version = None
         self.load_model()
     
     def load_model(self):
         try: 
             # Load ONNX model (assuming you saved it as ONNX in MLflow)
-            model_version = mlflow_client.get_model_version_by_alias(name=MLFLOW_MODEL_NAME, alias=MLFLOW_MODEL_ALIAS)
-            run_id = model_version.run_id
-            model_file_name = model_version.source.split("/")[-1]
+            model_version_info = mlflow_client.get_model_version_by_alias(name=MLFLOW_MODEL_NAME, alias=MLFLOW_MODEL_ALIAS)
+            run_id = model_version_info.run_id
+            self.model_version = model_version_info.version
+            model_file_name = model_version_info.source.split("/")[-1]
             mlflow.artifacts.download_artifacts(run_id=run_id, dst_path=MODELS_DIR)
             self.model = ort.InferenceSession(f"{MODELS_DIR}/{model_file_name}")
+            print(f"Model loaded successfully. Version: {self.model_version}")
         except Exception as e:
             print(f"Error loading model: {e}")
             raise
+    
+    def get_model_info(self) -> ModelInfo:
+        """Get model information"""
+        return ModelInfo(
+            name=MLFLOW_MODEL_NAME,
+            version=self.model_version or "unknown",
+            expected_width=TARGET_IMAGE_WIDTH,
+            expected_height=TARGET_IMAGE_HEIGHT
+        )
+    
+    def check_for_model_update(self) -> bool:
+        """Check if there's a newer model version available in MLflow"""
+        try:
+            model_version_info = mlflow_client.get_model_version_by_alias(name=MLFLOW_MODEL_NAME, alias=MLFLOW_MODEL_ALIAS)
+            latest_version = model_version_info.version
+            return self.model_version != latest_version
+        except Exception as e:
+            print(f"Error checking for model updates: {e}")
+            return False
+    
+    def reload_model_if_needed(self) -> tuple[bool, str, str]:
+        """Check for updates and reload model only if necessary"""
+        if self.check_for_model_update():
+            old_version = self.model_version or "unknown"
+            self.load_model()
+            current_version = self.model_version or "unknown"
+            message = f"Model updated from version {old_version} to {current_version}"
+            return True, current_version, message
+        else:
+            current_version = self.model_version or "unknown"
+            message = f"Model is already up to date (version {current_version})"
+            return False, current_version, message
     
     def predict(self, data: np.ndarray) -> np.ndarray:
         """Make predictions using the loaded model"""
@@ -72,11 +114,32 @@ model_service = ModelService()
 
 @app.get("/")
 def read_root():
-    return {"message": "Bounding Box Regression Service is running"}
+    return {"message": "Frame Classification Service is running"}
 
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+@app.get("/model-info", response_model=ModelInfo)
+async def get_model_info():
+    """Get information about the currently loaded model"""
+    try:
+        return model_service.get_model_info()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/reload-model")
+async def reload_model():
+    """Reload the model from MLflow if a new version is available"""
+    try:
+        was_updated, current_version, message = model_service.reload_model_if_needed()
+        return {
+            "updated": was_updated,
+            "current_version": current_version,
+            "message": message
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to check/reload model: {str(e)}")
 
 @app.post("/predict", response_model=PredictionResponse)
 async def predict(request: PredictionRequest):
@@ -94,7 +157,7 @@ async def predict(request: PredictionRequest):
         outputs = model_service.predict(image)
         print(outputs)
         prob = outputs[0][0] # [[probability]] 
-        return PredictionResponse(prediction=prob)
+        return PredictionResponse(prediction=prob, model_version=model_service.model_version or "unknown")
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

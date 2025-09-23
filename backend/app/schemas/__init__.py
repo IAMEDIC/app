@@ -43,6 +43,39 @@ from .media import (
     MediaUploadResponse,
     StorageInfo,
 )
+from .picture_classification_prediction import (
+    PictureClassificationPrediction,
+    PictureClassificationPredictionCreate,
+    PictureClassificationPredictionUpdate,
+    PictureClassificationPredictionInDB,
+)
+from .picture_classification_annotation import (
+    PictureClassificationAnnotation,
+    PictureClassificationAnnotationCreate,
+    PictureClassificationAnnotationUpdate,
+    PictureClassificationAnnotationInDB,
+)
+from .picture_bb_prediction import (
+    PictureBBPrediction,
+    PictureBBPredictionCreate,
+    PictureBBPredictionUpdate,
+    PictureBBPredictionInDB,
+)
+from .picture_bb_annotation import (
+    PictureBBAnnotation,
+    PictureBBAnnotationCreate,
+    PictureBBAnnotationUpdate,
+    PictureBBAnnotationInDB,
+)
+from .ai_predictions import (
+    ModelInfo,
+    PredictionRequest,
+    ClassificationPredictionResponse,
+    BBPredictionResponse,
+    MediaPredictionsResponse,
+    SaveAnnotationsRequest,
+    SaveAnnotationsResponse,
+)
 
 __all__ = [
     "User",
@@ -79,4 +112,27 @@ __all__ = [
     "MediaListResponse",
     "MediaUploadResponse",
     "StorageInfo",
+    "PictureClassificationPrediction",
+    "PictureClassificationPredictionCreate",
+    "PictureClassificationPredictionUpdate",
+    "PictureClassificationPredictionInDB",
+    "PictureClassificationAnnotation",
+    "PictureClassificationAnnotationCreate",
+    "PictureClassificationAnnotationUpdate",
+    "PictureClassificationAnnotationInDB",
+    "PictureBBPrediction",
+    "PictureBBPredictionCreate",
+    "PictureBBPredictionUpdate",
+    "PictureBBPredictionInDB",
+    "PictureBBAnnotation",
+    "PictureBBAnnotationCreate",
+    "PictureBBAnnotationUpdate",
+    "PictureBBAnnotationInDB",
+    "ModelInfo",
+    "PredictionRequest",
+    "ClassificationPredictionResponse",
+    "BBPredictionResponse",
+    "MediaPredictionsResponse",
+    "SaveAnnotationsRequest",
+    "SaveAnnotationsResponse",
 ]

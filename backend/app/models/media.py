@@ -42,6 +42,10 @@ class Media(Base):
     
     # Relationships
     study = relationship("Study", back_populates="media")
+    classification_predictions = relationship("PictureClassificationPrediction", back_populates="media", cascade="all, delete-orphan")
+    classification_annotation = relationship("PictureClassificationAnnotation", back_populates="media", uselist=False, cascade="all, delete-orphan")
+    bb_predictions = relationship("PictureBBPrediction", back_populates="media", cascade="all, delete-orphan")
+    bb_annotations = relationship("PictureBBAnnotation", back_populates="media", cascade="all, delete-orphan")
     
     # Constraints
     __table_args__ = (
