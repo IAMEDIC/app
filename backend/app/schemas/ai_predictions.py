@@ -46,11 +46,25 @@ class MediaPredictionsResponse(BaseModel):
     bounding_boxes: BBPredictionResponse = Field(..., description="Bounding box predictions and annotations")
 
 
+class ClassificationAnnotationSave(BaseModel):
+    """Simple schema for saving classification annotation"""
+    usefulness: int = Field(..., ge=0, le=1, description="Clinician assessment: 0 (not useful) or 1 (useful)")
+
+class BoundingBoxAnnotationSave(BaseModel):
+    """Simple schema for saving bounding box annotation"""
+    bb_class: str = Field(..., min_length=1, max_length=100, description="Bounding box class name")
+    usefulness: int = Field(default=1, ge=0, le=1, description="Clinician assessment: 0 (not useful) or 1 (useful)")
+    x_min: float = Field(..., description="Bounding box x minimum coordinate")
+    y_min: float = Field(..., description="Bounding box y minimum coordinate")
+    width: float = Field(..., gt=0, description="Bounding box width")
+    height: float = Field(..., gt=0, description="Bounding box height")
+    is_hidden: bool = Field(default=False, description="Whether annotation is hidden for model training")
+
 class SaveAnnotationsRequest(BaseModel):
     """Schema for saving clinician annotations"""
     media_id: UUID = Field(..., description="ID of the media file")
-    classification_annotation: Optional[PictureClassificationAnnotation] = Field(None, description="Classification annotation to save")
-    bb_annotations: List[PictureBBAnnotation] = Field(default=[], description="Bounding box annotations to save")
+    classification_annotation: Optional[ClassificationAnnotationSave] = Field(None, description="Classification annotation to save")
+    bb_annotations: List[BoundingBoxAnnotationSave] = Field(default=[], description="Bounding box annotations to save")
 
 
 class SaveAnnotationsResponse(BaseModel):

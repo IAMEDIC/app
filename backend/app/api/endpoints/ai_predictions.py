@@ -66,6 +66,185 @@ async def get_bb_model_info(
     return model_info
 
 
+@router.post("/media/{media_id}/predictions/classification", response_model=MediaPredictionsResponse)
+async def generate_classification_prediction(
+    media_id: UUID,
+    request: PredictionRequest,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(require_doctor_role)
+):
+    """Generate classification prediction for a media file"""
+    logger.info("🤖 Doctor %s generating classification prediction for media %s", current_user.email, media_id)
+    
+    # Verify media exists and belongs to doctor's study
+    media_service = MediaService(db)
+    doctor_id = cast(UUID, current_user.id)
+    
+    media = db.query(Media).filter(Media.id == media_id).first()
+    if not media:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Media not found"
+        )
+    
+    # Check if doctor owns the study containing this media
+    study_id = cast(UUID, media.study_id)
+    if not media_service.check_study_ownership(study_id, doctor_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: You don't have permission to access this media"
+        )
+    
+    # Check if media is an image
+    if media.media_type.value != "image":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="AI predictions are currently only supported for images"
+        )
+    
+    try:
+        # Get media file and convert to grayscale array
+        media_file_data = media_service.get_media_file(media_id, doctor_id)
+        if not media_file_data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Media file not found"
+            )
+        
+        file_data, mime_type, filename = media_file_data
+        
+        # Convert image to grayscale array
+        image = PILImage.open(io.BytesIO(file_data))
+        if image.mode != 'L':
+            image = image.convert('L')
+        image_array = np.array(image).tolist()
+        
+        # Generate classification prediction only
+        ai_service = AIPredictionService(db)
+        classification_prediction = await ai_service.predict_classification(
+            media_id, image_array, request.force_refresh
+        )
+        
+        # Create initial annotation if classification prediction exists and no annotation yet
+        if classification_prediction:
+            from app.models.picture_classification_annotation import PictureClassificationAnnotation
+            existing_classification = db.query(PictureClassificationAnnotation).filter(
+                PictureClassificationAnnotation.media_id == media_id
+            ).first()
+            
+            if not existing_classification:
+                # Create classification annotation with prediction-based usefulness
+                usefulness = 1 if classification_prediction.confidence > 0.5 else 0
+                ai_service.save_classification_annotation(media_id, usefulness)
+        
+        # Return predictions and annotations
+        return ai_service.get_media_predictions(media_id)
+        
+    except Exception as e:
+        logger.error(f"Error generating classification prediction: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate classification prediction"
+        )
+
+
+@router.post("/media/{media_id}/predictions/bounding-boxes", response_model=MediaPredictionsResponse)
+async def generate_bounding_box_predictions(
+    media_id: UUID,
+    request: PredictionRequest,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(require_doctor_role)
+):
+    """Generate bounding box predictions for a media file"""
+    logger.info("🤖 Doctor %s generating bounding box predictions for media %s", current_user.email, media_id)
+    
+    # Verify media exists and belongs to doctor's study
+    media_service = MediaService(db)
+    doctor_id = cast(UUID, current_user.id)
+    
+    media = db.query(Media).filter(Media.id == media_id).first()
+    if not media:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Media not found"
+        )
+    
+    # Check if doctor owns the study containing this media
+    study_id = cast(UUID, media.study_id)
+    if not media_service.check_study_ownership(study_id, doctor_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: You don't have permission to access this media"
+        )
+    
+    # Check if media is an image
+    if media.media_type.value != "image":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="AI predictions are currently only supported for images"
+        )
+    
+    try:
+        # Get media file and convert to grayscale array
+        media_file_data = media_service.get_media_file(media_id, doctor_id)
+        if not media_file_data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Media file not found"
+            )
+        
+        file_data, mime_type, filename = media_file_data
+        
+        # Convert image to grayscale array
+        image = PILImage.open(io.BytesIO(file_data))
+        if image.mode != 'L':
+            image = image.convert('L')
+        image_array = np.array(image).tolist()
+        
+        # Generate bounding box predictions only
+        ai_service = AIPredictionService(db)
+        bb_predictions = await ai_service.predict_bounding_boxes(
+            media_id, image_array, request.force_refresh
+        )
+        
+        # Create BB annotations from predictions if they don't exist (only for confident predictions)
+        if bb_predictions:
+            from app.models.picture_bb_annotation import PictureBBAnnotation
+            existing_bb_annotations = db.query(PictureBBAnnotation).filter(
+                PictureBBAnnotation.media_id == media_id
+            ).all()
+            
+            # Get existing annotation classes
+            existing_classes = {ann.bb_class for ann in existing_bb_annotations}
+            
+            # Create annotations for new confident predictions
+            bb_annotation_data = []
+            for pred in bb_predictions:
+                if pred.bb_class not in existing_classes and pred.confidence > 0.5:
+                    bb_annotation_data.append({
+                        "bb_class": pred.bb_class,
+                        "usefulness": 1,
+                        "x_min": pred.x_min,
+                        "y_min": pred.y_min,
+                        "width": pred.width,
+                        "height": pred.height,
+                        "is_hidden": False
+                    })
+            
+            if bb_annotation_data:
+                ai_service.save_bb_annotations(media_id, bb_annotation_data)
+        
+        # Return predictions and annotations
+        return ai_service.get_media_predictions(media_id)
+        
+    except Exception as e:
+        logger.error(f"Error generating bounding box predictions: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate bounding box predictions"
+        )
+
+
 @router.post("/media/{media_id}/predictions/generate", response_model=MediaPredictionsResponse)
 async def generate_predictions(
     media_id: UUID,
@@ -249,8 +428,8 @@ async def save_annotations(
             if result:
                 saved_count += 1
         
-        # Save bounding box annotations if provided
-        if request.bb_annotations:
+        # Save bounding box annotations (always process, even if empty to delete all existing)
+        if request.bb_annotations is not None:
             bb_annotation_data = []
             for ann in request.bb_annotations:
                 bb_annotation_data.append({

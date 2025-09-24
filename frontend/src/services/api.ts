@@ -286,9 +286,18 @@ export const aiService = {
     return response.data;
   },
 
-  // Generate predictions for a media file
-  generatePredictions: async (mediaId: string, forceRefresh: boolean = false): Promise<MediaPredictionsResponse> => {
-    const response = await api.post(`/media/${mediaId}/predictions/generate`, {
+  // Generate classification prediction only
+  generateClassificationPrediction: async (mediaId: string, forceRefresh: boolean = false): Promise<MediaPredictionsResponse> => {
+    const response = await api.post(`/media/${mediaId}/predictions/classification`, {
+      media_id: mediaId,
+      force_refresh: forceRefresh
+    });
+    return response.data;
+  },
+
+  // Generate bounding box predictions only
+  generateBBPredictions: async (mediaId: string, forceRefresh: boolean = false): Promise<MediaPredictionsResponse> => {
+    const response = await api.post(`/media/${mediaId}/predictions/bounding-boxes`, {
       media_id: mediaId,
       force_refresh: forceRefresh
     });

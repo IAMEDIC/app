@@ -382,7 +382,7 @@ export const AIAnnotationViewer: React.FC<AIAnnotationViewerProps> = ({
           {predictions.classification.prediction && (
             <Box mb={2}>
               <Typography variant="body2" color="text.secondary">
-                Model Confidence: {(predictions.classification.prediction.confidence * 100).toFixed(1)}%
+                Model Confidence: {(predictions.classification.prediction.prediction * 100).toFixed(1)}%
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Model Version: {predictions.classification.prediction.model_version}

@@ -24,17 +24,16 @@ mlflow.set_registry_uri(MLFLOW_URI)
 mlflow_client = MlflowClient(tracking_uri=MLFLOW_URI,
                              registry_uri=MLFLOW_URI)
 
-THRESHOLD = 0.3
 CLASS_NAMES = {
-    0: "Cisternae Magna",
-    1: "Intracranial Translucency",
-    2: "Nuchal Translucency",
-    3: "Midbrain",
-    4: "Nasal Bone",
-    5: "Nasal Skin",
-    6: "Nasal Tip",
-    7: "Palate",
-    8: "Thalami"
+    0: "CM",
+    1: "IT",
+    2: "NT",
+    3: "midbrain",
+    4: "nasal bone",
+    5: "nasal skin",
+    6: "nasal tip",
+    7: "palate",
+    8: "thalami"
 }
 
 app = FastAPI(title="Bounding Box Regression Service")
@@ -186,8 +185,6 @@ async def predict(request: PredictionRequest):
         boxes = outputs[1][0]       # [K, 4]
         predictions = []
         for i, (class_prob, box) in enumerate(zip(class_probs, boxes)):
-            if class_prob < THRESHOLD:
-                continue
             class_name = CLASS_NAMES[i]
             x_center_rel, y_center_rel, width_rel, height_rel = box
             x_min = (x_center_rel - width_rel / 2) * original_width

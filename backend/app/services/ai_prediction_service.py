@@ -53,6 +53,8 @@ class AIPredictionService:
     async def predict_classification(self, media_id: UUID, image_data: List[List[int]], force_refresh: bool = False) -> Optional[PictureClassificationPrediction]:
         """Get classification prediction for a media file"""
         try:
+            logger.info(f"🔍 Starting classification prediction for media {media_id}, force_refresh={force_refresh}")
+            
             # Get media info
             media = self.db.query(Media).filter(Media.id == media_id).first()
             if not media:
@@ -65,17 +67,24 @@ class AIPredictionService:
                     PictureClassificationPrediction.media_id == media_id
                 ).first()
                 if existing:
+                    logger.info(f"📋 Found existing classification prediction for media {media_id}, returning cached result")
                     return existing
+            
+            logger.info(f"🚀 Making HTTP request to frame-classifier-service for media {media_id}")
 
             # Call the classifier service
             async with httpx.AsyncClient() as client:
+                logger.info(f"📡 Calling {self.classifier_service_url}/predict with image data shape: {len(image_data)}x{len(image_data[0]) if image_data else 0}")
                 response = await client.post(
                     f"{self.classifier_service_url}/predict",
                     json={"data": image_data}
                 )
                 
+                logger.info(f"✅ Received response from frame-classifier-service: status={response.status_code}")
+                
                 if response.status_code == 200:
                     result = response.json()
+                    logger.info(f"🎯 Classification result: {result}")
                     prediction_value = result.get("prediction", 0.0)
                     model_version = result.get("model_version", "unknown")
                     
@@ -89,11 +98,17 @@ class AIPredictionService:
                     
                     return self._save_classification_prediction(prediction_data, force_refresh)
                 else:
-                    logger.error(f"Classification prediction failed: {response.status_code}")
+                    logger.error(f"❌ Classification prediction failed: status={response.status_code}, response={response.text}")
                     return None
 
+        except httpx.RequestError as e:
+            logger.error(f"🌐 Network error calling frame-classifier-service: {e}")
+            return None
+        except httpx.HTTPStatusError as e:
+            logger.error(f"🚨 HTTP error from frame-classifier-service: {e.response.status_code} - {e.response.text}")
+            return None
         except Exception as e:
-            logger.error(f"Error in classification prediction: {e}")
+            logger.error(f"💥 Unexpected error in classification prediction: {e}")
             return None
 
     async def predict_bounding_boxes(self, media_id: UUID, image_data: List[List[int]], force_refresh: bool = False) -> List[PictureBBPrediction]:

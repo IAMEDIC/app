@@ -29,7 +29,7 @@ import {
 } from '@mui/icons-material';
 import { MediaSummary } from '@/types';
 import { mediaService } from '@/services/api';
-import AIAnnotationViewer from './AIAnnotationViewer';
+import { AnnotationsTab } from './AnnotationsTab';
 
 interface MediaGalleryProps {
   media: MediaSummary[];
@@ -51,7 +51,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
   const [selectedMedia, setSelectedMedia] = useState<MediaSummary | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<MediaSummary | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState(0); // 0: View, 1: AI Annotations
+  const [activeTab, setActiveTab] = useState(0); // 0: View, 1: Annotations
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
 
@@ -109,10 +109,6 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
     setShowUnsavedWarning(false);
   };
 
-  const handleUnsavedChanges = (hasChanges: boolean) => {
-    setHasUnsavedChanges(hasChanges);
-  };
-
   const handleDeleteMedia = async (mediaItem: MediaSummary) => {
     try {
       setActionLoading(`delete-${mediaItem.id}`);
@@ -141,12 +137,10 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
     mediaId: string; 
     alt: string; 
     showAI?: boolean;
-    onUnsavedChanges?: (hasChanges: boolean) => void;
   }> = ({ 
     mediaId, 
     alt,
-    showAI = false,
-    onUnsavedChanges
+    showAI = false
   }) => {
     const [imageSrc, setImageSrc] = useState<string>('');
     const [imageLoading, setImageLoading] = useState(true);
@@ -209,15 +203,10 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
 
     if (showAI) {
       return (
-        <Box>
-          <Box textAlign="center" mb={2}>
-            <img src={imageSrc} alt={alt} style={{ maxWidth: '100%', height: 'auto' }} />
-          </Box>
-          <AIAnnotationViewer
-            mediaId={mediaId}
-            onUnsavedChanges={onUnsavedChanges || (() => {})}
-          />
-        </Box>
+        <AnnotationsTab 
+          media={{ ...selectedMedia!, id: mediaId } as MediaSummary}
+          studyId={studyId}
+        />
       );
     }
 
@@ -506,7 +495,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
       <Dialog
         open={!!selectedMedia}
         onClose={handleCloseDialog}
-        maxWidth={activeTab === 1 ? "lg" : "md"}
+        maxWidth={activeTab === 1 ? "xl" : "md"}
         fullWidth
       >
         {selectedMedia && (
@@ -538,7 +527,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
                 >
                   <Tab label="View" />
                   <Tab 
-                    label="AI Annotations" 
+                    label="Annotations" 
                     icon={<AIIcon />}
                     iconPosition="start"
                   />
@@ -551,7 +540,6 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
                   mediaId={selectedMedia.id}
                   alt={selectedMedia.filename}
                   showAI={activeTab === 1}
-                  onUnsavedChanges={handleUnsavedChanges}
                 />
               ) : (
                 <Box textAlign="center">
@@ -617,7 +605,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
         <DialogTitle>Unsaved Changes</DialogTitle>
         <DialogContent>
           <Typography>
-            You have unsaved changes to your AI annotations. Do you want to close without saving?
+            You have unsaved changes to your annotations. Do you want to close without saving?
           </Typography>
         </DialogContent>
         <DialogActions>

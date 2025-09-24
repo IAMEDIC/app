@@ -165,7 +165,7 @@ export interface PictureClassificationPrediction {
   id: string;
   media_id: string;
   media_type: MediaType;
-  confidence: number;
+  prediction: number;  // Changed from 'confidence' to 'prediction' to match backend
   model_version: string;
   created_at: string;
 }
