@@ -1,6 +1,7 @@
 import mlflow.artifacts
 import numpy as np
 import os
+import base64
 import onnxruntime as ort
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,10 +35,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-BWImage = list[list[int]]
-
 class PredictionRequest(BaseModel):
-    data: BWImage
+    data: str  # base64 encoded image bytes
+    width: int  # image width
+    height: int  # image height
 
 class PredictionResponse(BaseModel):
     prediction: float
@@ -144,15 +145,23 @@ async def reload_model():
 @app.post("/predict", response_model=PredictionResponse)
 async def predict(request: PredictionRequest):
     try:
-        print("Received prediction request")
-        image = np.array(request.data, dtype=np.uint8)
+        print(f"Received prediction request for {request.width}x{request.height} image")
+        
+        # Decode base64 image data
+        image_bytes = base64.b64decode(request.data)
+        image = np.frombuffer(image_bytes, dtype=np.uint8).reshape((request.height, request.width))
+        
+        # Convert to PIL and resize
         pil_image = PILImage.fromarray(image)
         pil_image = pil_image.resize((TARGET_IMAGE_WIDTH, TARGET_IMAGE_HEIGHT), PILImage.LANCZOS)
         image = np.array(pil_image)
         print("Image resized")
-        image = (image.astype(np.float32) / 255.0 - 0.5) / 0.5  # Normalize to [-1, 1]
+        
+        # Normalize to [-1, 1]
+        image = (image.astype(np.float32) / 255.0 - 0.5) / 0.5
         image = np.expand_dims(image, axis=0)  # Add batch dimension
         image = np.expand_dims(image, axis=0)  # Add channel dimension
+        
         # Make prediction
         outputs = model_service.predict(image)
         print(outputs)

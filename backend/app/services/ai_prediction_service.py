@@ -50,7 +50,7 @@ class AIPredictionService:
             logger.error(f"Error getting {model_type} model info: {e}")
             return None
 
-    async def predict_classification(self, media_id: UUID, image_data: List[List[int]], force_refresh: bool = False) -> Optional[PictureClassificationPrediction]:
+    async def predict_classification(self, media_id: UUID, image_data_b64: str, width: int, height: int, force_refresh: bool = False) -> Optional[PictureClassificationPrediction]:
         """Get classification prediction for a media file"""
         try:
             logger.info(f"🔍 Starting classification prediction for media {media_id}, force_refresh={force_refresh}")
@@ -74,10 +74,10 @@ class AIPredictionService:
 
             # Call the classifier service
             async with httpx.AsyncClient() as client:
-                logger.info(f"📡 Calling {self.classifier_service_url}/predict with image data shape: {len(image_data)}x{len(image_data[0]) if image_data else 0}")
+                logger.info(f"📡 Calling {self.classifier_service_url}/predict with image data: {width}x{height} base64 encoded")
                 response = await client.post(
                     f"{self.classifier_service_url}/predict",
-                    json={"data": image_data}
+                    json={"data": image_data_b64, "width": width, "height": height}
                 )
                 
                 logger.info(f"✅ Received response from frame-classifier-service: status={response.status_code}")
@@ -111,7 +111,7 @@ class AIPredictionService:
             logger.error(f"💥 Unexpected error in classification prediction: {e}")
             return None
 
-    async def predict_bounding_boxes(self, media_id: UUID, image_data: List[List[int]], force_refresh: bool = False) -> List[PictureBBPrediction]:
+    async def predict_bounding_boxes(self, media_id: UUID, image_data_b64: str, width: int, height: int, force_refresh: bool = False) -> List[PictureBBPrediction]:
         """Get bounding box predictions for a media file"""
         try:
             # Get media info
@@ -132,7 +132,7 @@ class AIPredictionService:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     f"{self.bb_service_url}/predict",
-                    json={"data": image_data}
+                    json={"data": image_data_b64, "width": width, "height": height}
                 )
                 
                 if response.status_code == 200:

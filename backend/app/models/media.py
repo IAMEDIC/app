@@ -4,7 +4,7 @@ Media model definition.
 
 import uuid
 from enum import Enum
-from sqlalchemy import Column, String, DateTime, ForeignKey, BigInteger, CheckConstraint, Enum as SQLEnum
+from sqlalchemy import Column, String, DateTime, ForeignKey, BigInteger, CheckConstraint, Boolean, Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -37,6 +37,7 @@ class Media(Base):
     mime_type = Column(String(255), nullable=False, index=True)
     media_type = Column(SQLEnum(MediaType, name='mediatype', values_callable=lambda x: [e.value for e in x]), nullable=False, index=True)
     upload_status = Column(SQLEnum(UploadStatus, name='uploadstatus', values_callable=lambda x: [e.value for e in x]), nullable=False, default=UploadStatus.UPLOADED, index=True)
+    is_active = Column(Boolean, default=True, nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     

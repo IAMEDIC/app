@@ -206,21 +206,43 @@ async def update_media(
     return Media.model_validate(media)
 
 
-@router.delete("/media/{media_id}")
-async def delete_media(
+@router.delete("/studies/{study_id}/media/{media_id}")
+async def delete_study_media(
+    study_id: UUID,
     media_id: UUID,
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(require_doctor_role)
 ):
-    """Delete a media file"""
-    logger.info("🗑️ Doctor %s deleting media %s", current_user.email, media_id)
+    """Delete a media file from a specific study (soft delete)"""
+    logger.info("🗑️ Doctor %s deleting media %s from study %s", current_user.email, media_id, study_id)
     media_service = MediaService(db)
     doctor_id = cast(UUID, current_user.id)
+    
+    # Verify the media belongs to the specified study and user has access
+    media = media_service.get_media_by_id(media_id, doctor_id)
+    if not media:
+        logger.warning("❌ Media %s not found for doctor %s", media_id, doctor_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Media not found or access denied"
+        )
+    
+    # Verify media belongs to the specified study
+    if str(media.study_id) != str(study_id):
+        logger.warning("❌ Media %s belongs to study %s, not %s", media_id, media.study_id, study_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Media not found in the specified study"
+        )
+    
+    # Perform soft delete
     success = media_service.delete_media(media_id, doctor_id)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Media not found"
         )
-    logger.info("🗑️ Media deleted successfully: %s", media_id)
+    
+    logger.info("🗑️ Media soft deleted successfully: %s", media_id)
     return {"message": "Media deleted successfully"}
+

@@ -51,7 +51,8 @@ class MediaService:
         """
         media_files = self.db.query(Media.file_path).join(Study).filter(
             Study.doctor_id == doctor_id,
-            Study.is_active
+            Study.is_active,
+            Media.is_active
         ).all()
         return [media.file_path for media in media_files]
 
@@ -140,7 +141,8 @@ class MediaService:
         return self.db.query(Media).join(Study).filter(
             Media.id == media_id,
             Study.doctor_id == doctor_id,
-            Study.is_active
+            Study.is_active,
+            Media.is_active
         ).first()
 
     def get_media_by_study(self, study_id: UUID, doctor_id: UUID) -> List[Media]:
@@ -156,7 +158,8 @@ class MediaService:
         if not self.check_study_ownership(study_id, doctor_id):
             return []
         return self.db.query(Media).filter(
-            Media.study_id == study_id
+            Media.study_id == study_id,
+            Media.is_active
         ).order_by(Media.created_at.desc()).all()
 
     def update_media(
@@ -188,7 +191,7 @@ class MediaService:
 
     def delete_media(self, media_id: UUID, doctor_id: UUID) -> bool:
         """
-        Delete a media record and its file.
+        Soft delete a media record.
         Args:
             media_id: ID of the media
             doctor_id: ID of the doctor
@@ -198,15 +201,10 @@ class MediaService:
         db_media = self.get_media_by_id(media_id, doctor_id)
         if not db_media:
             return False
-        # Delete file from storage
-        try:
-            self.file_storage.delete_file(str(db_media.file_path))
-        except Exception as e: # pylint: disable=broad-except
-            logger.warning("Failed to delete file %s: %s", db_media.file_path, e)
-        # Delete media record
-        self.db.delete(db_media)
+        # Soft delete: set is_active to False
+        self.db.query(Media).filter(Media.id == media_id).update({"is_active": False})
         self.db.commit()
-        logger.info("Deleted media %s", media_id)
+        logger.info("Soft deleted media %s", media_id)
         return True
 
     def get_media_file(self, media_id: UUID, doctor_id: UUID) -> Optional[Tuple[bytes, str, str]]:

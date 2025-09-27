@@ -17,7 +17,6 @@ import {
   DialogActions,
   TextField,
   IconButton,
-  Chip,
 } from '@mui/material';
 import {
   ArrowBack as BackIcon,
@@ -79,7 +78,6 @@ export const StudyView: React.FC = () => {
   
   // Storage state
   const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null);
-  const [storageLoading, setStorageLoading] = useState(false);
 
   useEffect(() => {
     if (studyId) {
@@ -108,13 +106,10 @@ export const StudyView: React.FC = () => {
 
   const loadStorageInfo = async () => {
     try {
-      setStorageLoading(true);
       const storage = await studyService.getStorageInfo();
       setStorageInfo(storage);
     } catch (err: any) {
       console.error('Failed to load storage info:', err);
-    } finally {
-      setStorageLoading(false);
     }
   };
 
@@ -388,16 +383,6 @@ export const StudyView: React.FC = () => {
               <Typography variant="body2">
                 {study.media.length} files
               </Typography>
-            </Box>
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                Status
-              </Typography>
-              <Chip 
-                label={study.is_active ? 'Active' : 'Inactive'}
-                color={study.is_active ? 'success' : 'default'}
-                size="small"
-              />
             </Box>
           </Box>
         </Paper>

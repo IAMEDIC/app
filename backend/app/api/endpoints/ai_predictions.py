@@ -6,6 +6,7 @@ import logging
 from typing import cast
 from uuid import UUID
 import io
+import base64
 import numpy as np
 from PIL import Image as PILImage
 
@@ -26,6 +27,20 @@ from app.schemas.ai_predictions import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def convert_image_to_base64_bytes(image: PILImage.Image) -> str:
+    """Convert PIL Image to base64 encoded bytes for efficient transmission"""
+    # Convert to grayscale if needed
+    if image.mode != 'L':
+        image = image.convert('L')
+    
+    # Convert to numpy array (uint8 - 1 byte per pixel)
+    image_array = np.array(image, dtype=np.uint8)
+    
+    # Convert to bytes and then base64 encode
+    image_bytes = image_array.tobytes()
+    return base64.b64encode(image_bytes).decode('ascii')
 
 
 @router.get("/ai/models/classifier/info", response_model=ModelInfo)
@@ -113,16 +128,15 @@ async def generate_classification_prediction(
         
         file_data, mime_type, filename = media_file_data
         
-        # Convert image to grayscale array
+        # Convert image to efficient base64 format
         image = PILImage.open(io.BytesIO(file_data))
-        if image.mode != 'L':
-            image = image.convert('L')
-        image_array = np.array(image).tolist()
+        image_data_b64 = convert_image_to_base64_bytes(image)
+        width, height = image.size if image.mode == 'L' else image.convert('L').size
         
         # Generate classification prediction only
         ai_service = AIPredictionService(db)
         classification_prediction = await ai_service.predict_classification(
-            media_id, image_array, request.force_refresh
+            media_id, image_data_b64, width, height, request.force_refresh
         )
         
         # Create initial annotation if classification prediction exists and no annotation yet
@@ -134,7 +148,7 @@ async def generate_classification_prediction(
             
             if not existing_classification:
                 # Create classification annotation with prediction-based usefulness
-                usefulness = 1 if classification_prediction.confidence > 0.5 else 0
+                usefulness = 1 if classification_prediction.prediction > 0.5 else 0
                 ai_service.save_classification_annotation(media_id, usefulness)
         
         # Return predictions and annotations
@@ -195,16 +209,15 @@ async def generate_bounding_box_predictions(
         
         file_data, mime_type, filename = media_file_data
         
-        # Convert image to grayscale array
+        # Convert image to efficient base64 format
         image = PILImage.open(io.BytesIO(file_data))
-        if image.mode != 'L':
-            image = image.convert('L')
-        image_array = np.array(image).tolist()
+        image_data_b64 = convert_image_to_base64_bytes(image)
+        width, height = image.size if image.mode == 'L' else image.convert('L').size
         
         # Generate bounding box predictions only
         ai_service = AIPredictionService(db)
         bb_predictions = await ai_service.predict_bounding_boxes(
-            media_id, image_array, request.force_refresh
+            media_id, image_data_b64, width, height, request.force_refresh
         )
         
         # Create BB annotations from predictions if they don't exist (only for confident predictions)
@@ -292,23 +305,22 @@ async def generate_predictions(
         
         file_data, mime_type, filename = media_file_data
         
-        # Convert image to grayscale array
+        # Convert image to efficient base64 format
         image = PILImage.open(io.BytesIO(file_data))
-        if image.mode != 'L':
-            image = image.convert('L')
-        image_array = np.array(image).tolist()
+        image_data_b64 = convert_image_to_base64_bytes(image)
+        width, height = image.size if image.mode == 'L' else image.convert('L').size
         
         # Generate predictions using AI service
         ai_service = AIPredictionService(db)
         
         # Generate classification prediction
         classification_prediction = await ai_service.predict_classification(
-            media_id, image_array, request.force_refresh
+            media_id, image_data_b64, width, height, request.force_refresh
         )
         
         # Generate bounding box predictions
         bb_predictions = await ai_service.predict_bounding_boxes(
-            media_id, image_array, request.force_refresh
+            media_id, image_data_b64, width, height, request.force_refresh
         )
         
         # Create initial annotations from predictions if they don't exist

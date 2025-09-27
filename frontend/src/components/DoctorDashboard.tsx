@@ -268,12 +268,6 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = () => {
                         <Typography variant="body2" color="text.secondary" gutterBottom>
                           Modified: {formatDate(study.updated_at)}
                         </Typography>
-                        <Typography 
-                          variant="body2" 
-                          color={study.is_active ? 'success.main' : 'text.secondary'}
-                        >
-                          Status: {study.is_active ? 'Active' : 'Inactive'}
-                        </Typography>
                       </CardContent>
                       <CardActions>
                         <Button
