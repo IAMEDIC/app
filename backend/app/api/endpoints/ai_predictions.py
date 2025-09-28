@@ -110,11 +110,11 @@ async def generate_classification_prediction(
             detail="Access denied: You don't have permission to access this media"
         )
     
-    # Check if media is an image
-    if media.media_type.value != "image":
+    # Check if media is an image or frame
+    if media.media_type.value not in ["image", "frame"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="AI predictions are currently only supported for images"
+            detail="AI predictions are supported for images and frames only"
         )
     
     try:
@@ -191,11 +191,11 @@ async def generate_bounding_box_predictions(
             detail="Access denied: You don't have permission to access this media"
         )
     
-    # Check if media is an image
-    if media.media_type.value != "image":
+    # Check if media is an image or frame
+    if media.media_type.value not in ["image", "frame"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="AI predictions are currently only supported for images"
+            detail="AI predictions are supported for images and frames only"
         )
     
     try:
@@ -287,11 +287,11 @@ async def generate_predictions(
             detail="Access denied: You don't have permission to access this media"
         )
     
-    # Check if media is an image
-    if media.media_type.value != "image":
+    # Check if media is an image or frame
+    if media.media_type.value not in ["image", "frame"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="AI predictions are currently only supported for images"
+            detail="AI predictions are supported for images and frames only"
         )
     
     try:

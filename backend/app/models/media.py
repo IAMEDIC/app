@@ -15,6 +15,7 @@ class MediaType(str, Enum):
     """Enumeration of media types"""
     IMAGE = "image"
     VIDEO = "video"
+    FRAME = "frame"
 
 
 class UploadStatus(str, Enum):
@@ -48,10 +49,14 @@ class Media(Base):
     bb_predictions = relationship("PictureBBPrediction", back_populates="media", cascade="all, delete-orphan")
     bb_annotations = relationship("PictureBBAnnotation", back_populates="media", cascade="all, delete-orphan")
     
+    # Frame relationships (for videos and extracted frames)
+    frames = relationship("Frame", foreign_keys="Frame.video_media_id", back_populates="video_media", cascade="all, delete-orphan")
+    frame_record = relationship("Frame", foreign_keys="Frame.frame_media_id", back_populates="frame_media", uselist=False, cascade="all, delete-orphan")
+    
     # Constraints
     __table_args__ = (
         CheckConstraint(
-            f"media_type IN ('{MediaType.IMAGE}', '{MediaType.VIDEO}')",
+            f"media_type IN ('{MediaType.IMAGE}', '{MediaType.VIDEO}', '{MediaType.FRAME}')",
             name='valid_media_type'
         ),
         CheckConstraint(

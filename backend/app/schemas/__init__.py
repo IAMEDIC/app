@@ -43,6 +43,17 @@ from .media import (
     MediaUploadResponse,
     StorageInfo,
 )
+from .frame import (
+    Frame,
+    FrameCreate,
+    FrameUpdate,
+    FrameInDB,
+    FrameSummary,
+    FrameListResponse,
+    FrameCreateRequest,
+    FrameCreateResponse,
+    VideoMetadata,
+)
 from .picture_classification_prediction import (
     PictureClassificationPrediction,
     PictureClassificationPredictionCreate,

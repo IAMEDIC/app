@@ -27,9 +27,10 @@ import {
   Close as CloseIcon,
   Psychology as AIIcon,
 } from '@mui/icons-material';
-import { MediaSummary } from '@/types';
+import { MediaSummary, Frame } from '@/types';
 import { mediaService } from '@/services/api';
 import { AnnotationsTab } from './AnnotationsTab';
+import { VideoPlayerWithFrames } from './VideoPlayerWithFrames';
 
 interface MediaGalleryProps {
   media: MediaSummary[];
@@ -54,6 +55,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
   const [activeTab, setActiveTab] = useState(0); // 0: View, 1: Annotations
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
+  const [selectedFrame, setSelectedFrame] = useState<Frame | null>(null);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -104,6 +106,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
 
   const handleForceClose = () => {
     setSelectedMedia(null);
+    setSelectedFrame(null);
     setActiveTab(0);
     setHasUnsavedChanges(false);
     setShowUnsavedWarning(false);
@@ -359,6 +362,81 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
     );
   };
 
+  // Container component for video player with frame extraction
+  const VideoPlayerContainer: React.FC<{
+    studyId: string;
+    videoId: string;
+    onFrameAnnotate: (frame: Frame) => void;
+  }> = ({ studyId, videoId, onFrameAnnotate }) => {
+    const [videoSrc, setVideoSrc] = useState<string>('');
+    const [videoLoading, setVideoLoading] = useState(true);
+    const [videoError, setVideoError] = useState(false);
+
+    useEffect(() => {
+      let isMounted = true;
+      let blobUrl: string | null = null;
+      
+      const loadVideo = async () => {
+        try {
+          setVideoLoading(true);
+          setVideoError(false);
+          
+          // Fetch the media file using authenticated request
+          const blob = await mediaService.downloadMedia(studyId, videoId);
+          
+          if (isMounted) {
+            blobUrl = URL.createObjectURL(blob);
+            setVideoSrc(blobUrl);
+          }
+        } catch (error) {
+          console.error('Failed to load video:', error);
+          if (isMounted) {
+            setVideoError(true);
+          }
+        } finally {
+          if (isMounted) {
+            setVideoLoading(false);
+          }
+        }
+      };
+
+      loadVideo();
+      
+      // Cleanup function
+      return () => {
+        isMounted = false;
+        if (blobUrl) {
+          URL.revokeObjectURL(blobUrl);
+        }
+      };
+    }, [videoId, studyId]);
+
+    if (videoLoading) {
+      return (
+        <Box display="flex" justifyContent="center" alignItems="center" height="400px">
+          <CircularProgress />
+        </Box>
+      );
+    }
+
+    if (videoError) {
+      return (
+        <Box display="flex" justifyContent="center" alignItems="center" height="400px">
+          <Typography color="error">Failed to load video</Typography>
+        </Box>
+      );
+    }
+
+    return (
+      <VideoPlayerWithFrames
+        videoSrc={videoSrc}
+        studyId={studyId}
+        videoId={videoId}
+        onFrameAnnotate={onFrameAnnotate}
+      />
+    );
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" p={4}>
@@ -495,7 +573,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
       <Dialog
         open={!!selectedMedia}
         onClose={handleCloseDialog}
-        maxWidth={activeTab === 1 ? "xl" : "md"}
+        maxWidth={activeTab === 1 || selectedMedia?.media_type === 'video' ? "xl" : "md"}
         fullWidth
       >
         {selectedMedia && (
@@ -518,16 +596,19 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
                 </IconButton>
               </Box>
 
-              {/* Tabs for images only */}
-              {selectedMedia.media_type === 'image' && (
+              {/* Tabs for images and videos with selected frames */}
+              {(selectedMedia.media_type === 'image' || selectedFrame) && (
                 <Tabs 
                   value={activeTab} 
-                  onChange={(_, newValue) => setActiveTab(newValue)}
+                  onChange={(_, newValue) => {
+                    setActiveTab(newValue);
+                    if (newValue === 0) setSelectedFrame(null); // Reset frame when going to view tab
+                  }}
                   sx={{ mt: 1 }}
                 >
                   <Tab label="View" />
                   <Tab 
-                    label="Annotations" 
+                    label={selectedFrame ? "Frame Annotations" : "Annotations"}
                     icon={<AIIcon />}
                     iconPosition="start"
                   />
@@ -535,19 +616,37 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
               )}
             </DialogTitle>
             <DialogContent>
-              {selectedMedia.media_type === 'image' ? (
+              {activeTab === 1 && selectedFrame ? (
+                // Show frame annotations when frame is selected
+                <AnnotationsTab 
+                  media={{
+                    id: selectedFrame.frame_media_id,
+                    filename: `Frame at ${selectedFrame.timestamp_seconds}s`,
+                    media_type: 'image',
+                    mime_type: 'image/jpeg',
+                    file_size: 0,
+                    created_at: selectedFrame.created_at,
+                    upload_status: 'uploaded',
+                    study_id: studyId,
+                    is_active: true
+                  } as MediaSummary}
+                  studyId={studyId}
+                />
+              ) : selectedMedia.media_type === 'image' ? (
                 <AuthenticatedImageWithAI
                   mediaId={selectedMedia.id}
                   alt={selectedMedia.filename}
                   showAI={activeTab === 1}
                 />
               ) : (
-                <Box textAlign="center">
-                  <AuthenticatedVideo 
-                    mediaId={selectedMedia.id}
-                    mimeType={selectedMedia.mime_type}
-                  />
-                </Box>
+                <VideoPlayerContainer 
+                  studyId={studyId}
+                  videoId={selectedMedia.id}
+                  onFrameAnnotate={(frame: Frame) => {
+                    setSelectedFrame(frame);
+                    setActiveTab(1); // Switch to annotations tab
+                  }}
+                />
               )}
               
               <Box mt={2}>

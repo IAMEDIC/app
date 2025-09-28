@@ -12,12 +12,14 @@ ENV PYTHONUNBUFFERED=1 \
 
 # Install system dependencies
 # libmagic is required for python-magic MIME type detection
+# ffmpeg is required for video frame extraction
 RUN apt-get update && apt-get install -y \
     curl \
     gcc \
     g++ \
     libmagic1 \
     libmagic-dev \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Set work directory

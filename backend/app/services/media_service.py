@@ -159,7 +159,8 @@ class MediaService:
             return []
         return self.db.query(Media).filter(
             Media.study_id == study_id,
-            Media.is_active
+            Media.is_active,
+            Media.media_type.in_([MediaType.IMAGE, MediaType.VIDEO])  # Exclude frames
         ).order_by(Media.created_at.desc()).all()
 
     def update_media(
@@ -250,5 +251,6 @@ class MediaService:
             return 0
         # pylint: disable=not-callable
         return self.db.query(func.count(Media.id)).filter(
-            Media.study_id == study_id
+            Media.study_id == study_id,
+            Media.media_type.in_([MediaType.IMAGE, MediaType.VIDEO])  # Exclude frames
         ).scalar()

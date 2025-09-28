@@ -1,5 +1,8 @@
 // TypeScript type definitions for the IAMEDIC application
 
+// Re-export frame types
+export * from './frame';
+
 export interface User {
   id: string;
   email: string;
