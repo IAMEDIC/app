@@ -88,38 +88,44 @@ class FrameService:
         video_media_id: UUID, 
         timestamp_seconds: float,
         doctor_id: UUID
-    ) -> Optional[Frame]:
+    ) -> tuple[Optional[Frame], str]:
         """Extract a frame from video at specified timestamp"""
         try:
             # Verify video exists and belongs to doctor
             video_media = self.db.query(Media).filter(Media.id == video_media_id).first()
             if not video_media or video_media.media_type.value != MediaType.VIDEO.value:
                 logger.error(f"Video media not found: {video_media_id}")
-                return None
+                return None, "Video not found or invalid format"
 
             # Check ownership through study
             study_id = video_media.study_id
             if not self.media_service.check_study_ownership(study_id, doctor_id):
                 logger.error(f"Access denied for video {video_media_id}")
-                return None
+                return None, "Access denied"
 
-            # Check if frame at this timestamp already exists
+            # Check if frame at this timestamp already exists (active or inactive)
             existing_frame = self.db.query(Frame).filter(
                 Frame.video_media_id == video_media_id,
-                Frame.timestamp_seconds == timestamp_seconds,
-                Frame.is_active
+                Frame.timestamp_seconds == timestamp_seconds
             ).first()
             
             if existing_frame:
-                logger.info(f"Frame already exists at timestamp {timestamp_seconds} for video {video_media_id}")
-                return existing_frame
+                if existing_frame.is_active:
+                    # Frame already exists and is active
+                    logger.info(f"Active frame already exists at timestamp {timestamp_seconds} for video {video_media_id}")
+                    return existing_frame, "Frame already exists at this timestamp"
+                else:
+                    # Frame exists but is soft-deleted - reactivate it
+                    logger.info(f"Reactivating soft-deleted frame at timestamp {timestamp_seconds} for video {video_media_id}")
+                    reactivated_frame = self._reactivate_frame(existing_frame)
+                    return reactivated_frame, "Frame reactivated (previous annotations cleared)"
 
             # Get video file from storage
             try:
                 file_data, _ = self.file_storage.read_file(str(video_media.file_path))
             except Exception:
                 logger.error(f"Video file not found in storage: {video_media.file_path}")
-                return None
+                return None, "Video file not accessible"
 
             # Create temporary files for video and frame
             with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as video_temp:
@@ -127,13 +133,33 @@ class FrameService:
                 video_temp_path = video_temp.name
 
             frame_temp_path = tempfile.mktemp(suffix='.jpg')
+            
+            # Get video duration and validate timestamp
+            try:
+                probe = ffmpeg.probe(video_temp_path)
+                duration = float(probe['format']['duration'])
+                
+                # Adjust timestamp if too close to end (need buffer for frame extraction)
+                if timestamp_seconds >= duration - 0.1:
+                    logger.warning(f"Timestamp {timestamp_seconds}s too close to video end ({duration}s), adjusting")
+                    timestamp_seconds = max(0, duration - 0.2)
+                    
+            except Exception as e:
+                logger.warning(f"Could not get video duration: {e}, proceeding with original timestamp")
 
             try:
-                # Extract frame using ffmpeg
-                # Use ffmpeg-python for frame extraction
-                stream = ffmpeg.input(video_temp_path)
-                stream = ffmpeg.filter(stream, 'select', f'gte(t,{timestamp_seconds})')
-                stream = ffmpeg.output(stream, frame_temp_path, vframes=1, q=2)
+                # Extract frame using ffmpeg-python with better format handling
+                # Use seek for precise positioning and ensure proper encoding
+                stream = ffmpeg.input(video_temp_path, ss=timestamp_seconds)
+                stream = ffmpeg.output(
+                    stream, 
+                    frame_temp_path, 
+                    vframes=1,
+                    format='mjpeg',
+                    pix_fmt='yuvj420p',
+                    q=3,
+                    loglevel='error'
+                )
                 ffmpeg.run(stream, capture_stderr=True, overwrite_output=True)
                 logger.info(f"FFmpeg extraction successful for video {video_media_id} at {timestamp_seconds}s")
 
@@ -189,7 +215,7 @@ class FrameService:
                 self.db.commit()
                 
                 logger.info(f"Successfully extracted frame {frame.id} from video {video_media_id} at {timestamp_seconds}s")
-                return frame
+                return frame, "Frame extracted successfully"
 
             finally:
                 # Clean up temporary files
@@ -201,11 +227,11 @@ class FrameService:
         except ffmpeg.Error as e:
             logger.error(f"FFmpeg error extracting frame: {str(e)}")
             self.db.rollback()
-            return None
+            return None, "Failed to extract frame from video"
         except Exception as e:
             logger.error(f"Error extracting frame from video {video_media_id}: {e}")
             self.db.rollback()
-            return None
+            return None, "An error occurred while extracting frame"
 
     def list_video_frames(self, video_media_id: UUID, doctor_id: UUID) -> List[Frame]:
         """List all frames for a video"""
@@ -249,11 +275,10 @@ class FrameService:
             # Mark frame as inactive (soft delete) using update statement
             self.db.query(Frame).filter(Frame.id == frame_id).update({'is_active': False})
             
-            # Also mark frame media as inactive and delete file
+            # Also mark frame media as inactive (soft delete - keep file)
             if frame_media:
                 self.db.query(Media).filter(Media.id == frame.frame_media_id).update({'is_active': False})
-                # Delete file from storage
-                self.file_storage.delete_file(str(frame_media.file_path))
+                # Note: File is kept in storage for potential recovery
 
             self.db.commit()
             logger.info(f"Successfully deleted frame {frame_id}")
@@ -285,3 +310,40 @@ class FrameService:
         except Exception as e:
             logger.error(f"Error getting frame {frame_id}: {e}")
             return None
+
+    def _reactivate_frame(self, frame: Frame) -> Frame:
+        """Reactivate a soft-deleted frame and clear its annotations"""
+        try:
+            # Reactivate the frame
+            self.db.query(Frame).filter(Frame.id == frame.id).update({'is_active': True})
+            
+            # Reactivate the frame media
+            self.db.query(Media).filter(Media.id == frame.frame_media_id).update({'is_active': True})
+            
+            # Clear existing annotations for this frame to avoid suspicious data
+            # Import here to avoid circular imports
+            from app.models.picture_bb_annotation import PictureBBAnnotation
+            from app.models.picture_classification_annotation import PictureClassificationAnnotation
+            
+            # Delete bounding box annotations
+            self.db.query(PictureBBAnnotation).filter(
+                PictureBBAnnotation.media_id == frame.frame_media_id
+            ).delete()
+            
+            # Delete classification annotations
+            self.db.query(PictureClassificationAnnotation).filter(
+                PictureClassificationAnnotation.media_id == frame.frame_media_id
+            ).delete()
+            
+            self.db.commit()
+            
+            # Refresh frame object
+            self.db.refresh(frame)
+            
+            logger.info(f"Successfully reactivated frame {frame.id} and cleared annotations")
+            return frame
+            
+        except Exception as e:
+            logger.error(f"Error reactivating frame {frame.id}: {e}")
+            self.db.rollback()
+            raise e

@@ -224,10 +224,17 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
     // Check in reverse order to prioritize top boxes
     for (let i = boundingBoxes.length - 1; i >= 0; i--) {
       const box = boundingBoxes[i];
-      if (!box.isHidden && 
-          x >= box.x && x <= box.x + box.width &&
-          y >= box.y && y <= box.y + box.height) {
-        return box;
+      if (!box.isHidden) {
+        // Transform box coordinates to canvas space for hit testing
+        const canvasBox = imageToCanvas(box.x, box.y);
+        const canvasBoxEnd = imageToCanvas(box.x + box.width, box.y + box.height);
+        const canvasWidth = canvasBoxEnd.x - canvasBox.x;
+        const canvasHeight = canvasBoxEnd.y - canvasBox.y;
+        
+        if (x >= canvasBox.x && x <= canvasBox.x + canvasWidth &&
+            y >= canvasBox.y && y <= canvasBox.y + canvasHeight) {
+          return box;
+        }
       }
     }
     return null;
@@ -237,15 +244,21 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
     const handleSize = 8;
     const tolerance = handleSize / 2;
     
+    // Transform box coordinates to canvas space
+    const canvasBox = imageToCanvas(box.x, box.y);
+    const canvasBoxEnd = imageToCanvas(box.x + box.width, box.y + box.height);
+    const canvasWidth = canvasBoxEnd.x - canvasBox.x;
+    const canvasHeight = canvasBoxEnd.y - canvasBox.y;
+    
     const handles = [
-      { name: 'nw', x: box.x, y: box.y },
-      { name: 'ne', x: box.x + box.width, y: box.y },
-      { name: 'sw', x: box.x, y: box.y + box.height },
-      { name: 'se', x: box.x + box.width, y: box.y + box.height },
-      { name: 'n', x: box.x + box.width / 2, y: box.y },
-      { name: 's', x: box.x + box.width / 2, y: box.y + box.height },
-      { name: 'w', x: box.x, y: box.y + box.height / 2 },
-      { name: 'e', x: box.x + box.width, y: box.y + box.height / 2 }
+      { name: 'nw', x: canvasBox.x, y: canvasBox.y },
+      { name: 'ne', x: canvasBox.x + canvasWidth, y: canvasBox.y },
+      { name: 'sw', x: canvasBox.x, y: canvasBox.y + canvasHeight },
+      { name: 'se', x: canvasBox.x + canvasWidth, y: canvasBox.y + canvasHeight },
+      { name: 'n', x: canvasBox.x + canvasWidth / 2, y: canvasBox.y },
+      { name: 's', x: canvasBox.x + canvasWidth / 2, y: canvasBox.y + canvasHeight },
+      { name: 'w', x: canvasBox.x, y: canvasBox.y + canvasHeight / 2 },
+      { name: 'e', x: canvasBox.x + canvasWidth, y: canvasBox.y + canvasHeight / 2 }
     ];
 
     for (const handle of handles) {
@@ -261,37 +274,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
     return canvas ? { width: canvas.width, height: canvas.height } : { width: 0, height: 0 };
   };
 
-  const getBoxCollisionConstraints = (currentBoxId: string, newBox: { x: number; y: number; width: number; height: number }) => {
-    const canvasDims = getCanvasDimensions();
-    
-    // Canvas boundary constraints
-    let constrainedBox = {
-      x: Math.max(0, newBox.x),
-      y: Math.max(0, newBox.y),
-      width: Math.max(10, newBox.width),
-      height: Math.max(10, newBox.height)
-    };
-    
-    // Ensure box doesn't go outside canvas bounds
-    if (constrainedBox.x + constrainedBox.width > canvasDims.width) {
-      constrainedBox.width = canvasDims.width - constrainedBox.x;
-    }
-    if (constrainedBox.y + constrainedBox.height > canvasDims.height) {
-      constrainedBox.height = canvasDims.height - constrainedBox.y;
-    }
-    
-    // If width or height became too small after constraint, adjust position
-    if (constrainedBox.width < 10) {
-      constrainedBox.x = Math.min(constrainedBox.x, canvasDims.width - 10);
-      constrainedBox.width = 10;
-    }
-    if (constrainedBox.height < 10) {
-      constrainedBox.y = Math.min(constrainedBox.y, canvasDims.height - 10);
-      constrainedBox.height = 10;
-    }
-    
-    return constrainedBox;
-  };
+
 
   const handleResize = (x: number, y: number) => {
     if (!selectedBoxId || !resizeHandle || !resizeAnchor) return;
@@ -533,13 +516,18 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
       const height = Math.abs(y - newBoxStart.y);
       
       if (width > 10 && height > 10) {
+        // Convert canvas coordinates to image coordinates for storage
+        const canvasTopLeft = { x: Math.min(newBoxStart.x, x), y: Math.min(newBoxStart.y, y) };
+        const imageTopLeft = canvasToImage(canvasTopLeft.x, canvasTopLeft.y);
+        const imageBottomRight = canvasToImage(canvasTopLeft.x + width, canvasTopLeft.y + height);
+        
         const newBox: BoundingBox = {
           id: `new-${Date.now()}`,
           class: selectedClass,
-          x: Math.min(newBoxStart.x, x),
-          y: Math.min(newBoxStart.y, y),
-          width,
-          height,
+          x: imageTopLeft.x,
+          y: imageTopLeft.y,
+          width: imageBottomRight.x - imageTopLeft.x,
+          height: imageBottomRight.y - imageTopLeft.y,
           isHidden: false,
           usefulness: 1,
           color: COLORS[boundingBoxes.length % COLORS.length]
@@ -585,11 +573,49 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Clear canvas with a background color
+    ctx.fillStyle = '#f0f0f0';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Draw image
-    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    // Calculate proper scaling to maintain aspect ratio
+    const canvasAspectRatio = canvas.width / canvas.height;
+    const imageAspectRatio = image.naturalWidth / image.naturalHeight;
+    
+    let drawWidth, drawHeight, offsetX, offsetY;
+    
+    if (imageAspectRatio > canvasAspectRatio) {
+      // Image is wider than canvas - fit to canvas width
+      drawWidth = canvas.width;
+      drawHeight = canvas.width / imageAspectRatio;
+      offsetX = 0;
+      offsetY = (canvas.height - drawHeight) / 2;
+    } else {
+      // Image is taller than canvas - fit to canvas height  
+      drawHeight = canvas.height;
+      drawWidth = canvas.height * imageAspectRatio;
+      offsetX = (canvas.width - drawWidth) / 2;
+      offsetY = 0;
+    }
+    
+    // Draw image with proper aspect ratio
+    ctx.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
+    
+    // Calculate and store scaling factors based on actual draw size
+    const scaleX = image.naturalWidth / drawWidth;
+    const scaleY = image.naturalHeight / drawHeight;
+    
+    setImageScale({
+      scaleX,
+      scaleY
+    });
+    
+    // Store the actual image drawing area for coordinate transformations
+    setImageDrawArea({
+      offsetX,
+      offsetY,
+      drawWidth,
+      drawHeight
+    });
     
     // Draw bounding boxes
     boundingBoxes.forEach(box => {
@@ -598,10 +624,16 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
       const isSelected = selectedBoxId === box.id;
       const isHovered = hoveredBoxId === box.id;
       
+      // Transform box coordinates from image space to canvas space
+      const canvasBox = imageToCanvas(box.x, box.y);
+      const canvasBoxEnd = imageToCanvas(box.x + box.width, box.y + box.height);
+      const canvasWidth = canvasBoxEnd.x - canvasBox.x;
+      const canvasHeight = canvasBoxEnd.y - canvasBox.y;
+      
       // Draw bounding box with thicker stroke if selected
       ctx.strokeStyle = box.color;
       ctx.lineWidth = isSelected ? 3 : 2;
-      ctx.strokeRect(box.x, box.y, box.width, box.height);
+      ctx.strokeRect(canvasBox.x, canvasBox.y, canvasWidth, canvasHeight);
       
       // Draw label
       ctx.fillStyle = box.color;
@@ -609,22 +641,22 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
       const labelText = `${box.class} ${box.confidence ? `(${(box.confidence * 100).toFixed(1)}%)` : ''}`;
       const textWidth = ctx.measureText(labelText).width;
       
-      ctx.fillRect(box.x, box.y - 20, textWidth + 4, 20);
+      ctx.fillRect(canvasBox.x, canvasBox.y - 20, textWidth + 4, 20);
       ctx.fillStyle = 'white';
-      ctx.fillText(labelText, box.x + 2, box.y - 6);
+      ctx.fillText(labelText, canvasBox.x + 2, canvasBox.y - 6);
       
       // Draw resize handles if selected
       if (isSelected) {
         const handleSize = 8;
         const handles = [
-          { x: box.x, y: box.y }, // nw
-          { x: box.x + box.width, y: box.y }, // ne
-          { x: box.x, y: box.y + box.height }, // sw
-          { x: box.x + box.width, y: box.y + box.height }, // se
-          { x: box.x + box.width / 2, y: box.y }, // n
-          { x: box.x + box.width / 2, y: box.y + box.height }, // s
-          { x: box.x, y: box.y + box.height / 2 }, // w
-          { x: box.x + box.width, y: box.y + box.height / 2 } // e
+          { x: canvasBox.x, y: canvasBox.y }, // nw
+          { x: canvasBox.x + canvasWidth, y: canvasBox.y }, // ne
+          { x: canvasBox.x, y: canvasBox.y + canvasHeight }, // sw
+          { x: canvasBox.x + canvasWidth, y: canvasBox.y + canvasHeight }, // se
+          { x: canvasBox.x + canvasWidth / 2, y: canvasBox.y }, // n
+          { x: canvasBox.x + canvasWidth / 2, y: canvasBox.y + canvasHeight }, // s
+          { x: canvasBox.x, y: canvasBox.y + canvasHeight / 2 }, // w
+          { x: canvasBox.x + canvasWidth, y: canvasBox.y + canvasHeight / 2 } // e
         ];
         
         ctx.fillStyle = box.color;
@@ -645,20 +677,20 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
         const minButtonSpace = 2 * buttonSize + 2 + 2 * margin; // Space needed for both buttons plus margins
         
         // Only show buttons if box is large enough to accommodate them
-        if (box.width >= minButtonSpace && box.height >= buttonSize + 2 * margin) {
+        if (canvasWidth >= minButtonSpace && canvasHeight >= buttonSize + 2 * margin) {
           // Hide/Show button (top-left)
           ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-          ctx.fillRect(box.x + margin, box.y + margin, buttonSize, buttonSize);
+          ctx.fillRect(canvasBox.x + margin, canvasBox.y + margin, buttonSize, buttonSize);
           ctx.fillStyle = 'white';
           ctx.font = '10px Arial';
           ctx.textAlign = 'center';
-          ctx.fillText('👁', box.x + margin + buttonSize/2, box.y + margin + 11);
+          ctx.fillText('👁', canvasBox.x + margin + buttonSize/2, canvasBox.y + margin + 11);
           
           // Delete button (next to hide button)
           ctx.fillStyle = 'rgba(220, 53, 69, 0.8)';
-          ctx.fillRect(box.x + margin + buttonSize + 2, box.y + margin, buttonSize, buttonSize);
+          ctx.fillRect(canvasBox.x + margin + buttonSize + 2, canvasBox.y + margin, buttonSize, buttonSize);
           ctx.fillStyle = 'white';
-          ctx.fillText('✕', box.x + margin + buttonSize + 2 + buttonSize/2, box.y + margin + 11);
+          ctx.fillText('✕', canvasBox.x + margin + buttonSize + 2 + buttonSize/2, canvasBox.y + margin + 11);
           
           ctx.textAlign = 'left'; // Reset text align
         }
@@ -701,14 +733,58 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
     }
   }, [imageSrc, boundingBoxes, drawCanvas]);
 
+  // Store image scaling and drawing area information for coordinate transformations
+  const [imageScale, setImageScale] = useState<{
+    scaleX: number;
+    scaleY: number;
+  }>({
+    scaleX: 1,
+    scaleY: 1
+  });
+
+  const [imageDrawArea, setImageDrawArea] = useState<{
+    offsetX: number;
+    offsetY: number;
+    drawWidth: number;
+    drawHeight: number;
+  }>({
+    offsetX: 0,
+    offsetY: 0,
+    drawWidth: 0,
+    drawHeight: 0
+  });
+
+  // Transform coordinates from image space to canvas display space
+  const imageToCanvas = useCallback((x: number, y: number) => ({
+    x: imageDrawArea.offsetX + (x / imageScale.scaleX),
+    y: imageDrawArea.offsetY + (y / imageScale.scaleY)
+  }), [imageScale, imageDrawArea]);
+
+  // Transform coordinates from canvas display space to image space
+  const canvasToImage = useCallback((x: number, y: number) => ({
+    x: (x - imageDrawArea.offsetX) * imageScale.scaleX,
+    y: (y - imageDrawArea.offsetY) * imageScale.scaleY
+  }), [imageScale, imageDrawArea]);
+
   // Handle image load
   const handleImageLoad = () => {
     const image = imageRef.current;
     const canvas = canvasRef.current;
     if (!image || !canvas) return;
 
-    canvas.width = image.naturalWidth;
-    canvas.height = image.naturalHeight;
+    // Set canvas to a fixed display size that will be scaled by CSS
+    const displayWidth = 800;
+    const displayHeight = 600;
+    
+    canvas.width = displayWidth;
+    canvas.height = displayHeight;
+
+    // Initial scaling factors (will be updated when image is drawn)
+    setImageScale({
+      scaleX: 1,
+      scaleY: 1
+    });
+
     drawCanvas();
   };
 

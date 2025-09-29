@@ -27,7 +27,7 @@ import {
   Close as CloseIcon,
   Psychology as AIIcon,
 } from '@mui/icons-material';
-import { MediaSummary, Frame } from '@/types';
+import { MediaSummary } from '@/types';
 import { mediaService } from '@/services/api';
 import { AnnotationsTab } from './AnnotationsTab';
 import { VideoPlayerWithFrames } from './VideoPlayerWithFrames';
@@ -55,7 +55,6 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
   const [activeTab, setActiveTab] = useState(0); // 0: View, 1: Annotations
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
-  const [selectedFrame, setSelectedFrame] = useState<Frame | null>(null);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -106,7 +105,6 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
 
   const handleForceClose = () => {
     setSelectedMedia(null);
-    setSelectedFrame(null);
     setActiveTab(0);
     setHasUnsavedChanges(false);
     setShowUnsavedWarning(false);
@@ -284,90 +282,13 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
     return <img src={imageSrc} alt={alt} className={className} style={{ maxWidth: '100%', height: 'auto' }} />;
   };
 
-  // Component for displaying authenticated videos
-  const AuthenticatedVideo: React.FC<{ mediaId: string; mimeType: string }> = ({ 
-    mediaId, 
-    mimeType 
-  }) => {
-    const [videoSrc, setVideoSrc] = useState<string>('');
-    const [videoLoading, setVideoLoading] = useState(true);
-    const [videoError, setVideoError] = useState(false);
 
-    useEffect(() => {
-      let isMounted = true;
-      let blobUrl: string | null = null;
-      
-      const loadVideo = async () => {
-        try {
-          setVideoLoading(true);
-          setVideoError(false);
-          
-          // Fetch the media file using authenticated request
-          const blob = await mediaService.downloadMedia(studyId, mediaId);
-          
-          if (isMounted) {
-            blobUrl = URL.createObjectURL(blob);
-            setVideoSrc(blobUrl);
-          }
-        } catch (error) {
-          console.error('Failed to load video:', error);
-          if (isMounted) {
-            setVideoError(true);
-          }
-        } finally {
-          if (isMounted) {
-            setVideoLoading(false);
-          }
-        }
-      };
-
-      loadVideo();
-      
-      // Cleanup function
-      return () => {
-        isMounted = false;
-        if (blobUrl) {
-          URL.revokeObjectURL(blobUrl);
-        }
-      };
-    }, [mediaId, studyId]);
-
-    if (videoLoading) {
-      return (
-        <Box display="flex" justifyContent="center" alignItems="center" height="200px">
-          <CircularProgress size={24} />
-        </Box>
-      );
-    }
-
-    if (videoError) {
-      return (
-        <Box display="flex" justifyContent="center" alignItems="center" height="200px">
-          <Typography color="error">Failed to load video</Typography>
-        </Box>
-      );
-    }
-
-    return (
-      <video
-        controls
-        style={{ 
-          maxWidth: '100%', 
-          maxHeight: '70vh' 
-        }}
-      >
-        <source src={videoSrc} type={mimeType} />
-        Your browser does not support the video tag.
-      </video>
-    );
-  };
 
   // Container component for video player with frame extraction
   const VideoPlayerContainer: React.FC<{
     studyId: string;
     videoId: string;
-    onFrameAnnotate: (frame: Frame) => void;
-  }> = ({ studyId, videoId, onFrameAnnotate }) => {
+  }> = ({ studyId, videoId }) => {
     const [videoSrc, setVideoSrc] = useState<string>('');
     const [videoLoading, setVideoLoading] = useState(true);
     const [videoError, setVideoError] = useState(false);
@@ -432,7 +353,6 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
         videoSrc={videoSrc}
         studyId={studyId}
         videoId={videoId}
-        onFrameAnnotate={onFrameAnnotate}
       />
     );
   };
@@ -596,19 +516,16 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
                 </IconButton>
               </Box>
 
-              {/* Tabs for images and videos with selected frames */}
-              {(selectedMedia.media_type === 'image' || selectedFrame) && (
+              {/* Tabs for images only */}
+              {selectedMedia.media_type === 'image' && (
                 <Tabs 
                   value={activeTab} 
-                  onChange={(_, newValue) => {
-                    setActiveTab(newValue);
-                    if (newValue === 0) setSelectedFrame(null); // Reset frame when going to view tab
-                  }}
+                  onChange={(_, newValue) => setActiveTab(newValue)}
                   sx={{ mt: 1 }}
                 >
                   <Tab label="View" />
                   <Tab 
-                    label={selectedFrame ? "Frame Annotations" : "Annotations"}
+                    label="Annotations"
                     icon={<AIIcon />}
                     iconPosition="start"
                   />
@@ -616,23 +533,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
               )}
             </DialogTitle>
             <DialogContent>
-              {activeTab === 1 && selectedFrame ? (
-                // Show frame annotations when frame is selected
-                <AnnotationsTab 
-                  media={{
-                    id: selectedFrame.frame_media_id,
-                    filename: `Frame at ${selectedFrame.timestamp_seconds}s`,
-                    media_type: 'image',
-                    mime_type: 'image/jpeg',
-                    file_size: 0,
-                    created_at: selectedFrame.created_at,
-                    upload_status: 'uploaded',
-                    study_id: studyId,
-                    is_active: true
-                  } as MediaSummary}
-                  studyId={studyId}
-                />
-              ) : selectedMedia.media_type === 'image' ? (
+              {selectedMedia.media_type === 'image' ? (
                 <AuthenticatedImageWithAI
                   mediaId={selectedMedia.id}
                   alt={selectedMedia.filename}
@@ -642,10 +543,6 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
                 <VideoPlayerContainer 
                   studyId={studyId}
                   videoId={selectedMedia.id}
-                  onFrameAnnotate={(frame: Frame) => {
-                    setSelectedFrame(frame);
-                    setActiveTab(1); // Switch to annotations tab
-                  }}
                 />
               )}
               

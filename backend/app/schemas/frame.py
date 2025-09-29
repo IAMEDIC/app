@@ -83,3 +83,26 @@ class VideoMetadata(BaseModel):
     height: int
     fps: float
     total_frames: int
+
+
+class AutoExtractionParams(BaseModel):
+    """Parameters for automatic frame extraction algorithm"""
+    run_threshold: float = Field(0.8, ge=0.0, le=1.0, description="Minimum probability threshold for starting a run")
+    min_run_length: int = Field(5, ge=1, description="Minimum number of consecutive frames to consider a valid run")
+    prediction_threshold: float = Field(0.95, ge=0.0, le=1.0, description="Minimum probability threshold for extracting a frame")
+    patience: int = Field(2, ge=0, description="Number of frames below threshold before ending a run")
+
+
+class AutoExtractionRequest(BaseModel):
+    """Request schema for automatic frame extraction"""
+    params: Optional[AutoExtractionParams] = Field(None, description="Algorithm parameters (uses defaults if not provided)")
+    force_reprocess: bool = Field(False, description="Force reprocessing even if cached predictions exist")
+
+
+class AutoExtractionResponse(BaseModel):
+    """Response schema for automatic frame extraction"""
+    frames: List[Frame] = Field(..., description="Extracted frames that meet the criteria")
+    total_frames_analyzed: int = Field(..., description="Total number of frames analyzed in the video")
+    runs_found: int = Field(..., description="Number of runs found above the run threshold")
+    compliant_frames: int = Field(..., description="Number of frames that met the prediction threshold")
+    message: str = Field("Auto extraction completed successfully", description="Status message")

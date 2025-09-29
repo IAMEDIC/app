@@ -53,6 +53,9 @@ from .frame import (
     FrameCreateRequest,
     FrameCreateResponse,
     VideoMetadata,
+    AutoExtractionParams,
+    AutoExtractionRequest,
+    AutoExtractionResponse,
 )
 from .picture_classification_prediction import (
     PictureClassificationPrediction,

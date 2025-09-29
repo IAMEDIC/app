@@ -1,15 +1,25 @@
-import mlflow.artifacts
-import numpy as np
+"""
+Bounding Box Regression Service
+- Loads model from MLflow Model Registry
+- Serves prediction requests
+- Shall not be exposed publicly
+"""
+
+
 import os
 import base64
-import onnxruntime as ort
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 from PIL import Image as PILImage
 import mlflow
+import mlflow.artifacts
 from mlflow.tracking import MlflowClient
+import onnxruntime as ort
+import numpy as np
+
 
 MLFLOW_URI = os.getenv("MLFLOW_URI", "http://host.docker.internal:8080")
 MLFLOW_MODEL_NAME = os.getenv("MLFLOW_MODEL_NAME", "")
@@ -37,22 +47,16 @@ CLASS_NAMES = {
     8: "thalami"
 }
 
-app = FastAPI(title="Bounding Box Regression Service")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 class PredictionRequest(BaseModel):
+    """Request schema for prediction"""
     data: str  # base64 encoded image bytes
     width: int  # image width
     height: int  # image height
 
+
 class Prediction(BaseModel):
+    """Single prediction result"""
     class_name: str
     confidence: float
     x_min: float
@@ -60,24 +64,31 @@ class Prediction(BaseModel):
     width: float
     height: float
 
+
 class PredictionResponse(BaseModel):
+    """Response schema for predictions"""
     predictions: list[Prediction]
     model_version: str
 
+
 class ModelInfo(BaseModel):
+    """Information about the loaded model"""
     name: str
     version: str
     expected_width: int
     expected_height: int
     classes: list[str]
 
+
 class ModelService:
+    """Service to manage model loading and predictions"""
     def __init__(self):
         self.model = None
         self.model_version = None
         self.load_model()
-    
+
     def load_model(self):
+        """Load model from MLflow Model Registry"""
         try: 
             # Load ONNX model (assuming you saved it as ONNX in MLflow)
             model_version_info = mlflow_client.get_model_version_by_alias(name=MLFLOW_MODEL_NAME, alias=MLFLOW_MODEL_ALIAS)
@@ -90,7 +101,7 @@ class ModelService:
         except Exception as e:
             print(f"Error loading model: {e}")
             raise
-    
+
     def get_model_info(self) -> ModelInfo:
         """Get model information"""
         return ModelInfo(
@@ -100,7 +111,7 @@ class ModelService:
             expected_height=TARGET_IMAGE_HEIGHT,
             classes=list(CLASS_NAMES.values())
         )
-    
+
     def check_for_model_update(self) -> tuple[bool, str]:
         """Check if there's a new model version available"""
         try:
@@ -111,14 +122,12 @@ class ModelService:
         except Exception as e:
             print(f"Error checking for model update: {e}")
             return False, self.model_version or "unknown"
-    
+
     def reload_model_if_needed(self) -> tuple[bool, str, str]:
         """Reload model only if there's a new version available"""
         needs_update, latest_version = self.check_for_model_update()
-        
         if not needs_update:
             return False, self.model_version or "unknown", f"Model is already up to date (version {latest_version})"
-        
         old_version = self.model_version
         try:
             print(f"New model version detected: {latest_version} (current: {old_version})")
@@ -127,25 +136,40 @@ class ModelService:
         except Exception as e:
             print(f"Error reloading model: {e}")
             raise
-    
+
     def predict(self, data: np.ndarray) -> np.ndarray:
         """Make predictions using the loaded model"""
         if self.model is None:
             raise RuntimeError("Model not loaded")
-        
         result = self.model.run(None, {"input": data})
         return result
+
+
+app = FastAPI(title="Bounding Box Regression Service")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Initialize model service
 model_service = ModelService()
 
+
 @app.get("/")
 def read_root():
+    """Root endpoint to verify service is running"""
     return {"message": "Bounding Box Regression Service is running"}
+
 
 @app.get("/health")
 async def health_check():
+    """Health check endpoint"""
     return {"status": "healthy"}
+
 
 @app.get("/model-info", response_model=ModelInfo)
 async def get_model_info():
@@ -154,6 +178,7 @@ async def get_model_info():
         return model_service.get_model_info()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/reload-model")
 async def reload_model():
@@ -168,10 +193,11 @@ async def reload_model():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to check/reload model: {str(e)}")
 
+
 @app.post("/predict", response_model=PredictionResponse)
 async def predict(request: PredictionRequest):
+    """Make predictions on the provided image data"""
     try:
-        # Decode base64 image data
         image_bytes = base64.b64decode(request.data)
         image = np.frombuffer(image_bytes, dtype=np.uint8).reshape((request.height, request.width))
         original_height, original_width = request.height, request.width
@@ -181,8 +207,6 @@ async def predict(request: PredictionRequest):
         image = (image.astype(np.float32) / 255.0 - 0.5) / 0.5  # Normalize to [-1, 1]
         image = np.expand_dims(image, axis=0)  # Add batch dimension
         image = np.expand_dims(image, axis=0)  # Add channel dimension
-        
-        # Make prediction
         outputs = model_service.predict(image)
         class_probs = outputs[0][0] # [K] 
         boxes = outputs[1][0]       # [K, 4]
@@ -204,9 +228,9 @@ async def predict(request: PredictionRequest):
             )
             predictions.append(prediction)
         return PredictionResponse(predictions=predictions, model_version=model_service.model_version or "unknown")
-    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

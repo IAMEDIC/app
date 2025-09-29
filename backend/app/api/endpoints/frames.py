@@ -16,7 +16,8 @@ from app.services.frame_service import FrameService
 from app.services.media_service import MediaService
 from app.schemas.frame import (
     FrameCreateRequest, FrameCreateResponse, FrameListResponse, 
-    VideoMetadata, FrameSummary
+    VideoMetadata, FrameSummary, AutoExtractionRequest, AutoExtractionResponse,
+    AutoExtractionParams
 )
 
 logger = logging.getLogger(__name__)
@@ -64,17 +65,17 @@ async def extract_frame(
     doctor_id = cast(UUID, current_user.id)
     
     # Extract frame
-    frame = frame_service.extract_frame_at_timestamp(
+    frame, message = frame_service.extract_frame_at_timestamp(
         video_id, request.timestamp_seconds, doctor_id
     )
     
     if not frame:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Failed to extract frame. Check video format and timestamp."
+            detail=message
         )
     
-    return FrameCreateResponse(frame=frame)
+    return FrameCreateResponse(frame=frame, message=message)
 
 
 @router.get("/studies/{study_id}/media/{video_id}/frames", response_model=FrameListResponse)
@@ -185,3 +186,77 @@ async def get_frame_details(
         )
     
     return frame
+
+
+@router.post("/studies/{study_id}/media/{video_id}/frames/auto-extract", response_model=AutoExtractionResponse)
+async def auto_extract_frames(
+    study_id: UUID,
+    video_id: UUID,
+    request: AutoExtractionRequest,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(require_doctor_role)
+):
+    """Automatically extract frames from video using runs-based algorithm"""
+    logger.info("🤖 Doctor %s requesting auto frame extraction for video %s", 
+                current_user.email, video_id)
+    
+    from app.services.auto_frame_service import AutoFrameService, AutoExtractionParams as ServiceParams
+    
+    auto_frame_service = AutoFrameService(db)
+    doctor_id = cast(UUID, current_user.id)
+    
+    # Use provided parameters or defaults
+    if request.params:
+        params = request.params
+    else:
+        params = AutoExtractionParams(
+            run_threshold=0.8,
+            min_run_length=5,
+            prediction_threshold=0.95,
+            patience=2
+        )
+    
+    service_params = ServiceParams(
+        run_threshold=params.run_threshold,
+        min_run_length=params.min_run_length,
+        prediction_threshold=params.prediction_threshold,
+        patience=params.patience
+    )
+    
+    try:
+        # Extract frames automatically
+        result = auto_frame_service.extract_frames_auto(video_id, doctor_id, service_params)
+        
+        # Convert Frame models to Frame schemas
+        from app.schemas.frame import Frame as FrameSchema
+        frame_schemas = [FrameSchema.model_validate(frame) for frame in result.frames]
+        
+        return AutoExtractionResponse(
+            frames=frame_schemas,
+            total_frames_analyzed=result.total_frames_analyzed,
+            runs_found=result.runs_found,
+            compliant_frames=result.compliant_frames,
+            message=f"Successfully extracted {len(result.frames)} frames from {result.runs_found} runs"
+        )
+        
+    except PermissionError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to video"
+        )
+    except FileNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Error in auto frame extraction: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Auto frame extraction failed. Please try again."
+        )

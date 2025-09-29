@@ -47,5 +47,15 @@ export const frameService = {
   async getFrameDetails(frameId: string): Promise<Frame> {
     const response = await api.get(`/frames/${frameId}`);
     return response.data;
+  },
+
+  // Auto extract frames using AI
+  async autoExtractFrames(
+    studyId: string,
+    videoId: string,
+    request: import('@/types/autoExtraction').AutoExtractionRequest
+  ): Promise<import('@/types/autoExtraction').AutoExtractionResponse> {
+    const response = await api.post(`/studies/${studyId}/media/${videoId}/frames/auto-extract`, request);
+    return response.data;
   }
 };
