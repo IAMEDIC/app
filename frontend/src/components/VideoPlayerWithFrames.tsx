@@ -32,6 +32,7 @@ import {
   Info as InfoIcon,
 } from '@mui/icons-material';
 import { frameService } from '@/services/frameService';
+import { useTranslation } from '@/contexts/LanguageContext';
 import { Frame } from '@/types/frame';
 import { AnnotationsTab } from './AnnotationsTab';
 import { 
@@ -52,6 +53,7 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
   studyId,
   videoId,
 }) => {
+  const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -237,7 +239,7 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                AI Frame Extraction
+                {t('components.videoPlayer.aiFrameExtraction')}
               </Typography>
               
               <Button
@@ -249,12 +251,12 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
                 fullWidth
                 sx={{ mb: 2 }}
               >
-                {autoExtracting ? 'Extracting...' : 'Auto Extract Frames'}
+                {autoExtracting ? t('components.videoPlayer.extracting') : t('components.videoPlayer.autoExtractFrames')}
               </Button>
               
               <Accordion expanded={showAdvancedSettings} onChange={() => setShowAdvancedSettings(!showAdvancedSettings)}>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Typography variant="subtitle2">Advanced Settings</Typography>
+                  <Typography variant="subtitle2">{t('components.videoPlayer.advancedSettings')}</Typography>
                 </AccordionSummary>
                 <AccordionDetails>
                   <Box display="flex" flexDirection="column" gap={2}>
@@ -372,7 +374,7 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
                     disabled={extracting}
                     color="secondary"
                   >
-                    {extracting ? 'Extracting...' : 'Extract Frame'}
+                    {extracting ? t('components.videoPlayer.extracting') : t('components.videoPlayer.extractFrame')}
                   </Button>
                 </Box>
                 
@@ -404,12 +406,12 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
           <Card sx={{ height: 'fit-content' }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Extracted Frames ({frames.length})
+                {t('components.videoPlayer.extractedFrames')} ({frames.length})
               </Typography>
               
               {frames.length === 0 ? (
                 <Typography color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-                  No frames extracted yet. Click "Extract Frame" while watching the video.
+                  {t('components.videoPlayer.noFramesExtracted')}
                 </Typography>
               ) : (
                 <Grid container spacing={2}>

@@ -150,7 +150,7 @@ export const AIAnnotationViewer: React.FC<AIAnnotationViewerProps> = ({
     try {
       setGenerating(true);
       setError(null);
-      const data = await aiService.generatePredictions(mediaId, forceRefresh);
+      const data = await aiService.generateBBPredictions(mediaId, forceRefresh);
       setPredictions(data);
       
       // Update state from new predictions
@@ -160,7 +160,7 @@ export const AIAnnotationViewer: React.FC<AIAnnotationViewerProps> = ({
       
       // Reload bounding boxes
       const allBoxes: BoundingBox[] = [
-        ...data.bounding_boxes.predictions.map(pred => ({
+        ...data.bounding_boxes.predictions.map((pred: any) => ({
           id: `pred-${pred.id}`,
           bb_class: pred.bb_class,
           usefulness: 1,
@@ -171,7 +171,7 @@ export const AIAnnotationViewer: React.FC<AIAnnotationViewerProps> = ({
           is_hidden: false,
           isPrediction: true,
         })),
-        ...data.bounding_boxes.annotations.map(ann => ({
+        ...data.bounding_boxes.annotations.map((ann: any) => ({
           id: `ann-${ann.id}`,
           bb_class: ann.bb_class,
           usefulness: ann.usefulness,

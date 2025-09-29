@@ -11,6 +11,7 @@ import {
   Box,
 } from '@mui/material';
 import { StudyCreate } from '@/types';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface StudyCreateDialogProps {
   open: boolean;
@@ -29,18 +30,19 @@ export const StudyCreateDialog: React.FC<StudyCreateDialogProps> = ({
   loading = false,
   error = null,
 }) => {
+  const { t } = useTranslation();
   const [alias, setAlias] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const validateAlias = (value: string): string | null => {
     if (!value.trim()) {
-      return 'Study alias is required';
+      return t('components.studyCreateDialog.studyAliasRequired');
     }
     if (value.length < 1) {
-      return 'Study alias must be at least 1 character';
+      return t('components.studyCreateDialog.studyAliasMinLength');
     }
     if (value.length > 255) {
-      return 'Study alias must be less than 255 characters';
+      return t('components.studyCreateDialog.studyAliasMaxLength');
     }
     return null;
   };
@@ -77,22 +79,22 @@ export const StudyCreateDialog: React.FC<StudyCreateDialogProps> = ({
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Create New Study</DialogTitle>
+      <DialogTitle>{t('components.studyCreateDialog.createNewStudy')}</DialogTitle>
       <form onSubmit={handleSubmit}>
         <DialogContent>
           <Box sx={{ mb: 2 }}>
             <TextField
               autoFocus
-              label="Study Alias"
+              label={t('components.studyCreateDialog.studyAlias')}
               type="text"
               fullWidth
               variant="outlined"
               value={alias}
               onChange={handleAliasChange}
               error={!!validationError}
-              helperText={validationError || 'Enter a unique name for your study'}
+              helperText={validationError || t('components.studyCreateDialog.studyAliasHelper')}
               disabled={loading}
-              placeholder="e.g., Cardiac Analysis #1"
+              placeholder={t('components.studyCreateDialog.studyAliasPlaceholder')}
             />
           </Box>
           
@@ -105,7 +107,7 @@ export const StudyCreateDialog: React.FC<StudyCreateDialogProps> = ({
         
         <DialogActions>
           <Button onClick={handleClose} disabled={loading}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             type="submit"
@@ -113,7 +115,7 @@ export const StudyCreateDialog: React.FC<StudyCreateDialogProps> = ({
             disabled={loading || !!validationError || !alias.trim()}
             startIcon={loading ? <CircularProgress size={20} /> : null}
           >
-            {loading ? 'Creating...' : 'Create Study'}
+            {loading ? t('components.studyCreateDialog.creating') : t('components.studyCreateDialog.createStudy')}
           </Button>
         </DialogActions>
       </form>

@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import { DoctorProfile, DoctorProfileCreate } from '@/types';
 import api from '@/services/api';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface DoctorRegistrationFormProps {
   onRegistrationComplete?: () => void;
@@ -19,6 +20,7 @@ interface DoctorRegistrationFormProps {
 export const DoctorRegistrationForm: React.FC<DoctorRegistrationFormProps> = ({
   onRegistrationComplete,
 }) => {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState<DoctorProfileCreate>({
     matriculationId: '',
     legalName: '',
@@ -50,7 +52,7 @@ export const DoctorRegistrationForm: React.FC<DoctorRegistrationFormProps> = ({
     } catch (err: any) {
       // 404 is expected if no profile exists yet
       if (err.response?.status !== 404) {
-        setError('Failed to load existing profile');
+        setError(t('errors.failedToLoadProfile'));
       }
     } finally {
       setInitialLoading(false);
@@ -75,7 +77,7 @@ export const DoctorRegistrationForm: React.FC<DoctorRegistrationFormProps> = ({
     
     // Basic validation
     if (!formData.matriculationId.trim() || !formData.legalName.trim() || !formData.specialization.trim()) {
-      setError('All fields are required');
+      setError(t('components.doctorRegistration.allFieldsRequired'));
       return;
     }
 
@@ -87,11 +89,11 @@ export const DoctorRegistrationForm: React.FC<DoctorRegistrationFormProps> = ({
       if (existingProfile) {
         // Update existing profile
         await api.put('/doctor/profile', formData);
-        setSuccess('Doctor profile updated successfully. Your registration is now pending review.');
+        setSuccess(t('components.doctorRegistration.profileUpdated'));
       } else {
         // Create new profile
         await api.post('/doctor/register', formData);
-        setSuccess('Doctor profile submitted successfully. Your registration is now pending review.');
+        setSuccess(t('components.doctorRegistration.profileSubmitted'));
       }
 
       // Reload profile to get updated data
@@ -104,7 +106,7 @@ export const DoctorRegistrationForm: React.FC<DoctorRegistrationFormProps> = ({
       console.error('Registration error:', err);
       
       // Handle different error response structures
-      let errorMessage = 'Failed to submit doctor registration';
+      let errorMessage = t('components.doctorRegistration.registrationFailed');
       
       if (err.response?.data) {
         if (typeof err.response.data === 'string') {
@@ -154,29 +156,28 @@ export const DoctorRegistrationForm: React.FC<DoctorRegistrationFormProps> = ({
   return (
     <Paper sx={{ p: 4, maxWidth: 600, mx: 'auto' }}>
       <Typography variant="h5" component="h2" gutterBottom>
-        Doctor Registration
+        {t('components.doctorRegistration.doctorRegistration')}
       </Typography>
       
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Please fill in your professional information to complete your registration.
-        This information will be reviewed by an administrator.
+        {t('components.doctorRegistration.fillInformation')}
       </Typography>
 
       {existingProfile && (
         <Box sx={{ mb: 3 }}>
           <Typography variant="body2" color="text.secondary" gutterBottom>
-            Registration Status: {getStatusChip(existingProfile.status)}
+            {t('components.doctorRegistration.registrationStatus')}: {getStatusChip(existingProfile.status)}
           </Typography>
           {existingProfile.status === 'denied' && existingProfile.notes && (
             <Alert severity="error" sx={{ mt: 1 }}>
               <Typography variant="body2">
-                <strong>Reason for denial:</strong> {existingProfile.notes}
+                {t('components.doctorRegistration.registrationDenied', { reason: existingProfile.notes })}
               </Typography>
             </Alert>
           )}
           {existingProfile.status === 'approved' && (
             <Alert severity="success" sx={{ mt: 1 }}>
-              Your doctor registration has been approved! You now have access to the doctor dashboard.
+              {t('components.doctorRegistration.registrationApproved')}
             </Alert>
           )}
         </Box>
@@ -196,36 +197,36 @@ export const DoctorRegistrationForm: React.FC<DoctorRegistrationFormProps> = ({
 
       <Box component="form" onSubmit={handleSubmit}>
         <TextField
-          label="Matriculation ID"
+          label={t('components.doctorRegistration.matriculationId')}
           value={formData.matriculationId}
           onChange={handleInputChange('matriculationId')}
           fullWidth
           required
           disabled={!canEdit || loading}
           sx={{ mb: 3 }}
-          helperText="Your unique professional medical license number"
+          helperText={t('components.doctorRegistration.matriculationIdHelper')}
         />
 
         <TextField
-          label="Legal Name"
+          label={t('components.doctorRegistration.legalName')}
           value={formData.legalName}
           onChange={handleInputChange('legalName')}
           fullWidth
           required
           disabled={!canEdit || loading}
           sx={{ mb: 3 }}
-          helperText="Your full legal name as it appears on your medical license"
+          helperText={t('components.doctorRegistration.legalNameHelper')}
         />
 
         <TextField
-          label="Specialization"
+          label={t('components.doctorRegistration.specialization')}
           value={formData.specialization}
           onChange={handleInputChange('specialization')}
           fullWidth
           required
           disabled={!canEdit || loading}
           sx={{ mb: 3 }}
-          helperText="Your medical specialization (e.g., Cardiology, Neurology, etc.)"
+          helperText={t('components.doctorRegistration.specializationHelper')}
         />
 
         {canEdit && (
@@ -239,9 +240,9 @@ export const DoctorRegistrationForm: React.FC<DoctorRegistrationFormProps> = ({
               {loading ? (
                 <CircularProgress size={20} />
               ) : existingProfile ? (
-                'Update Registration'
+                t('components.doctorRegistration.updateProfile')
               ) : (
-                'Submit Registration'
+                t('components.doctorRegistration.submitRegistration')
               )}
             </Button>
           </Box>
@@ -249,7 +250,7 @@ export const DoctorRegistrationForm: React.FC<DoctorRegistrationFormProps> = ({
 
         {!canEdit && existingProfile?.status === 'approved' && (
           <Alert severity="info" sx={{ mt: 2 }}>
-            Your registration has been approved. Contact an administrator if you need to make changes.
+            {t('components.doctorRegistration.registrationApprovedContactAdmin')}
           </Alert>
         )}
       </Box>

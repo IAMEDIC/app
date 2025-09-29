@@ -24,6 +24,7 @@ import {
 } from '@mui/icons-material';
 import { MediaSummary } from '@/types';
 import { aiService, mediaService } from '@/services/api';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface BoundingBox {
   id: string;
@@ -46,6 +47,7 @@ interface AnnotationsTabProps {
 const COLORS = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F'];
 
 export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }) => {
+  const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   
@@ -922,7 +924,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
           onClick={handleSaveAnnotations}
           disabled={saving || !hasUnsavedChanges}
         >
-          {saving ? 'Saving...' : hasUnsavedChanges ? 'Save Annotations' : 'No Changes to Save'}
+          {saving ? t('components.annotations.saving') : hasUnsavedChanges ? t('components.annotations.saveAnnotations') : t('components.annotations.noChangesToSave')}
         </Button>
       </Box>
       
@@ -932,7 +934,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Classification Results
+                {t('components.annotations.classification')}
               </Typography>
               
               <Button
@@ -945,7 +947,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
                 {loadingClassification ? (
                   <CircularProgress size={20} />
                 ) : (
-                  'Get Usefulness Prediction'
+                  t('components.annotations.getPrediction')
                 )}
               </Button>
 
@@ -963,24 +965,26 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
                 }}
               >
                 <Typography variant="body2" color="text.secondary" gutterBottom>
-                  AI Prediction:
+                  {t('components.annotations.aiPrediction')}:
                 </Typography>
                 <Typography variant="body1" fontWeight="bold">
                   {classificationPrediction === null 
-                    ? 'No prediction available. Click "Get Usefulness Prediction" to generate one.'
-                    : `The Classification Model predicts this image is ${classificationPrediction === 1 ? 'useful' : 'not useful'}`
+                    ? t('components.annotations.noPredictionAvailable')
+                    : classificationPrediction === 1 
+                      ? t('components.annotations.modelPredictsUseful')
+                      : t('components.annotations.modelPredictsNotUseful')
                   }
                 </Typography>
               </Box>
 
               <FormControl component="fieldset" fullWidth>
-                <FormLabel component="legend">Usefulness Evaluation</FormLabel>
+                <FormLabel component="legend">{t('components.annotations.usefulnessScore')}</FormLabel>
                 <RadioGroup
                   value={usefulness?.toString() || ''}
                   onChange={handleUsefulnessChange}
                 >
-                  <FormControlLabel value="1" control={<Radio />} label="Useful" />
-                  <FormControlLabel value="0" control={<Radio />} label="Not Useful" />
+                  <FormControlLabel value="1" control={<Radio />} label={t('components.annotations.useful')} />
+                  <FormControlLabel value="0" control={<Radio />} label={t('components.annotations.notUseful')} />
                 </RadioGroup>
               </FormControl>
             </CardContent>
@@ -1034,7 +1038,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
-                  Detected Structures
+                  {t('components.annotations.boundingBoxes')}
                 </Typography>
                 
                 <Button
@@ -1047,7 +1051,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
                   {loadingBoundingBoxes ? (
                     <CircularProgress size={20} />
                   ) : (
-                    'Get Bounding Box Predictions'
+                    t('components.annotations.getBoundingBoxes')
                   )}
                 </Button>
 
@@ -1062,7 +1066,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
                       return (
                         <Box sx={{ mb: 2, p: 2, border: '1px solid #eee', borderRadius: 1, bgcolor: '#f9f9f9' }}>
                           <Typography variant="subtitle2" color="text.secondary">
-                            All available classes are already present
+                            {t('components.annotations.allClassesPresent')}
                           </Typography>
                         </Box>
                       );
@@ -1071,7 +1075,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
                     return (
                       <Box sx={{ mb: 2, p: 2, border: '1px dashed #ccc', borderRadius: 1 }}>
                         <Typography variant="subtitle2" gutterBottom>
-                          Create New Box
+                          {t('components.annotations.createNewBox')}
                         </Typography>
                         
                         <FormControl fullWidth size="small" sx={{ mb: 1 }}>
@@ -1081,7 +1085,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
                             displayEmpty
                           >
                             <MenuItem value="" disabled>
-                              Select class...
+                              {t('components.annotations.selectClass')}
                             </MenuItem>
                             {availableUniqueClasses.map(className => (
                               <MenuItem key={className} value={className}>
@@ -1098,12 +1102,12 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
                           fullWidth
                           size="small"
                         >
-                          {isCreatingBox ? 'Cancel Drawing' : 'Start Drawing'}
+                          {isCreatingBox ? t('common.cancel') : t('components.annotations.startDrawing')}
                         </Button>
                         
                         {isCreatingBox && (
                           <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                            Click and drag on the image to create a new bounding box
+                            {t('components.annotations.clickAndDrag')}
                           </Typography>
                         )}
                       </Box>

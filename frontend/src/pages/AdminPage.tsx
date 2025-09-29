@@ -3,8 +3,10 @@ import { Box, Typography, Alert, CircularProgress } from '@mui/material';
 import { useAuthStore } from '@/store/authStore';
 import { AdminDashboard } from '@/components/AdminDashboard';
 import TopBar from '@/components/TopBar';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 const AdminPage: React.FC = () => {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
 
@@ -34,8 +36,8 @@ const AdminPage: React.FC = () => {
         <TopBar />
         <Box sx={{ p: 3 }}>
           <Alert severity="error">
-            <Typography variant="h6">Access Denied</Typography>
-            <Typography>You do not have administrator privileges to access this page.</Typography>
+            <Typography variant="h6">{t('errors.accessDenied')}</Typography>
+            <Typography>{t('errors.adminPrivilegesRequired')}</Typography>
           </Alert>
         </Box>
       </>

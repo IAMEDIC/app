@@ -14,10 +14,12 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import TopBar from '@/components/TopBar';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 const HomePage: React.FC = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   // Auto-redirect based on user role
   useEffect(() => {
@@ -57,10 +59,10 @@ const HomePage: React.FC = () => {
           {/* Loading state while redirect happens */}
           <Card sx={{ p: 4, mb: 4 }}>
             <Typography variant="h5" gutterBottom>
-              Redirecting...
+              {t('homepage.redirecting')}
             </Typography>
             <Typography variant="body1" color="text.secondary" paragraph>
-              Setting up your account access...
+              {t('homepage.settingUpAccess')}
             </Typography>
           </Card>
 
@@ -75,7 +77,7 @@ const HomePage: React.FC = () => {
                     onClick={handleNavigateToAdmin}
                     size="large"
                   >
-                    Admin Dashboard
+                    {t('navigation.adminDashboard')}
                   </Button>
                 </Grid>
               )}
@@ -87,7 +89,7 @@ const HomePage: React.FC = () => {
                     onClick={handleNavigateToDoctor}
                     size="large"
                   >
-                    Doctor Dashboard
+                    {t('navigation.doctorDashboard')}
                   </Button>
                 </Grid>
               )}

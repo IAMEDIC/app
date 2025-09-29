@@ -3,8 +3,10 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Box, CircularProgress, Alert, Typography } from '@mui/material';
 import { useAuthStore } from '@/store/authStore';
 import { authService } from '@/services/api';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 const CallbackPage: React.FC = () => {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { login, setError } = useAuthStore();
@@ -65,14 +67,14 @@ const CallbackPage: React.FC = () => {
       >
         <Alert severity="error" sx={{ mb: 2 }}>
           <Typography variant="h6" gutterBottom>
-            Authentication Failed
+            {t('components.callbackPage.authenticationFailed')}
           </Typography>
           <Typography variant="body2">
             {errorMessage}
           </Typography>
         </Alert>
         <Typography variant="body2" color="text.secondary">
-          Redirecting to login page...
+          {t('components.callbackPage.redirectingToLogin')}
         </Typography>
       </Box>
     );
@@ -88,10 +90,10 @@ const CallbackPage: React.FC = () => {
     >
       <CircularProgress size={60} sx={{ mb: 2 }} />
       <Typography variant="h6" gutterBottom>
-        Completing authentication...
+        {t('components.callbackPage.completingAuthentication')}
       </Typography>
       <Typography variant="body2" color="text.secondary">
-        Please wait while we complete your login.
+        {t('components.callbackPage.pleaseWaitLogin')}
       </Typography>
     </Box>
   );

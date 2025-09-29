@@ -1,5 +1,6 @@
 import React, { Component, ReactNode } from 'react';
 import { Box, Typography, Button, Alert } from '@mui/material';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface Props {
   children: ReactNode;
@@ -30,32 +31,39 @@ class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
-      return (
-        <Box
-          display="flex"
-          flexDirection="column"
-          alignItems="center"
-          justifyContent="center"
-          minHeight="100vh"
-          padding={2}
-        >
-          <Alert severity="error" sx={{ mb: 2, maxWidth: 500 }}>
-            <Typography variant="h6" gutterBottom>
-              Something went wrong
-            </Typography>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              {this.state.error?.message || 'An unexpected error occurred'}
-            </Typography>
-          </Alert>
-          <Button variant="contained" onClick={this.handleReset}>
-            Try Again
-          </Button>
-        </Box>
-      );
+      return <ErrorBoundaryContent error={this.state.error} onReset={this.handleReset} />;
     }
 
     return this.props.children;
   }
 }
+
+// Functional component to use hooks
+const ErrorBoundaryContent: React.FC<{ error?: Error; onReset: () => void }> = ({ error, onReset }) => {
+  const { t } = useTranslation();
+  
+  return (
+    <Box
+      display="flex"
+      flexDirection="column"
+      alignItems="center"
+      justifyContent="center"
+      minHeight="100vh"
+      padding={2}
+    >
+      <Alert severity="error" sx={{ mb: 2, maxWidth: 500 }}>
+        <Typography variant="h6" gutterBottom>
+          {t('components.errorBoundary.somethingWentWrong')}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" gutterBottom>
+          {error?.message || t('components.errorBoundary.unexpectedError')}
+        </Typography>
+      </Alert>
+      <Button variant="contained" onClick={onReset}>
+        {t('components.errorBoundary.tryAgain')}
+      </Button>
+    </Box>
+  );
+};
 
 export default ErrorBoundary;

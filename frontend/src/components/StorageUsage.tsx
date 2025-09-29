@@ -11,6 +11,7 @@ import {
   Warning as WarningIcon,
 } from '@mui/icons-material';
 import { StorageInfo } from '@/types';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface StorageUsageProps {
   storageInfo: StorageInfo;
@@ -23,10 +24,12 @@ export const StorageUsage: React.FC<StorageUsageProps> = ({
   showDetails = true,
   variant = 'full',
 }) => {
+  const { t } = useTranslation();
+  
   const formatBytes = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return `0 ${t('storage.bytes')}`;
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = [t('storage.bytes'), t('storage.kb'), t('storage.mb'), t('storage.gb')];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
@@ -38,9 +41,9 @@ export const StorageUsage: React.FC<StorageUsageProps> = ({
   };
 
   const getStorageStatus = (percentage: number): { label: string; color: 'success' | 'warning' | 'error' } => {
-    if (percentage >= 95) return { label: 'Storage Full', color: 'error' };
-    if (percentage >= 80) return { label: 'Storage Low', color: 'warning' };
-    return { label: 'Storage OK', color: 'success' };
+    if (percentage >= 95) return { label: t('storage.storageFull'), color: 'error' };
+    if (percentage >= 80) return { label: t('storage.storageLow'), color: 'warning' };
+    return { label: t('storage.storageOk'), color: 'success' };
   };
 
   const status = getStorageStatus(storageInfo.used_percentage);
@@ -67,7 +70,7 @@ export const StorageUsage: React.FC<StorageUsageProps> = ({
           sx={{ height: 6, borderRadius: 3 }}
         />
         <Typography variant="caption" color="text.secondary">
-          {storageInfo.used_percentage.toFixed(1)}% used
+          {t('components.storageUsage.usedPercent', { percent: storageInfo.used_percentage.toFixed(1) })}
         </Typography>
       </Box>
     );
@@ -77,7 +80,7 @@ export const StorageUsage: React.FC<StorageUsageProps> = ({
     <Paper sx={{ p: 2 }}>
       <Box display="flex" alignItems="center" gap={1} sx={{ mb: 2 }}>
         <StorageIcon />
-        <Typography variant="h6">Storage Usage</Typography>
+        <Typography variant="h6">{t('components.storageUsage.storageUsage')}</Typography>
         <Chip 
           label={status.label} 
           color={status.color} 
@@ -107,7 +110,7 @@ export const StorageUsage: React.FC<StorageUsageProps> = ({
         <Box display="flex" gap={4} flexWrap="wrap">
           <Box>
             <Typography variant="caption" color="text.secondary">
-              Used
+              {t('components.storageUsage.used')}
             </Typography>
             <Typography variant="body2" fontWeight="medium">
               {storageInfo.used_mb.toFixed(1)} MB
@@ -115,7 +118,7 @@ export const StorageUsage: React.FC<StorageUsageProps> = ({
           </Box>
           <Box>
             <Typography variant="caption" color="text.secondary">
-              Available
+              {t('components.storageUsage.available')}
             </Typography>
             <Typography variant="body2" fontWeight="medium">
               {storageInfo.available_mb.toFixed(1)} MB
@@ -123,7 +126,7 @@ export const StorageUsage: React.FC<StorageUsageProps> = ({
           </Box>
           <Box>
             <Typography variant="caption" color="text.secondary">
-              Total
+              {t('components.storageUsage.total')}
             </Typography>
             <Typography variant="body2" fontWeight="medium">
               {storageInfo.total_mb.toFixed(1)} MB
@@ -144,7 +147,7 @@ export const StorageUsage: React.FC<StorageUsageProps> = ({
         >
           <Typography variant="body2">
             <WarningIcon fontSize="small" sx={{ mr: 1, verticalAlign: 'middle' }} />
-            Storage is almost full. Delete unused media files to free up space.
+            {t('components.storageUsage.storageAlmostFull')}
           </Typography>
         </Box>
       )}
@@ -161,7 +164,7 @@ export const StorageUsage: React.FC<StorageUsageProps> = ({
         >
           <Typography variant="body2">
             <WarningIcon fontSize="small" sx={{ mr: 1, verticalAlign: 'middle' }} />
-            Storage is running low. Consider cleaning up old files.
+            {t('components.storageUsage.storageRunningLow')}
           </Typography>
         </Box>
       )}

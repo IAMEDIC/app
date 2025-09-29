@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Box, Typography } from '@mui/material';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface BoundingBox {
   id: string;
@@ -39,6 +40,7 @@ export const ImageWithAnnotations: React.FC<ImageWithAnnotationsProps> = ({
   onBoxUpdate,
   className,
 }) => {
+  const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -261,7 +263,7 @@ export const ImageWithAnnotations: React.FC<ImageWithAnnotationsProps> = ({
               }}
             >
               {box.bb_class}
-              {box.isPrediction && ' (pred)'}
+              {box.isPrediction && ` ${t('components.imageAnnotations.predictionLabel')}`}
             </Typography>
 
             {/* Resize handle (only for annotations) */}

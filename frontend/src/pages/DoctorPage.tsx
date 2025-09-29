@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Typography, Alert, CircularProgress, Button } from '@mui/material';
-import { useAuthStore } from '@/store/authStore';
 import { DoctorDashboard } from '@/components/DoctorDashboard';
 import { DoctorRegistrationForm } from '@/components/DoctorRegistrationForm';
 import { DoctorProfile } from '@/types';
@@ -8,7 +7,6 @@ import TopBar from '@/components/TopBar';
 import api from '@/services/api';
 
 const DoctorPage: React.FC = () => {
-  const { user } = useAuthStore();
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

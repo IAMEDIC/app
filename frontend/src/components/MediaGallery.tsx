@@ -31,6 +31,7 @@ import { MediaSummary } from '@/types';
 import { mediaService } from '@/services/api';
 import { AnnotationsTab } from './AnnotationsTab';
 import { VideoPlayerWithFrames } from './VideoPlayerWithFrames';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface MediaGalleryProps {
   media: MediaSummary[];
@@ -49,6 +50,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
   loading = false,
   error = null,
 }) => {
+  const { t } = useTranslation();
   const [selectedMedia, setSelectedMedia] = useState<MediaSummary | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<MediaSummary | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -57,9 +59,9 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
 
   const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return `0 ${t('storage.bytes')}`;
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = [t('storage.bytes'), t('storage.kb'), t('storage.mb'), t('storage.gb')];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
@@ -85,6 +87,10 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
       default:
         return 'default';
     }
+  };
+
+  const getStatusText = (status: string) => {
+    return t(`media.${status}`, { defaultValue: status });
   };
 
   const handleViewMedia = (mediaItem: MediaSummary) => {
@@ -343,7 +349,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
     if (videoError) {
       return (
         <Box display="flex" justifyContent="center" alignItems="center" height="400px">
-          <Typography color="error">Failed to load video</Typography>
+          <Typography color="error">{t('components.mediaGallery.videoLoadError')}</Typography>
         </Box>
       );
     }
@@ -378,10 +384,10 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
       <Box textAlign="center" p={4}>
         <VideoIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
         <Typography variant="h6" color="text.secondary" gutterBottom>
-          No Media Files
+          {t('components.mediaGallery.noMediaFiles')}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Upload images or videos to get started with your analysis.
+          {t('components.mediaGallery.getStarted')}
         </Typography>
       </Box>
     );
@@ -416,7 +422,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
                 
                 {/* Status Badge */}
                 <Chip
-                  label={mediaItem.upload_status}
+                  label={getStatusText(mediaItem.upload_status)}
                   color={getStatusColor(mediaItem.upload_status) as any}
                   size="small"
                   sx={{
@@ -442,7 +448,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
 
               {/* Actions */}
               <CardActions>
-                <Tooltip title="View">
+                <Tooltip title={t('components.mediaGallery.view')}>
                   <IconButton 
                     size="small" 
                     onClick={() => handleViewMedia(mediaItem)}
@@ -452,7 +458,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
                   </IconButton>
                 </Tooltip>
                 
-                <Tooltip title="Download">
+                <Tooltip title={t('components.mediaGallery.download')}>
                   <IconButton 
                     size="small" 
                     onClick={() => handleDownloadMedia(mediaItem)}
@@ -469,7 +475,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
                   </IconButton>
                 </Tooltip>
                 
-                <Tooltip title="Delete">
+                <Tooltip title={t('components.mediaGallery.delete')}>
                   <IconButton 
                     size="small" 
                     onClick={() => setDeleteDialog(mediaItem)}
@@ -504,7 +510,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
                   <Typography variant="h6">{selectedMedia.filename}</Typography>
                   {hasUnsavedChanges && (
                     <Chip 
-                      label="Unsaved Changes" 
+                      label={t('components.mediaGallery.unsavedChanges')} 
                       size="small" 
                       color="warning" 
                       sx={{ ml: 1 }}
@@ -523,9 +529,9 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
                   onChange={(_, newValue) => setActiveTab(newValue)}
                   sx={{ mt: 1 }}
                 >
-                  <Tab label="View" />
+                  <Tab label={t('common.view')} />
                   <Tab 
-                    label="Annotations"
+                    label={t('components.mediaGallery.annotations')}
                     icon={<AIIcon />}
                     iconPosition="start"
                   />
@@ -548,9 +554,9 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
               
               <Box mt={2}>
                 <Typography variant="body2" color="text.secondary">
-                  Size: {formatFileSize(selectedMedia.file_size)} |
-                  Type: {selectedMedia.mime_type} |
-                  Uploaded: {formatDate(selectedMedia.created_at)}
+                  {t('storage.used')}: {formatFileSize(selectedMedia.file_size)} |
+                  {t('media.type', { defaultValue: 'Type' })}: {selectedMedia.mime_type} |
+                  {t('studyView.created')}: {formatDate(selectedMedia.created_at)}
                 </Typography>
               </Box>
             </DialogContent>
@@ -567,16 +573,15 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
       >
         {deleteDialog && (
           <>
-            <DialogTitle>Delete Media File</DialogTitle>
+            <DialogTitle>{t('components.mediaGallery.deleteMedia')}</DialogTitle>
             <DialogContent>
               <Typography>
-                Are you sure you want to delete "{deleteDialog.filename}"? 
-                This action cannot be undone.
+                {t('components.mediaGallery.deleteMediaConfirm', { filename: deleteDialog.filename })}
               </Typography>
             </DialogContent>
             <DialogActions>
               <Button onClick={() => setDeleteDialog(null)}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 onClick={() => handleDeleteMedia(deleteDialog)}
@@ -584,7 +589,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
                 variant="contained"
                 disabled={actionLoading === `delete-${deleteDialog.id}`}
               >
-                {actionLoading === `delete-${deleteDialog.id}` ? 'Deleting...' : 'Delete'}
+                {actionLoading === `delete-${deleteDialog.id}` ? t('studyView.deleting') : t('common.delete')}
               </Button>
             </DialogActions>
           </>
@@ -598,18 +603,18 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Unsaved Changes</DialogTitle>
+        <DialogTitle>{t('components.mediaGallery.unsavedChanges')}</DialogTitle>
         <DialogContent>
           <Typography>
-            You have unsaved changes to your annotations. Do you want to close without saving?
+            {t('components.mediaGallery.unsavedChangesMessage')}
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowUnsavedWarning(false)}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button onClick={handleForceClose} color="error" variant="contained">
-            Close Without Saving
+            {t('components.mediaGallery.discardChanges')}
           </Button>
         </DialogActions>
       </Dialog>

@@ -29,15 +29,16 @@ import {
   Delete as DeleteIcon,
   MoreVert as MoreIcon,
 } from '@mui/icons-material';
-import { Study, StudyCreate, StudyUpdate, StorageInfo } from '@/types';
+import { Study, StudyCreate, StudyUpdate } from '@/types';
 import { studyService } from '@/services/api';
 import { StudyCreateDialog } from '@/components/StudyCreateDialog';
-import { StorageUsage } from '@/components/StorageUsage';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface DoctorDashboardProps {}
 
 export const DoctorDashboard: React.FC<DoctorDashboardProps> = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   
   // State
   const [studies, setStudies] = useState<Study[]>([]);
@@ -63,8 +64,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = () => {
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [selectedStudy, setSelectedStudy] = useState<Study | null>(null);
 
-  // Storage state
-  const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null);
+
 
   useEffect(() => {
     loadStudies();
@@ -76,10 +76,6 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = () => {
       setError(null);
       const response = await studyService.getStudies();
       setStudies(response.studies);
-      
-      // Load storage info
-      const storage = await studyService.getStorageInfo();
-      setStorageInfo(storage);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to load studies');
     } finally {
@@ -185,11 +181,11 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" component="h1" gutterBottom>
-        Doctor Dashboard
+        {t('user.doctorDashboard')}
       </Typography>
 
       <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-        Welcome to your medical analysis workspace. Create new studies or manage your existing work.
+        {t('user.doctorDashboardWelcome')}
       </Typography>
 
       {/* Error Display */}
@@ -204,11 +200,10 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = () => {
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3, height: '100%' }}>
             <Typography variant="h6" gutterBottom>
-              Create New Study
+              {t('studies.createNewStudy')}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Start a new medical imaging analysis study. Upload videos or images for 
-              blood flow analysis and AI-powered diagnostics.
+              {t('studies.createNewStudyDescription')}
             </Typography>
             <Button
               variant="contained"
@@ -218,23 +213,16 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = () => {
               fullWidth
               sx={{ mt: 2 }}
             >
-              Create New Study
+              {t('studies.createNewStudy')}
             </Button>
           </Paper>
         </Grid>
-
-        {/* Storage Usage Section */}
-        {storageInfo && (
-          <Grid item xs={12}>
-            <StorageUsage storageInfo={storageInfo} />
-          </Grid>
-        )}
 
         {/* Saved Studies Section */}
         <Grid item xs={12}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
-              Your Studies ({studies.length})
+              {t('studies.yourStudies')} ({studies.length})
             </Typography>
             
             {loading ? (
@@ -243,7 +231,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = () => {
               </Box>
             ) : studies.length === 0 ? (
               <Alert severity="info">
-                You haven't created any studies yet. Click "Create New Study" to get started.
+                {t('studies.noStudiesMessage')}
               </Alert>
             ) : (
               <Grid container spacing={2} sx={{ mt: 1 }}>
@@ -263,10 +251,10 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = () => {
                           </IconButton>
                         </Box>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                          Created: {formatDate(study.created_at)}
+                          {t('studies.created')}: {formatDate(study.created_at)}
                         </Typography>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                          Modified: {formatDate(study.updated_at)}
+                          {t('studies.modified')}: {formatDate(study.updated_at)}
                         </Typography>
                       </CardContent>
                       <CardActions>
@@ -275,14 +263,14 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = () => {
                           startIcon={<ViewIcon />}
                           onClick={() => handleViewStudy(study.id)}
                         >
-                          View
+                          {t('common.view')}
                         </Button>
                         <Button
                           size="small"
                           startIcon={<EditIcon />}
                           onClick={() => handleEditStudy(study)}
                         >
-                          Edit
+                          {t('common.edit')}
                         </Button>
                       </CardActions>
                     </Card>
@@ -304,19 +292,19 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = () => {
           <ListItemIcon>
             <ViewIcon />
           </ListItemIcon>
-          <ListItemText>View Study</ListItemText>
+          <ListItemText>{t('studies.viewStudy')}</ListItemText>
         </MenuItem>
         <MenuItem onClick={() => selectedStudy && handleEditStudy(selectedStudy)}>
           <ListItemIcon>
             <EditIcon />
           </ListItemIcon>
-          <ListItemText>Edit Alias</ListItemText>
+          <ListItemText>{t('studies.editAlias')}</ListItemText>
         </MenuItem>
         <MenuItem onClick={() => selectedStudy && handleDeleteStudy(selectedStudy)}>
           <ListItemIcon>
             <DeleteIcon />
           </ListItemIcon>
-          <ListItemText>Delete Study</ListItemText>
+          <ListItemText>{t('studies.deleteStudy')}</ListItemText>
         </MenuItem>
       </Menu>
 
@@ -337,11 +325,11 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = () => {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Edit Study Alias</DialogTitle>
+        <DialogTitle>{t('studies.editStudyAlias')}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
-            label="Study Alias"
+            label={t('studies.studyAlias')}
             type="text"
             fullWidth
             variant="outlined"
@@ -355,14 +343,14 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditStudy(null)} disabled={editLoading}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={handleEditSave}
             variant="contained"
             disabled={editLoading || !editAlias.trim()}
           >
-            {editLoading ? 'Saving...' : 'Save'}
+            {editLoading ? t('studies.saving') : t('common.save')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -374,17 +362,15 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = () => {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Delete Study</DialogTitle>
+        <DialogTitle>{t('studies.deleteStudy')}</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to delete the study "{deleteStudy?.alias}"? 
-            This action will permanently remove the study and all its media files. 
-            This cannot be undone.
+            {t('studies.deleteConfirmation', { studyName: deleteStudy?.alias || '' })}
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteStudy(null)} disabled={deleteLoading}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={handleDeleteConfirm}
@@ -392,7 +378,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = () => {
             variant="contained"
             disabled={deleteLoading}
           >
-            {deleteLoading ? 'Deleting...' : 'Delete Study'}
+            {deleteLoading ? t('studies.deleting') : t('studies.deleteStudy')}
           </Button>
         </DialogActions>
       </Dialog>

@@ -56,7 +56,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
     }
   };
 
-  const handleApprovalAction = (profile: DoctorProfile, action: 'approved' | 'denied') => {
+  const handleApprovalAction = (profile: DoctorProfile, _action: 'approved' | 'denied') => {
     setSelectedProfile(profile);
     setApprovalDialog(true);
   };

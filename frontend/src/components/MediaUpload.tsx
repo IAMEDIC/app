@@ -22,6 +22,7 @@ import {
   Error as ErrorIcon,
 } from '@mui/icons-material';
 import { MediaSummary, MediaType, StorageInfo } from '@/types';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface MediaUploadProps {
   onUpload: (file: File) => Promise<void>;
@@ -44,6 +45,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   onRemoveRecent,
   storageInfo = null,
 }) => {
+  const { t } = useTranslation();
   const [dragActive, setDragActive] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<FileWithPreview[]>([]);
 
@@ -71,19 +73,22 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   const validateFile = (file: File): string | null => {
     const maxSize = 100 * 1024 * 1024; // 100MB
     if (file.size > maxSize) {
-      return 'File size must be less than 100MB';
+      return t('components.mediaUpload.fileSizeExceeded');
     }
 
     // Check storage availability
     if (storageInfo && storageInfo.available_bytes < file.size) {
-      return `Not enough storage space. File: ${(file.size / (1024 * 1024)).toFixed(1)}MB, Available: ${storageInfo.available_mb.toFixed(1)}MB`;
+      return t('errors.notEnoughStorage', { 
+        fileSize: (file.size / (1024 * 1024)).toFixed(1), 
+        available: storageInfo.available_mb.toFixed(1) 
+      });
     }
     
     const isImage = file.type.startsWith('image/');
     const isVideo = file.type.startsWith('video/');
     
     if (!isImage && !isVideo) {
-      return 'File must be an image or video';
+      return t('components.mediaUpload.unsupportedFileType');
     }
 
     // Check specific MIME types
@@ -98,11 +103,11 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
     ];
 
     if (isImage && !supportedImageTypes.includes(file.type)) {
-      return 'Unsupported image format. Supported: JPEG, PNG, GIF, BMP, TIFF, WebP, SVG, ICO';
+      return t('components.mediaUpload.unsupportedImageFormat');
     }
 
     if (isVideo && !supportedVideoTypes.includes(file.type)) {
-      return 'Unsupported video format. Supported: MP4, AVI, MOV, WMV, WebM, 3GP, FLV, MKV, OGG, MPEG';
+      return t('components.mediaUpload.unsupportedVideoFormat');
     }
     
     return null;
@@ -184,9 +189,9 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   };
 
   const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return `0 ${t('storage.bytes')}`;
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = [t('storage.bytes'), t('storage.kb'), t('storage.mb'), t('storage.gb')];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
@@ -208,6 +213,10 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
     }
   };
 
+  const getStatusText = (status: string) => {
+    return t(`media.${status}`, { defaultValue: status });
+  };
+
   return (
     <Box>
       {/* Storage Warning */}
@@ -217,11 +226,9 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
           sx={{ mb: 2 }}
         >
           {storageInfo.used_percentage >= 95 ? (
-            <>Storage is almost full ({storageInfo.used_percentage.toFixed(1)}% used). 
-            Delete media files to free up space before uploading.</>
+            t('components.mediaUpload.storageAlmostFullUpload', { percent: storageInfo.used_percentage.toFixed(1) })
           ) : (
-            <>Storage is running low ({storageInfo.used_percentage.toFixed(1)}% used). 
-            Available space: {storageInfo.available_mb.toFixed(1)} MB</>
+            t('components.mediaUpload.storageLowUpload', { percent: storageInfo.used_percentage.toFixed(1) })
           )}
         </Alert>
       )}
@@ -246,10 +253,10 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
         <Box textAlign="center">
           <UploadIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
           <Typography variant="h6" gutterBottom>
-            Upload Media Files
+            {t('media.uploadMedia')}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Drag and drop images or videos here, or click to select files
+            {t('components.mediaUpload.dragAndDropFiles')} {t('components.mediaUpload.clickToSelect')}
           </Typography>
           <input
             type="file"
@@ -262,13 +269,13 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
           />
           <label htmlFor="media-upload-input">
             <Button variant="outlined" component="span" disabled={uploading}>
-              Select Files
+              {t('components.mediaUpload.selectFiles')}
             </Button>
           </label>
           <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-            Supported: Images (JPEG, PNG, GIF, BMP, TIFF, WebP, SVG, ICO) and Videos (MP4, AVI, MOV, WMV, WebM, 3GP, FLV, MKV, OGG, MPEG)
+            {t('components.mediaUpload.supportedFormats')}
             <br />
-            Maximum file size: 100MB
+            {t('components.mediaUpload.maxFileSize')}
           </Typography>
         </Box>
       </Paper>
@@ -277,7 +284,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
       {selectedFiles.length > 0 && (
         <Paper sx={{ p: 2, mb: 3 }}>
           <Typography variant="h6" gutterBottom>
-            Selected Files ({selectedFiles.length})
+            {t('components.mediaUpload.selectedFiles')} ({selectedFiles.length})
           </Typography>
           <List dense>
             {selectedFiles.map((file, index) => (
@@ -306,7 +313,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
               disabled={uploading || selectedFiles.length === 0}
               startIcon={<UploadIcon />}
             >
-              {uploading ? 'Uploading...' : `Upload ${selectedFiles.length} File(s)`}
+              {uploading ? t('components.mediaUpload.uploading') : t('components.mediaUpload.uploadFiles')}
             </Button>
             <Button
               variant="outlined"
@@ -320,7 +327,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
               }}
               disabled={uploading}
             >
-              Clear All
+              {t('common.remove')}
             </Button>
           </Box>
         </Paper>
@@ -330,7 +337,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
       {uploading && (
         <Paper sx={{ p: 2, mb: 3 }}>
           <Typography variant="body2" gutterBottom>
-            Uploading files...
+            {t('components.mediaUpload.pleaseWait')}
           </Typography>
           <LinearProgress />
         </Paper>
@@ -347,7 +354,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
       {recentUploads.length > 0 && (
         <Paper sx={{ p: 2 }}>
           <Typography variant="h6" gutterBottom>
-            Recent Uploads
+            {t('components.mediaUpload.recentUploads')}
           </Typography>
           <List dense>
             {recentUploads.map((media) => (
@@ -371,7 +378,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
                       <span>{formatFileSize(media.file_size)}</span>
                       <Chip 
                         size="small" 
-                        label={media.upload_status}
+                        label={getStatusText(media.upload_status)}
                         color={media.upload_status === 'uploaded' ? 'success' : 'default'}
                       />
                     </Box>

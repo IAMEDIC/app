@@ -13,6 +13,7 @@ import { Google as GoogleIcon } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authService } from '@/services/api';
 import { useAuthStore } from '@/store/authStore';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -20,6 +21,7 @@ const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated } = useAuthStore();
+  const { t } = useTranslation();
 
   // Check for error from navigation state
   useEffect(() => {
@@ -47,7 +49,7 @@ const LoginPage: React.FC = () => {
       // Redirect to Google OAuth
       window.location.href = auth_url;
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to initiate Google login');
+      setError(err.response?.data?.detail || t('auth.failedToInitiateLogin'));
       setLoading(false);
     }
   };
@@ -70,10 +72,10 @@ const LoginPage: React.FC = () => {
             style={{ maxWidth: 120, height: 'auto' }}
           />
           <Typography variant="h3" component="h1" gutterBottom sx={{ mt: 2 }}>
-            IAMEDIC
+            {t('app.title')}
           </Typography>
           <Typography variant="h6" color="text.secondary">
-            AI Medical Ultrasound Analysis
+            {t('app.subtitle')}
           </Typography>
         </Box>
 
@@ -81,10 +83,10 @@ const LoginPage: React.FC = () => {
         <Card sx={{ width: '100%', maxWidth: 400 }}>
           <CardContent sx={{ p: 4 }}>
             <Typography variant="h5" component="h2" gutterBottom textAlign="center">
-              Welcome Back
+              {t('auth.welcomeBack')}
             </Typography>
             <Typography variant="body2" color="text.secondary" textAlign="center" mb={3}>
-              Sign in with your Google account to continue
+              {t('auth.signInWithGoogle')}
             </Typography>
 
             {error && (
@@ -108,11 +110,11 @@ const LoginPage: React.FC = () => {
                 },
               }}
             >
-              {loading ? 'Connecting...' : 'Continue with Google'}
+              {loading ? t('auth.connecting') : t('auth.continueWithGoogle')}
             </Button>
 
             <Typography variant="body2" color="text.secondary" textAlign="center" mt={3}>
-              By signing in, you agree to our terms of service and privacy policy.
+              {t('auth.termsAndPrivacy')}
             </Typography>
           </CardContent>
         </Card>

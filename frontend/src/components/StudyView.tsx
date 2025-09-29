@@ -25,11 +25,12 @@ import {
   Save as SaveIcon,
   Cancel as CancelIcon,
 } from '@mui/icons-material';
-import { StudyWithMedia, StudyUpdate, MediaSummary, StorageInfo } from '@/types';
+import { StudyWithMedia, StudyUpdate, MediaSummary } from '@/types';
 import { studyService, mediaService } from '@/services/api';
 import { MediaUpload } from '@/components/MediaUpload';
 import { MediaGallery } from '@/components/MediaGallery';
-import { StorageUsage } from '@/components/StorageUsage';
+import { useStorageInfo } from '@/contexts/StorageContext';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -56,6 +57,7 @@ function TabPanel(props: TabPanelProps) {
 export const StudyView: React.FC = () => {
   const { studyId } = useParams<{ studyId: string }>();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   
   const [study, setStudy] = useState<StudyWithMedia | null>(null);
   const [loading, setLoading] = useState(true);
@@ -76,8 +78,8 @@ export const StudyView: React.FC = () => {
   const [uploadLoading, setUploadLoading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   
-  // Storage state
-  const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null);
+  // Storage context
+  const { storageInfo, refreshStorageInfo } = useStorageInfo();
 
   useEffect(() => {
     if (studyId) {
@@ -94,24 +96,14 @@ export const StudyView: React.FC = () => {
       const studyData = await studyService.getStudy(studyId);
       setStudy(studyData);
       setEditAlias(studyData.alias);
-      
-      // Load storage info
-      await loadStorageInfo();
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to load study');
+      setError(err.response?.data?.detail || t('errors.failedToLoadStudy'));
     } finally {
       setLoading(false);
     }
   };
 
-  const loadStorageInfo = async () => {
-    try {
-      const storage = await studyService.getStorageInfo();
-      setStorageInfo(storage);
-    } catch (err: any) {
-      console.error('Failed to load storage info:', err);
-    }
-  };
+
 
   const handleEditStart = () => {
     setIsEditing(true);
@@ -131,7 +123,7 @@ export const StudyView: React.FC = () => {
 
   const handleEditSave = async () => {
     if (!study || !editAlias.trim()) {
-      setEditError('Alias is required');
+      setEditError(t('errors.aliasRequired'));
       return;
     }
 
@@ -145,7 +137,7 @@ export const StudyView: React.FC = () => {
       setStudy({ ...study, ...updatedStudy });
       setIsEditing(false);
     } catch (err: any) {
-      setEditError(err.response?.data?.detail || 'Failed to update study');
+      setEditError(err.response?.data?.detail || t('errors.failedToUpdateStudy'));
     } finally {
       setEditLoading(false);
     }
@@ -159,7 +151,7 @@ export const StudyView: React.FC = () => {
       await studyService.deleteStudy(study.id);
       navigate('/doctor');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to delete study');
+      setError(err.response?.data?.detail || t('errors.failedToDeleteStudy'));
     } finally {
       setDeleteLoading(false);
       setDeleteDialog(false);
@@ -171,7 +163,10 @@ export const StudyView: React.FC = () => {
 
     // Check storage before upload
     if (storageInfo && (storageInfo.available_bytes < file.size)) {
-      setUploadError(`Not enough storage space. File size: ${(file.size / (1024 * 1024)).toFixed(1)}MB, Available: ${storageInfo.available_mb.toFixed(1)}MB`);
+      setUploadError(t('errors.notEnoughStorage', {
+        fileSize: (file.size / (1024 * 1024)).toFixed(1),
+        available: storageInfo.available_mb.toFixed(1)
+      }));
       return;
     }
 
@@ -198,9 +193,9 @@ export const StudyView: React.FC = () => {
       });
 
       // Refresh storage info after upload
-      await loadStorageInfo();
+      await refreshStorageInfo();
     } catch (err: any) {
-      setUploadError(err.response?.data?.detail || 'Failed to upload media');
+      setUploadError(err.response?.data?.detail || t('errors.failedToUploadMedia'));
     } finally {
       setUploadLoading(false);
     }
@@ -219,9 +214,9 @@ export const StudyView: React.FC = () => {
       });
 
       // Refresh storage info after deletion
-      await loadStorageInfo();
+      await refreshStorageInfo();
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to delete media');
+      setError(err.response?.data?.detail || t('errors.failedToDeleteMedia'));
     }
   };
 
@@ -241,7 +236,7 @@ export const StudyView: React.FC = () => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to download media');
+      setError(err.response?.data?.detail || t('errors.failedToDownloadMedia'));
     }
   };
 
@@ -258,7 +253,7 @@ export const StudyView: React.FC = () => {
   if (!studyId) {
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity="error">Invalid study ID</Alert>
+        <Alert severity="error">{t('errors.invalidStudyId')}</Alert>
       </Box>
     );
   }
@@ -276,7 +271,7 @@ export const StudyView: React.FC = () => {
       <Box sx={{ p: 3 }}>
         <Alert severity="error" action={
           <Button onClick={() => navigate('/doctor')}>
-            Back to Dashboard
+            {t('studyView.backToDashboard')}
           </Button>
         }>
           {error}
@@ -288,7 +283,7 @@ export const StudyView: React.FC = () => {
   if (!study) {
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity="error">Study not found</Alert>
+        <Alert severity="error">{t('errors.studyNotFound')}</Alert>
       </Box>
     );
   }
@@ -306,9 +301,9 @@ export const StudyView: React.FC = () => {
               navigate('/doctor');
             }}
           >
-            Dashboard
+            {t('navigation.dashboard')}
           </Link>
-          <Typography color="text.primary">Study Details</Typography>
+          <Typography color="text.primary">{t('studyView.studyDetails')}</Typography>
         </Breadcrumbs>
         
         <Box display="flex" alignItems="center" gap={2} sx={{ mb: 2 }}>
@@ -362,7 +357,7 @@ export const StudyView: React.FC = () => {
           <Box display="flex" gap={4} flexWrap="wrap">
             <Box>
               <Typography variant="caption" color="text.secondary">
-                Created
+                {t('studyView.created')}
               </Typography>
               <Typography variant="body2">
                 {formatDate(study.created_at)}
@@ -370,7 +365,7 @@ export const StudyView: React.FC = () => {
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary">
-                Last Modified
+                {t('studyView.lastModified')}
               </Typography>
               <Typography variant="body2">
                 {formatDate(study.updated_at)}
@@ -378,22 +373,15 @@ export const StudyView: React.FC = () => {
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary">
-                Media Files
+                {t('studyView.mediaFiles')}
               </Typography>
               <Typography variant="body2">
-                {study.media.length} files
+                {t('studyView.filesCount', { count: study.media.length })}
               </Typography>
             </Box>
           </Box>
         </Paper>
       </Box>
-
-      {/* Storage Usage */}
-      {storageInfo && (
-        <Box sx={{ mb: 3 }}>
-          <StorageUsage storageInfo={storageInfo} variant="compact" showDetails={false} />
-        </Box>
-      )}
 
       {/* Error Display */}
       {error && (
@@ -405,8 +393,8 @@ export const StudyView: React.FC = () => {
       {/* Tabs */}
       <Paper sx={{ width: '100%' }}>
         <Tabs value={currentTab} onChange={(_, newValue) => setCurrentTab(newValue)}>
-          <Tab label={`Media Files (${study.media.length})`} />
-          <Tab label="Upload Media" />
+          <Tab label={t('studyView.mediaFilesTab', { count: study.media.length })} />
+          <Tab label={t('studyView.uploadMediaTab')} />
         </Tabs>
         
         <TabPanel value={currentTab} index={0}>
@@ -437,17 +425,15 @@ export const StudyView: React.FC = () => {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Delete Study</DialogTitle>
+        <DialogTitle>{t('studyView.deleteStudy')}</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to delete the study "{study.alias}"? 
-            This action will permanently remove the study and all its media files. 
-            This cannot be undone.
+            {t('studyView.deleteStudyConfirm', { alias: study.alias })}
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteDialog(false)} disabled={deleteLoading}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={handleDelete}
@@ -455,7 +441,7 @@ export const StudyView: React.FC = () => {
             variant="contained"
             disabled={deleteLoading}
           >
-            {deleteLoading ? 'Deleting...' : 'Delete Study'}
+            {deleteLoading ? t('studyView.deleting') : t('studyView.deleteStudy')}
           </Button>
         </DialogActions>
       </Dialog>

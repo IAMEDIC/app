@@ -15,6 +15,8 @@ import StudyPage from '@/pages/StudyPage';
 // Components
 import ProtectedRoute from '@/components/ProtectedRoute';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import { StorageProvider } from '@/contexts/StorageContext';
+import { LanguageProvider } from '@/contexts/LanguageContext';
 
 // Create a theme instance
 const theme = createTheme({
@@ -77,10 +79,12 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          <Router>
-            <Routes>
+        <LanguageProvider>
+          <ThemeProvider theme={theme}>
+            <CssBaseline />
+            <StorageProvider>
+              <Router>
+              <Routes>
               {/* Public routes */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/auth/callback" element={<CallbackPage />} />
@@ -124,9 +128,11 @@ const App: React.FC = () => {
               
               {/* Catch-all redirect */}
               <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Router>
-        </ThemeProvider>
+              </Routes>
+              </Router>
+            </StorageProvider>
+          </ThemeProvider>
+        </LanguageProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );
