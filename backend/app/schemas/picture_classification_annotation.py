@@ -2,9 +2,11 @@
 Picture classification annotation schema definitions.
 """
 
+
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
+
 from pydantic import BaseModel, Field, ConfigDict
 
 from app.models.media import MediaType
@@ -37,4 +39,3 @@ class PictureClassificationAnnotationInDB(PictureClassificationAnnotationBase):
 
 class PictureClassificationAnnotation(PictureClassificationAnnotationInDB):
     """Schema for picture classification annotation responses"""
-    pass

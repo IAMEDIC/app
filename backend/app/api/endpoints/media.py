@@ -34,21 +34,18 @@ async def upload_media(
     current_user: UserModel = Depends(require_doctor_role)
 ):
     """Upload a media file to a study"""
-    logger.info("📤 Doctor %s uploading media to study %s", current_user.email, study_id)
+    logger.debug("📤 Doctor %s uploading media to study %s", current_user.email, study_id)
     media_service = MediaService(db)
     doctor_id = cast(UUID, current_user.id)
-    # Validate file
     if not file.filename:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No filename provided"
         )
     try:
-        # Read file data
         file_data = await file.read()
-        # Create media
         media = media_service.create_media(study_id, doctor_id, file_data, file.filename)
-        logger.info("📤 Media uploaded successfully: %s", media.id)
+        logger.debug("📤 Media uploaded successfully: %s", media.id)
         return MediaUploadResponse(
             media=Media.model_validate(media),
             message="Media uploaded successfully"
@@ -73,7 +70,7 @@ async def list_media(
     current_user: UserModel = Depends(require_doctor_role)
 ):
     """Get list of media files for a study"""
-    logger.info("📋 Doctor %s requesting media list for study %s", current_user.email, study_id)
+    logger.debug("📋 Doctor %s requesting media list for study %s", current_user.email, study_id)
     media_service = MediaService(db)
     doctor_id = cast(UUID, current_user.id)
     media_list = media_service.get_media_by_study(study_id, doctor_id)
@@ -97,7 +94,7 @@ async def get_media(
     current_user: UserModel = Depends(require_doctor_role)
 ):
     """Get media information"""
-    logger.info("📋 Doctor %s requesting media %s", current_user.email, media_id)
+    logger.debug("📋 Doctor %s requesting media %s", current_user.email, media_id)
     media_service = MediaService(db)
     doctor_id = cast(UUID, current_user.id)
     media = media_service.get_media_by_id(media_id, doctor_id)
@@ -117,28 +114,24 @@ async def download_study_media(
     current_user: UserModel = Depends(require_doctor_role)
 ):
     """Download a media file from a specific study"""
-    logger.info("⬇️ Doctor %s downloading media %s from study %s", current_user.email, media_id, study_id)
+    logger.debug("⬇️ Doctor %s downloading media %s from study %s", current_user.email, media_id, study_id)
     media_service = MediaService(db)
     doctor_id = cast(UUID, current_user.id)
-    
-    # Verify the media belongs to the specified study and user has access
     media = media_service.get_media_by_id(media_id, doctor_id)
-    logger.info("🔍 Media query result: %s", media)
+    logger.debug("🔍 Media query result: %s", media)
     if not media:
         logger.warning("❌ Media %s not found for doctor %s", media_id, doctor_id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Media not found or access denied"
         )
-    
-    logger.info("🔍 Media study_id: %s, Expected study_id: %s", media.study_id, study_id)
+    logger.debug("🔍 Media study_id: %s, Expected study_id: %s", media.study_id, study_id)
     if str(media.study_id) != str(study_id):
         logger.warning("❌ Media %s belongs to study %s, not %s", media_id, media.study_id, study_id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Media not found in the specified study"
         )
-    
     file_data = media_service.get_media_file(media_id, doctor_id)
     if not file_data:
         logger.warning("❌ Media file %s not found on disk", media_id)
@@ -147,8 +140,7 @@ async def download_study_media(
             detail="Media file not found"
         )
     file_bytes, mime_type, filename = file_data
-    logger.info("✅ Successfully serving media file: %s (%s)", filename, mime_type)
-    # Create streaming response
+    logger.debug("✅ Successfully serving media file: %s (%s)", filename, mime_type)
     return StreamingResponse(
         io.BytesIO(file_bytes),
         media_type=mime_type,
@@ -165,7 +157,7 @@ async def download_media(
     current_user: UserModel = Depends(require_doctor_role)
 ):
     """Download a media file"""
-    logger.info("⬇️ Doctor %s downloading media %s", current_user.email, media_id)
+    logger.debug("⬇️ Doctor %s downloading media %s", current_user.email, media_id)
     media_service = MediaService(db)
     doctor_id = cast(UUID, current_user.id)
     file_data = media_service.get_media_file(media_id, doctor_id)
@@ -175,7 +167,6 @@ async def download_media(
             detail="Media not found"
         )
     file_bytes, mime_type, filename = file_data
-    # Create streaming response
     return StreamingResponse(
         io.BytesIO(file_bytes),
         media_type=mime_type,
@@ -193,7 +184,7 @@ async def update_media(
     current_user: UserModel = Depends(require_doctor_role)
 ):
     """Update media information"""
-    logger.info("✏️ Doctor %s updating media %s", current_user.email, media_id)
+    logger.debug("✏️ Doctor %s updating media %s", current_user.email, media_id)
     media_service = MediaService(db)
     doctor_id = cast(UUID, current_user.id)
     media = media_service.update_media(media_id, doctor_id, media_data)
@@ -214,11 +205,9 @@ async def delete_study_media(
     current_user: UserModel = Depends(require_doctor_role)
 ):
     """Delete a media file from a specific study (soft delete)"""
-    logger.info("🗑️ Doctor %s deleting media %s from study %s", current_user.email, media_id, study_id)
+    logger.debug("🗑️ Doctor %s deleting media %s from study %s", current_user.email, media_id, study_id)
     media_service = MediaService(db)
     doctor_id = cast(UUID, current_user.id)
-    
-    # Verify the media belongs to the specified study and user has access
     media = media_service.get_media_by_id(media_id, doctor_id)
     if not media:
         logger.warning("❌ Media %s not found for doctor %s", media_id, doctor_id)
@@ -226,23 +215,17 @@ async def delete_study_media(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Media not found or access denied"
         )
-    
-    # Verify media belongs to the specified study
     if str(media.study_id) != str(study_id):
         logger.warning("❌ Media %s belongs to study %s, not %s", media_id, media.study_id, study_id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Media not found in the specified study"
         )
-    
-    # Perform soft delete
     success = media_service.delete_media(media_id, doctor_id)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Media not found"
         )
-    
-    logger.info("🗑️ Media soft deleted successfully: %s", media_id)
+    logger.info("🗑️ Media deleted successfully: %s", media_id)
     return {"message": "Media deleted successfully"}
-

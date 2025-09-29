@@ -4,11 +4,11 @@ Study service for business logic operations.
 
 
 import logging
-from typing import List, Optional
+from typing import Optional, cast
 from uuid import UUID
 
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, Column
 
 from app.models.study import Study
 from app.models.media import Media
@@ -81,7 +81,7 @@ class StudyService:
         skip: int = 0,
         limit: int = 100,
         active_only: bool = True
-    ) -> List[Study]:
+    ) -> list[Study]:
         """
         Get all studies for a doctor with pagination.
         Args:
@@ -129,11 +129,9 @@ class StudyService:
         Raises:
             ValueError: If new alias already exists for this doctor
         """
-        # Get the study
         db_study = self.get_study_by_id(study_id, doctor_id)
         if not db_study:
             return None
-        # Check if new alias conflicts with existing studies
         if study_data.alias and study_data.alias != db_study.alias:
             existing = self.db.query(Study).filter(
                 and_(
@@ -166,8 +164,7 @@ class StudyService:
         db_study = self.get_study_by_id(study_id, doctor_id)
         if not db_study:
             return False
-        # Soft delete
-        db_study.is_active = False # type: ignore
+        db_study.is_active = cast(Column[bool], False)
         self.db.commit()
         logger.info("Soft deleted study %s for doctor %s", study_id, doctor_id)
         return True

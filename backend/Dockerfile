@@ -1,5 +1,5 @@
 # Multi-stage Dockerfile for FastAPI Backend
-ARG PYTHON_VERSION=3.11
+ARG PYTHON_VERSION=3.12
 
 # Base image with Python
 FROM python:${PYTHON_VERSION}-slim AS base

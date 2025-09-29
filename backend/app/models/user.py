@@ -9,7 +9,9 @@ from sqlalchemy import Column, String, DateTime, Boolean, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+
 from app.core.database import Base
+
 
 # pylint: disable=not-callable,line-too-long
 class User(Base):
@@ -29,5 +31,6 @@ class User(Base):
     roles = relationship("UserRole", back_populates="user", cascade="all, delete-orphan")
     doctor_profile = relationship("DoctorProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
     studies = relationship("Study", back_populates="doctor", cascade="all, delete-orphan")
+
     def __repr__(self):
         return f"<User(email='{self.email}', name='{self.name}')>"

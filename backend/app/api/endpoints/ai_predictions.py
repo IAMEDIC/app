@@ -2,14 +2,15 @@
 AI prediction endpoints for media files.
 """
 
+
 import logging
 from typing import cast
 from uuid import UUID
 import io
 import base64
+
 import numpy as np
 from PIL import Image as PILImage
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -24,23 +25,57 @@ from app.schemas.ai_predictions import (
     SaveAnnotationsRequest, SaveAnnotationsResponse
 )
 
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
 def convert_image_to_base64_bytes(image: PILImage.Image) -> str:
-    """Convert PIL Image to base64 encoded bytes for efficient transmission"""
-    # Convert to grayscale if needed
+    """Convert PIL Image to base64 encoded bytes"""
     if image.mode != 'L':
         image = image.convert('L')
-    
-    # Convert to numpy array (uint8 - 1 byte per pixel)
     image_array = np.array(image, dtype=np.uint8)
-    
-    # Convert to bytes and then base64 encode
     image_bytes = image_array.tobytes()
     return base64.b64encode(image_bytes).decode('ascii')
+
+
+def check_media_access(
+    current_user: UserModel,
+    db: Session,
+    media_service: MediaService,
+    media_id: UUID
+) -> Media:
+    """Check if media can be accessed by the current user"""
+    doctor_id = cast(UUID, current_user.id)
+    media = db.query(Media).filter(Media.id == media_id).first()
+    if not media:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Media not found"
+        )
+    study_id = cast(UUID, media.study_id)
+    if not media_service.check_study_ownership(study_id, doctor_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: You don't have permission to access this media"
+        )
+    return media
+
+
+def check_ai_media(
+    current_user: UserModel,
+    db: Session,
+    media_service: MediaService,
+    media_id: UUID
+):
+    """Check if media can be used for AI predictions"""
+    media = check_media_access(current_user, db, media_service, media_id)
+    if media.media_type.value not in ["image", "frame"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="AI predictions are supported for images and frames only"
+        )
 
 
 @router.get("/ai/models/classifier/info", response_model=ModelInfo)
@@ -49,16 +84,14 @@ async def get_classifier_model_info(
     current_user: UserModel = Depends(require_doctor_role)
 ):
     """Get classifier model information"""
-    logger.info("📊 Doctor %s requesting classifier model info", current_user.email)
+    logger.debug("📊 Doctor %s requesting classifier model info", current_user.email)
     ai_service = AIPredictionService(db)
-    
     model_info = await ai_service.get_model_info("classifier")
     if not model_info:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Classifier service unavailable"
         )
-    
     return model_info
 
 
@@ -68,16 +101,14 @@ async def get_bb_model_info(
     current_user: UserModel = Depends(require_doctor_role)
 ):
     """Get bounding box model information"""
-    logger.info("📊 Doctor %s requesting BB model info", current_user.email)
+    logger.debug("📊 Doctor %s requesting BB model info", current_user.email)
     ai_service = AIPredictionService(db)
-    
     model_info = await ai_service.get_model_info("bb_regressor")
     if not model_info:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="BB regressor service unavailable"
         )
-    
     return model_info
 
 
@@ -89,71 +120,34 @@ async def generate_classification_prediction(
     current_user: UserModel = Depends(require_doctor_role)
 ):
     """Generate classification prediction for a media file"""
-    logger.info("🤖 Doctor %s generating classification prediction for media %s", current_user.email, media_id)
-    
-    # Verify media exists and belongs to doctor's study
+    logger.debug("🤖 Doctor %s generating classification prediction for media %s", current_user.email, media_id)
     media_service = MediaService(db)
     doctor_id = cast(UUID, current_user.id)
-    
-    media = db.query(Media).filter(Media.id == media_id).first()
-    if not media:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Media not found"
-        )
-    
-    # Check if doctor owns the study containing this media
-    study_id = cast(UUID, media.study_id)
-    if not media_service.check_study_ownership(study_id, doctor_id):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied: You don't have permission to access this media"
-        )
-    
-    # Check if media is an image or frame
-    if media.media_type.value not in ["image", "frame"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="AI predictions are supported for images and frames only"
-        )
-    
+    check_ai_media(current_user, db, media_service, media_id)
     try:
-        # Get media file and convert to grayscale array
         media_file_data = media_service.get_media_file(media_id, doctor_id)
         if not media_file_data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Media file not found"
             )
-        
-        file_data, mime_type, filename = media_file_data
-        
-        # Convert image to efficient base64 format
-        image = PILImage.open(io.BytesIO(file_data))
+        file_data, _, _ = media_file_data
+        image = PILImage.open(io.BytesIO(file_data)).convert('L')
         image_data_b64 = convert_image_to_base64_bytes(image)
-        width, height = image.size if image.mode == 'L' else image.convert('L').size
-        
-        # Generate classification prediction only
+        width, height = image.size
         ai_service = AIPredictionService(db)
         classification_prediction = await ai_service.predict_classification(
             media_id, image_data_b64, width, height, request.force_refresh
         )
-        
-        # Create initial annotation if classification prediction exists and no annotation yet
         if classification_prediction:
             from app.models.picture_classification_annotation import PictureClassificationAnnotation
             existing_classification = db.query(PictureClassificationAnnotation).filter(
                 PictureClassificationAnnotation.media_id == media_id
             ).first()
-            
             if not existing_classification:
-                # Create classification annotation with prediction-based usefulness
-                usefulness = 1 if classification_prediction.prediction > 0.5 else 0
+                usefulness = 1 if classification_prediction.prediction > 0.5 else 0 # type: ignore
                 ai_service.save_classification_annotation(media_id, usefulness)
-        
-        # Return predictions and annotations
         return ai_service.get_media_predictions(media_id)
-        
     except Exception as e:
         logger.error(f"Error generating classification prediction: {e}")
         raise HTTPException(
@@ -170,70 +164,34 @@ async def generate_bounding_box_predictions(
     current_user: UserModel = Depends(require_doctor_role)
 ):
     """Generate bounding box predictions for a media file"""
-    logger.info("🤖 Doctor %s generating bounding box predictions for media %s", current_user.email, media_id)
-    
-    # Verify media exists and belongs to doctor's study
+    logger.debug("🤖 Doctor %s generating bounding box predictions for media %s", current_user.email, media_id)
     media_service = MediaService(db)
     doctor_id = cast(UUID, current_user.id)
-    
-    media = db.query(Media).filter(Media.id == media_id).first()
-    if not media:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Media not found"
-        )
-    
-    # Check if doctor owns the study containing this media
-    study_id = cast(UUID, media.study_id)
-    if not media_service.check_study_ownership(study_id, doctor_id):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied: You don't have permission to access this media"
-        )
-    
-    # Check if media is an image or frame
-    if media.media_type.value not in ["image", "frame"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="AI predictions are supported for images and frames only"
-        )
-    
+    check_ai_media(current_user, db, media_service, media_id)
     try:
-        # Get media file and convert to grayscale array
         media_file_data = media_service.get_media_file(media_id, doctor_id)
         if not media_file_data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Media file not found"
             )
-        
-        file_data, mime_type, filename = media_file_data
-        
-        # Convert image to efficient base64 format
-        image = PILImage.open(io.BytesIO(file_data))
+        file_data, _, _ = media_file_data
+        image = PILImage.open(io.BytesIO(file_data)).convert('L')
         image_data_b64 = convert_image_to_base64_bytes(image)
-        width, height = image.size if image.mode == 'L' else image.convert('L').size
-        
-        # Generate bounding box predictions only
+        width, height = image.size
         ai_service = AIPredictionService(db)
         bb_predictions = await ai_service.predict_bounding_boxes(
             media_id, image_data_b64, width, height, request.force_refresh
         )
-        
-        # Create BB annotations from predictions if they don't exist (only for confident predictions)
         if bb_predictions:
             from app.models.picture_bb_annotation import PictureBBAnnotation
             existing_bb_annotations = db.query(PictureBBAnnotation).filter(
                 PictureBBAnnotation.media_id == media_id
             ).all()
-            
-            # Get existing annotation classes
             existing_classes = {ann.bb_class for ann in existing_bb_annotations}
-            
-            # Create annotations for new confident predictions
             bb_annotation_data = []
             for pred in bb_predictions:
-                if pred.bb_class not in existing_classes and pred.confidence > 0.5:
+                if pred.bb_class not in existing_classes and pred.confidence > 0.5: # type: ignore
                     bb_annotation_data.append({
                         "bb_class": pred.bb_class,
                         "usefulness": 1,
@@ -243,127 +201,14 @@ async def generate_bounding_box_predictions(
                         "height": pred.height,
                         "is_hidden": False
                     })
-            
             if bb_annotation_data:
                 ai_service.save_bb_annotations(media_id, bb_annotation_data)
-        
-        # Return predictions and annotations
         return ai_service.get_media_predictions(media_id)
-        
     except Exception as e:
         logger.error(f"Error generating bounding box predictions: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate bounding box predictions"
-        )
-
-
-@router.post("/media/{media_id}/predictions/generate", response_model=MediaPredictionsResponse)
-async def generate_predictions(
-    media_id: UUID,
-    request: PredictionRequest,
-    db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_doctor_role)
-):
-    """Generate AI predictions for a media file"""
-    logger.info("🤖 Doctor %s generating predictions for media %s", current_user.email, media_id)
-    
-    # Verify media exists and belongs to doctor's study
-    media_service = MediaService(db)
-    doctor_id = cast(UUID, current_user.id)
-    
-    media = db.query(Media).filter(Media.id == media_id).first()
-    if not media:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Media not found"
-        )
-    
-    # Check if doctor owns the study containing this media
-    study_id = cast(UUID, media.study_id)
-    if not media_service.check_study_ownership(study_id, doctor_id):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied: You don't have permission to access this media"
-        )
-    
-    # Check if media is an image or frame
-    if media.media_type.value not in ["image", "frame"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="AI predictions are supported for images and frames only"
-        )
-    
-    try:
-        # Get media file and convert to grayscale array
-        media_file_data = media_service.get_media_file(media_id, doctor_id)
-        if not media_file_data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Media file not found"
-            )
-        
-        file_data, mime_type, filename = media_file_data
-        
-        # Convert image to efficient base64 format
-        image = PILImage.open(io.BytesIO(file_data))
-        image_data_b64 = convert_image_to_base64_bytes(image)
-        width, height = image.size if image.mode == 'L' else image.convert('L').size
-        
-        # Generate predictions using AI service
-        ai_service = AIPredictionService(db)
-        
-        # Generate classification prediction
-        classification_prediction = await ai_service.predict_classification(
-            media_id, image_data_b64, width, height, request.force_refresh
-        )
-        
-        # Generate bounding box predictions
-        bb_predictions = await ai_service.predict_bounding_boxes(
-            media_id, image_data_b64, width, height, request.force_refresh
-        )
-        
-        # Create initial annotations from predictions if they don't exist
-        if classification_prediction:
-            # Check if classification annotation exists
-            from app.models.picture_classification_annotation import PictureClassificationAnnotation
-            existing_classification = db.query(PictureClassificationAnnotation).filter(
-                PictureClassificationAnnotation.media_id == media_id
-            ).first()
-            
-            if not existing_classification:
-                # Create classification annotation with default useful value (1)
-                ai_service.save_classification_annotation(media_id, 1)
-        
-        # Create BB annotations from predictions if they don't exist
-        if bb_predictions:
-            from app.models.picture_bb_annotation import PictureBBAnnotation
-            existing_bb_annotations = db.query(PictureBBAnnotation).filter(
-                PictureBBAnnotation.media_id == media_id
-            ).all()
-            
-            if not existing_bb_annotations:
-                bb_annotation_data = []
-                for pred in bb_predictions:
-                    bb_annotation_data.append({
-                        "bb_class": pred.bb_class,
-                        "usefulness": 1,
-                        "x_min": pred.x_min,
-                        "y_min": pred.y_min,
-                        "width": pred.width,
-                        "height": pred.height,
-                        "is_hidden": False
-                    })
-                ai_service.save_bb_annotations(media_id, bb_annotation_data)
-        
-        # Return complete predictions and annotations
-        return ai_service.get_media_predictions(media_id)
-        
-    except Exception as e:
-        logger.error(f"Error generating predictions: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to generate predictions"
         )
 
 
@@ -374,27 +219,9 @@ async def get_media_predictions(
     current_user: UserModel = Depends(require_doctor_role)
 ):
     """Get all predictions and annotations for a media file"""
-    logger.info("📋 Doctor %s requesting predictions for media %s", current_user.email, media_id)
-    
-    # Verify media exists and belongs to doctor's study
+    logger.debug("📋 Doctor %s requesting predictions for media %s", current_user.email, media_id)
     media_service = MediaService(db)
-    doctor_id = cast(UUID, current_user.id)
-    
-    media = db.query(Media).filter(Media.id == media_id).first()
-    if not media:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Media not found"
-        )
-    
-    # Check if doctor owns the study containing this media
-    study_id = cast(UUID, media.study_id)
-    if not media_service.check_study_ownership(study_id, doctor_id):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied: You don't have permission to access this media"
-        )
-    
+    check_media_access(current_user, db, media_service, media_id)
     ai_service = AIPredictionService(db)
     return ai_service.get_media_predictions(media_id)
 
@@ -407,40 +234,18 @@ async def save_annotations(
     current_user: UserModel = Depends(require_doctor_role)
 ):
     """Save clinician annotations for a media file"""
-    logger.info("💾 Doctor %s saving annotations for media %s", current_user.email, media_id)
-    
-    # Verify media exists and belongs to doctor's study
+    logger.debug("💾 Doctor %s saving annotations for media %s", current_user.email, media_id)
     media_service = MediaService(db)
-    doctor_id = cast(UUID, current_user.id)
-    
-    media = db.query(Media).filter(Media.id == media_id).first()
-    if not media:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Media not found"
-        )
-    
-    # Check if doctor owns the study containing this media
-    study_id = cast(UUID, media.study_id)
-    if not media_service.check_study_ownership(study_id, doctor_id):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied: You don't have permission to access this media"
-        )
-    
+    check_media_access(current_user, db, media_service, media_id)
     try:
         ai_service = AIPredictionService(db)
         saved_count = 0
-        
-        # Save classification annotation if provided
         if request.classification_annotation:
             result = ai_service.save_classification_annotation(
                 media_id, request.classification_annotation.usefulness
             )
             if result:
                 saved_count += 1
-        
-        # Save bounding box annotations (always process, even if empty to delete all existing)
         if request.bb_annotations is not None:
             bb_annotation_data = []
             for ann in request.bb_annotations:
@@ -453,16 +258,13 @@ async def save_annotations(
                     "height": ann.height,
                     "is_hidden": ann.is_hidden
                 })
-            
             saved_bb_annotations = ai_service.save_bb_annotations(media_id, bb_annotation_data)
             saved_count += len(saved_bb_annotations)
-        
         return SaveAnnotationsResponse(
             success=True,
             message=f"Successfully saved {saved_count} annotations",
             saved_count=saved_count
         )
-        
     except Exception as e:
         logger.error(f"Error saving annotations: {e}")
         return SaveAnnotationsResponse(

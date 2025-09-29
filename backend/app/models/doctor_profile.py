@@ -41,5 +41,6 @@ class DoctorProfile(Base):
         UniqueConstraint('user_id', name='unique_doctor_profile'),
         UniqueConstraint('matriculation_id', name='unique_matriculation_id'),
     )
+
     def __repr__(self):
         return f"<DoctorProfile(user_id='{self.user_id}', matriculation_id='{self.matriculation_id}', status='{self.status}')>"

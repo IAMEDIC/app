@@ -2,11 +2,14 @@
 Study model definition.
 """
 
+
 import uuid
+
 from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+
 from app.core.database import Base
 
 
@@ -27,5 +30,6 @@ class Study(Base):
     __table_args__ = (
         UniqueConstraint('doctor_id', 'alias', name='unique_doctor_study_alias'),
     )
+    
     def __repr__(self):
         return f"<Study(id='{self.id}', doctor_id='{self.doctor_id}', alias='{self.alias}', is_active={self.is_active})>"

@@ -2,6 +2,7 @@
 Admin endpoints for user management and MLflow proxy.
 """
 
+
 import logging
 from uuid import UUID
 import httpx
@@ -21,6 +22,7 @@ from app.schemas.user_role import UserRoleCreate
 from app.schemas.doctor_profile import DoctorProfile, DoctorProfileApproval
 from app.services.admin_service import AdminService
 
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -32,7 +34,7 @@ async def get_all_users(
     current_user: UserModel = Depends(require_admin_role)
 ):
     """Get all users with their roles and doctor profiles (admin only)"""
-    logger.info("📊 Admin %s requesting all users", current_user.email)
+    logger.debug("📊 Admin %s requesting all users", current_user.email)
     admin_service = AdminService(db)
     return admin_service.get_all_users_with_roles()
 
@@ -44,7 +46,7 @@ async def get_user_by_id(
     current_user: UserModel = Depends(require_admin_role)
 ):
     """Get a specific user by ID with roles and doctor profile (admin only)"""
-    logger.info("📊 Admin %s requesting user %s", current_user.email, user_id)
+    logger.debug("📊 Admin %s requesting user %s", current_user.email, user_id)
     admin_service = AdminService(db)
     user = admin_service.get_user_with_roles(user_id)
     if not user:
@@ -63,7 +65,7 @@ async def assign_user_role(
     current_user: UserModel = Depends(require_admin_role)
 ):
     """Assign a role to a user (admin only)"""
-    logger.info("📊 Admin %s assigning role %s to user %s",
+    logger.debug("📊 Admin %s assigning role %s to user %s",
                current_user.email, role_data.role, user_id)
     admin_service = AdminService(db)
     user = admin_service.get_user_with_roles(user_id)
@@ -90,7 +92,7 @@ async def remove_user_role(
     current_user: UserModel = Depends(require_admin_role)
 ):
     """Remove a role from a user (admin only)"""
-    logger.info("📊 Admin %s removing role %s from user %s",
+    logger.debug("📊 Admin %s removing role %s from user %s",
                current_user.email, role, user_id)
     admin_service = AdminService(db)
     user = admin_service.get_user_with_roles(user_id)
@@ -115,7 +117,7 @@ async def get_pending_doctor_registrations(
     current_user: UserModel = Depends(require_admin_role)
 ):
     """Get doctor registrations by status (admin only)"""
-    logger.info("📊 Admin %s requesting doctor registrations with status %s",
+    logger.debug("📊 Admin %s requesting doctor registrations with status %s",
                current_user.email, status_filter)
     admin_service = AdminService(db)
     return admin_service.get_doctor_profiles_by_status(status_filter)
@@ -129,7 +131,7 @@ async def approve_doctor_registration(
     current_user: UserModel = Depends(require_admin_role)
 ):
     """Approve or deny a doctor registration (admin only)"""
-    logger.info("📊 Admin %s updating doctor profile %s to status %s",
+    logger.debug("📊 Admin %s updating doctor profile %s to status %s",
                current_user.email, profile_id, approval_data.status)
     admin_service = AdminService(db)
     profile = admin_service.update_doctor_profile_status(
@@ -143,7 +145,7 @@ async def approve_doctor_registration(
     if approval_data.status == DoctorProfileStatus.APPROVED:
         role_data = UserRoleCreate(user_id=profile.user_id, role=UserRoleType.DOCTOR)
         admin_service.assign_role_to_user(role_data)
-        logger.info("📊 Automatically assigned doctor role to user %s", profile.user_id)
+        logger.debug("📊 Automatically assigned doctor role to user %s", profile.user_id)
     return {"message": f"Doctor registration {approval_data.status.value} successfully",
             "profile": profile}
 
@@ -160,7 +162,7 @@ async def delete_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot delete your own account"
         )
-    logger.info("📊 Admin %s deleting user %s", current_user.email, user_id)
+    logger.debug("📊 Admin %s deleting user %s", current_user.email, user_id)
     admin_service = AdminService(db)
     user = admin_service.get_user_with_roles(user_id)
     if not user:
@@ -180,16 +182,13 @@ async def mlflow_proxy(
     current_user: UserModel = Depends(require_admin_role)
 ):
     """Proxy MLflow requests for admin users only"""
-    logger.info("📊 Admin %s accessing MLflow path: %s", current_user.email, path)
-    # Construct MLflow URL
+    logger.debug("📊 Admin %s accessing MLflow path: %s", current_user.email, path)
     mlflow_url = f"{settings.mlflow_uri.rstrip('/')}/{path}"
-    # Get query parameters
     query_params = str(request.url.query)
     if query_params:
         mlflow_url += f"?{query_params}"
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
-            # Forward the request to MLflow
             response = await client.request(
                 method=request.method,
                 url=mlflow_url,
@@ -197,7 +196,6 @@ async def mlflow_proxy(
                         if k.lower() not in ['host', 'authorization']},
                 content=await request.body() if request.method in ["POST", "PUT", "PATCH"] else None
             )
-            # Return response
             return StreamingResponse(
                 iter([response.content]),
                 status_code=response.status_code,

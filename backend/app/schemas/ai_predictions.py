@@ -2,14 +2,16 @@
 AI/ML service related schema definitions.
 """
 
+
 from typing import List, Optional
 from uuid import UUID
+
 from pydantic import BaseModel, Field
 
-from .picture_classification_prediction import PictureClassificationPrediction
-from .picture_classification_annotation import PictureClassificationAnnotation
-from .picture_bb_prediction import PictureBBPrediction
-from .picture_bb_annotation import PictureBBAnnotation
+from app.schemas.picture_classification_prediction import PictureClassificationPrediction
+from app.schemas.picture_classification_annotation import PictureClassificationAnnotation
+from app.schemas.picture_bb_prediction import PictureBBPrediction
+from app.schemas.picture_bb_annotation import PictureBBAnnotation
 
 
 class ModelInfo(BaseModel):
@@ -50,6 +52,7 @@ class ClassificationAnnotationSave(BaseModel):
     """Simple schema for saving classification annotation"""
     usefulness: int = Field(..., ge=0, le=1, description="Clinician assessment: 0 (not useful) or 1 (useful)")
 
+
 class BoundingBoxAnnotationSave(BaseModel):
     """Simple schema for saving bounding box annotation"""
     bb_class: str = Field(..., min_length=1, max_length=100, description="Bounding box class name")
@@ -59,6 +62,7 @@ class BoundingBoxAnnotationSave(BaseModel):
     width: float = Field(..., gt=0, description="Bounding box width")
     height: float = Field(..., gt=0, description="Bounding box height")
     is_hidden: bool = Field(default=False, description="Whether annotation is hidden for model training")
+
 
 class SaveAnnotationsRequest(BaseModel):
     """Schema for saving clinician annotations"""

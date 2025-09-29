@@ -2,9 +2,11 @@
 Media schema definitions.
 """
 
+
 from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
+
 from pydantic import BaseModel, Field, ConfigDict
 
 from app.models.media import MediaType, UploadStatus

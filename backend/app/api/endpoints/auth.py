@@ -11,6 +11,7 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request#, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
+from jose import jwt
 
 from app.core.database import get_db
 from app.core.security import create_access_token
@@ -26,6 +27,7 @@ from app.schemas.user import (
     UserCreate
 )
 from app.models.user import User as UserModel
+from app.models.user_role import UserRole as UserRoleModel
 
 
 logger = logging.getLogger(__name__)
@@ -72,20 +74,19 @@ async def get_google_auth_url(
         force_consent: Whether to force the consent screen (useful for first-time users)
     """
     try:
-        # Check if user is already authenticated and has valid tokens
         if current_user and not force_consent:
             r_token = getattr(current_user, "refresh_token", None)
             if r_token:
-                logger.info("🔐 User already has valid tokens, generating OAuth URL without consent")
+                logger.debug("🔐 User already has valid tokens, generating OAuth URL without consent")
                 force_consent = False
             else:
-                logger.info("🔐 User authenticated but no refresh token, forcing consent")
+                logger.debug("🔐 User authenticated but no refresh token, forcing consent")
                 force_consent = True
         else:
-            logger.info("🔐 Generating Google OAuth URL (force_consent=%s)", force_consent)
+            logger.debug("🔐 Generating Google OAuth URL (force_consent=%s)", force_consent)
         oauth_service = GoogleOAuthService()
         auth_url, _ = oauth_service.get_authorization_url(force_consent=force_consent)
-        logger.info("✅ Successfully generated OAuth URL")
+        logger.debug("✅ Successfully generated OAuth URL")
         return GoogleAuthURL(auth_url=auth_url)
     except Exception as e:
         logger.error("❌ Failed to generate Google auth URL: %s", e, exc_info=True)
@@ -103,12 +104,12 @@ async def google_callback(
 ):
     """Handle Google OAuth callback"""
     try:
-        logger.info("🔄 Processing OAuth callback with state: %s", state)
+        logger.debug("🔄 Processing OAuth callback with state: %s", state)
         oauth_service = GoogleOAuthService()
         token_data = oauth_service.exchange_code_for_tokens(code, state)
         user_service = UserService(db)
         user_info = token_data['user_info']
-        logger.info("👤 OAuth user info received: email=%s, name=%s",
+        logger.debug("👤 OAuth user info received: email=%s, name=%s",
                    user_info['email'], user_info.get('name', 'N/A'))
         user = user_service.get_by_email(user_info['email'])
         if not user:
@@ -120,22 +121,19 @@ async def google_callback(
             user = user_service.create(user_create)
             logger.info("🆕 Created new user: %s", user_info['email'])
         else:
-            logger.info("🔄 Existing user login: %s", user_info['email'])
-        # Update user tokens
+            logger.debug("🔄 Existing user login: %s", user_info['email'])
         user_service.update_tokens(
             str(user.id),
             access_token=token_data['access_token'],
             refresh_token=token_data['refresh_token'],
             token_expires_at=token_data['expires_at']
         )
-        logger.info("🔑 Updated OAuth tokens for user: %s", user.email)
-        # Create JWT token for the application
+        logger.debug("🔑 Updated OAuth tokens for user: %s", user.email)
         access_token = create_access_token(
             data={"sub": user.email},
             expires_delta=timedelta(minutes=settings.access_token_expire_minutes)
         )
-        logger.info("🎫 Generated JWT token for user: %s", user.email)
-        # Redirect to frontend with token
+        logger.debug("🎫 Generated JWT token for user: %s", user.email)
         frontend_url = "http://localhost:3000"
         callback_params = {
             "token": access_token,
@@ -144,18 +142,16 @@ async def google_callback(
             "name": user.name
         }
         redirect_url = f"{frontend_url}/auth/callback?{urlencode(callback_params)}"
-        logger.info("🔄 Redirecting user %s to frontend", user.email)
+        logger.debug("🔄 Redirecting user %s to frontend", user.email)
         return RedirectResponse(url=redirect_url, status_code=302)
     except ValueError as e:
         logger.error("❌ OAuth callback validation error: %s", e, exc_info=True)
-        # Redirect to frontend with error
         frontend_url = "http://localhost:3000"
         error_params = {"error": str(e)}
         redirect_url = f"{frontend_url}/auth/callback?{urlencode(error_params)}"
         return RedirectResponse(url=redirect_url, status_code=302)
     except Exception as e: # pylint: disable=broad-except
         logger.error("❌ OAuth callback error: %s", e, exc_info=True)
-        # Redirect to frontend with error
         frontend_url = "http://localhost:3000"
         error_params = {"error": str(e)}
         redirect_url = f"{frontend_url}/auth/callback?{urlencode(error_params)}"
@@ -168,15 +164,10 @@ async def get_current_user_info(
     db: Session = Depends(get_db)
 ):
     """Get current user information with roles"""
-    logger.info("👤 User info requested for: %s", current_user.email)
-    
-    # Get user roles
-    from app.models.user_role import UserRole as UserRoleModel
+    logger.debug("👤 User info requested for: %s", current_user.email)
     user_roles = db.query(UserRoleModel).filter(
         UserRoleModel.user_id == current_user.id
     ).all()
-    
-    # Create user dict with roles (using camelCase for frontend consistency)
     user_dict = {
         'id': str(current_user.id),
         'email': current_user.email,
@@ -187,7 +178,6 @@ async def get_current_user_info(
         'updatedAt': current_user.updated_at.isoformat(),
         'roles': [role.role for role in user_roles]
     }
-    
     return UserWithRoles(**user_dict)
 
 
@@ -198,7 +188,7 @@ async def logout(
 ):
     """Logout user (clear tokens)"""
     try:
-        logger.info("🚪 User logout initiated: %s", current_user.email)
+        logger.debug("🚪 User logout initiated: %s", current_user.email)
         user_service = UserService(db)
         user_service.update_tokens(
             str(current_user.id),
@@ -206,7 +196,7 @@ async def logout(
             refresh_token=None,
             token_expires_at=None
         )
-        logger.info("✅ User successfully logged out: %s", current_user.email)
+        logger.debug("✅ User successfully logged out: %s", current_user.email)
         return {"message": "Successfully logged out"}
     except Exception as e:
         logger.error("❌ Logout error for user %s: %s", current_user.email, e, exc_info=True)
@@ -223,20 +213,14 @@ async def refresh_token(
 ):
     """Refresh access token using stored refresh token"""
     try:
-        # Extract user email from expired JWT without validation
         auth_header = request.headers.get("authorization")
         if not auth_header or not auth_header.startswith("Bearer "):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Authorization header required"
             )
-        
         token = auth_header.split(" ")[1]
-        
-        # Decode JWT without verification to get user email
-        from jose import jwt
         try:
-            # Decode without verification to get the payload
             payload = jwt.get_unverified_claims(token)
             email = payload.get("sub")
             if not email:
@@ -249,10 +233,7 @@ async def refresh_token(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token format"
             )
-        
         logger.info("🔄 Token refresh requested for user: %s", email)
-        
-        # Get user from database
         user_service = UserService(db)
         user = user_service.get_by_email(email)
         if not user or user.is_active is False:
@@ -261,8 +242,6 @@ async def refresh_token(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User not found or inactive"
             )
-        
-        # Check if user has refresh token
         r_token: Optional[str] = getattr(user, "refresh_token", None)
         if not r_token:
             logger.warning("⚠️ No refresh token available for user: %s", email)
@@ -270,24 +249,17 @@ async def refresh_token(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="No refresh token available. Please log in again."
             )
-        
-        # Refresh Google access token
         oauth_service = GoogleOAuthService()
         token_data = oauth_service.refresh_access_token(r_token)
-        
-        # Update stored tokens
         user_service.update_tokens(
             str(user.id),
             access_token=token_data['access_token'],
             token_expires_at=token_data['expires_at']
         )
-        
-        # Create new JWT token
         access_token = create_access_token(
             data={"sub": user.email},
             expires_delta=timedelta(minutes=settings.access_token_expire_minutes)
         )
-        
         logger.info("✅ Token successfully refreshed for user: %s", email)
         return LoginResponse(
             user=User.model_validate(user),

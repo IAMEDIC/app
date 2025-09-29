@@ -2,6 +2,7 @@
 User role model definition.
 """
 
+
 import uuid
 from enum import Enum
 
@@ -9,6 +10,7 @@ from sqlalchemy import Column, String, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+
 from app.core.database import Base
 
 
@@ -33,5 +35,6 @@ class UserRole(Base):
     __table_args__ = (
         UniqueConstraint('user_id', 'role', name='unique_user_role'),
     )
+
     def __repr__(self):
         return f"<UserRole(user_id='{self.user_id}', role='{self.role}')>"

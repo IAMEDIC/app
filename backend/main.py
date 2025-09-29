@@ -21,7 +21,7 @@ from app.services.admin_service import AdminService
 
 # Configure comprehensive logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG if settings.debug else logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
         logging.StreamHandler(),  # Console output for Docker
@@ -32,14 +32,16 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 uvicorn_logger = logging.getLogger("uvicorn")
 access_logger = logging.getLogger("uvicorn.access")
+httpcore_logger = logging.getLogger("httpcore")
+httpx_logger = logging.getLogger("httpx")
 
-# Ensure uvicorn access logs are visible
-access_logger.setLevel(logging.INFO)
+httpcore_logger.setLevel(logging.ERROR)
+httpx_logger.setLevel(logging.ERROR)
 
 
 @asynccontextmanager
 # pylint: disable=unused-argument
-async def lifespan(app: FastAPI):
+async def lifespan(fastapi_app: FastAPI):
     """Application lifespan events"""
     # Startup
     logger.info("🚀 Starting IAMEDIC Backend application v%s", settings.version)
@@ -99,11 +101,11 @@ async def initialize_admin_user():
                     )
                     db.add(new_admin_role)
                     db.commit()
-                    logger.info("👑 Admin role assigned to %s", settings.init_admin_email)
+                    logger.debug("👑 Admin role assigned to %s", settings.init_admin_email)
                 else:
-                    logger.info("👑 Admin role already exists for %s", settings.init_admin_email)
+                    logger.debug("👑 Admin role already exists for %s", settings.init_admin_email)
             else:
-                logger.info("⚠️ Admin user %s not found. Please register first.", settings.init_admin_email)
+                logger.debug("⚠️ Admin user %s not found. Please register first.", settings.init_admin_email)
         finally:
             db.close()
     except Exception as e: # pylint: disable=broad-except
@@ -138,7 +140,7 @@ async def logging_middleware(request: Request, call_next):
     """Middleware to log requests and responses"""
     start_time = time.time()
     # Log incoming request
-    logger.info(
+    logger.debug(
         "📥 Incoming request: %s %s from %s:%s",
         request.method,
         request.url.path,
@@ -149,7 +151,7 @@ async def logging_middleware(request: Request, call_next):
     # Calculate processing time
     process_time = time.time() - start_time
     # Log response
-    logger.info(
+    logger.debug(
         "📤 Response: %s %s -> %d (%dms)",
         request.method,
         request.url.path,

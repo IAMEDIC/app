@@ -2,9 +2,11 @@
 Picture classification prediction schema definitions.
 """
 
+
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
+
 from pydantic import BaseModel, Field, ConfigDict
 
 from app.models.media import MediaType
@@ -39,4 +41,3 @@ class PictureClassificationPredictionInDB(PictureClassificationPredictionBase):
 
 class PictureClassificationPrediction(PictureClassificationPredictionInDB):
     """Schema for picture classification prediction responses"""
-    pass

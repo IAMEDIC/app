@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import Tuple, Optional
 from dataclasses import dataclass
 
-# Try to import magic with fallback
 try:
     import magic
     HAS_MAGIC = True
@@ -32,7 +31,7 @@ class FileInfo:
     filename: str
     file_size: int
     mime_type: str
-    media_type: str  # 'image' or 'video'
+    media_type: str
 
 
 class FileStorageService:
@@ -56,7 +55,6 @@ class FileStorageService:
         'video/x-ms-wmv', 'video/webm', 'video/3gpp', 'video/x-flv',
         'video/x-matroska', 'video/ogg'
     }
-    
     # Extended MIME type mapping for common file extensions
     EXTENSION_MIME_MAP = {
         # Images
@@ -108,19 +106,14 @@ class FileStorageService:
         """
         if HAS_MAGIC:
             try:
-                # Try to detect from file content first (more reliable)
                 mime_type = magic.from_buffer(file_data, mime=True)
                 if mime_type and mime_type != 'application/octet-stream':
                     return mime_type
             except Exception:  # pylint: disable=broad-except
                 pass
-        
-        # Try our custom extension mapping first
         file_ext = Path(filename).suffix.lower()
         if file_ext in self.EXTENSION_MIME_MAP:
             return self.EXTENSION_MIME_MAP[file_ext]
-        
-        # Fallback to standard mimetypes module
         mime_type, _ = mimetypes.guess_type(filename)
         return mime_type or 'application/octet-stream'
 
@@ -141,12 +134,10 @@ class FileStorageService:
         Raises:
             ValueError: If file is invalid
         """
-        # Check file size
         if len(file_data) > self.MAX_FILE_SIZE:
             raise ValueError(f"File size exceeds maximum limit of {self.MAX_FILE_SIZE / (1024*1024):.1f}MB")
         if len(file_data) == 0:
             raise ValueError("File is empty")
-        # Detect and validate MIME type
         mime_type = self._detect_mime_type(file_data, filename)
         media_type = self._get_media_type(mime_type)
         return mime_type, media_type
@@ -163,12 +154,9 @@ class FileStorageService:
             ValueError: If file is invalid or too large
             OSError: If file cannot be written
         """
-        # Validate file
         mime_type, media_type = self._validate_file(file_data, filename)
-        # Generate unique file ID
         file_id = str(uuid.uuid4())
         file_path = self._get_file_path(file_id)
-        # Write file to storage
         try:
             with open(file_path, 'wb') as f:
                 f.write(file_data)
@@ -199,8 +187,6 @@ class FileStorageService:
         try:
             with open(file_path, 'rb') as f:
                 file_data = f.read()
-            
-            # Re-detect MIME type for response
             if HAS_MAGIC:
                 try:
                     mime_type = magic.from_buffer(file_data, mime=True)
@@ -208,9 +194,7 @@ class FileStorageService:
                     mime_type = 'application/octet-stream'
             else:
                 mime_type = 'application/octet-stream'
-            
             return file_data, mime_type
-            
         except OSError as e:
             raise OSError(f"Failed to read file: {e}") from e
 

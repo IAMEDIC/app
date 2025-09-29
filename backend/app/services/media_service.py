@@ -6,6 +6,7 @@ Media service for business logic operations.
 import logging
 from typing import List, Optional, Tuple
 from uuid import UUID
+
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -76,10 +77,8 @@ class MediaService:
             ValueError: If study doesn't belong to doctor or storage issues
             OSError: If file cannot be stored
         """
-        # Verify study ownership
         if not self.check_study_ownership(study_id, doctor_id):
             raise ValueError("Study not found or access denied")
-        # Check storage availability
         doctor_file_ids = self.get_doctor_file_ids(doctor_id)
         if not self.file_storage.check_storage_availability(doctor_file_ids, len(file_data)):
             storage_info = self.file_storage.get_storage_info(doctor_file_ids)
@@ -87,42 +86,31 @@ class MediaService:
                 f"Storage limit exceeded. Used: {storage_info['used_mb']:.1f}MB/"
                 f"{storage_info['total_mb']:.1f}MB"
             )
-        # Store file
         file_info: FileInfo = self.file_storage.create_file(file_data, filename)
-        logger.info("🔍 Step 1 - file_info.media_type: %s (type: %s)", file_info.media_type, type(file_info.media_type))
-        
-        # Create media record
+        logger.debug("🔍 Step 1 - file_info.media_type: %s (type: %s)", file_info.media_type, type(file_info.media_type))
         media_type_enum = MediaType(file_info.media_type)
-        logger.info("🔍 Step 2 - MediaType enum: %s (type: %s)", media_type_enum, type(media_type_enum))
-        logger.info("🔍 Step 2b - MediaType enum value: %s", media_type_enum.value)
-        
+        logger.debug("🔍 Step 2 - MediaType enum: %s (type: %s)", media_type_enum, type(media_type_enum))
         media_data = MediaCreate(
             study_id=study_id,
             filename=file_info.filename,
             file_path=file_info.file_id,
             file_size=file_info.file_size,
             mime_type=file_info.mime_type,
-            media_type=media_type_enum  # Convert string to enum
+            media_type=media_type_enum
         )
-        logger.info("🔍 Step 3 - media_data.media_type: %s (type: %s)", media_data.media_type, type(media_data.media_type))
-        
+        logger.debug("🔍 Step 3 - media_data.media_type: %s (type: %s)", media_data.media_type, type(media_data.media_type))
         model_dump_result = media_data.model_dump(mode='python')
-        logger.info("🔍 Step 4 - model_dump result: %s", model_dump_result)
-        logger.info("🔍 Step 4b - model_dump media_type: %s (type: %s)", model_dump_result.get('media_type'), type(model_dump_result.get('media_type')))
-        logger.info("🔍 Step 4c - model_dump upload_status: %s (type: %s)", model_dump_result.get('upload_status'), type(model_dump_result.get('upload_status')))
-        
-        # Create Media object with explicit enum conversions
+        logger.debug("🔍 Step 4 - model_dump result: %s", model_dump_result)
         db_media = Media(
             study_id=model_dump_result['study_id'],
             filename=model_dump_result['filename'],
             file_path=model_dump_result['file_path'],
             file_size=model_dump_result['file_size'],
             mime_type=model_dump_result['mime_type'],
-            media_type=media_type_enum,  # Use the original enum object
-            upload_status=UploadStatus.UPLOADED  # Use enum object directly
+            media_type=media_type_enum,
+            upload_status=UploadStatus.UPLOADED
         )
-        logger.info("🔍 Step 5 - db_media.media_type: %s (type: %s)", db_media.media_type, type(db_media.media_type))
-        logger.info("🔍 Step 5b - db_media.upload_status: %s (type: %s)", db_media.upload_status, type(db_media.upload_status))
+        logger.debug("🔍 Step 5 - db_media.media_type: %s (type: %s)", db_media.media_type, type(db_media.media_type))
         self.db.add(db_media)
         self.db.commit()
         self.db.refresh(db_media)
@@ -154,13 +142,12 @@ class MediaService:
         Returns:
             List of media objects
         """
-        # Verify study ownership first
         if not self.check_study_ownership(study_id, doctor_id):
             return []
         return self.db.query(Media).filter(
             Media.study_id == study_id,
             Media.is_active,
-            Media.media_type.in_([MediaType.IMAGE, MediaType.VIDEO])  # Exclude frames
+            Media.media_type.in_([MediaType.IMAGE, MediaType.VIDEO])
         ).order_by(Media.created_at.desc()).all()
 
     def update_media(
@@ -181,7 +168,6 @@ class MediaService:
         db_media = self.get_media_by_id(media_id, doctor_id)
         if not db_media:
             return None
-        # Update media fields
         update_data = media_data.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(db_media, field, value)
@@ -202,7 +188,6 @@ class MediaService:
         db_media = self.get_media_by_id(media_id, doctor_id)
         if not db_media:
             return False
-        # Soft delete: set is_active to False
         self.db.query(Media).filter(Media.id == media_id).update({"is_active": False})
         self.db.commit()
         logger.info("Soft deleted media %s", media_id)

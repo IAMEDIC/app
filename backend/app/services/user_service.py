@@ -80,7 +80,7 @@ class UserService:
         token_expires_at: Optional[datetime] = None
     ) -> Optional[User]:
         """Update user OAuth tokens"""
-        logger.info("🔑 Updating tokens for user ID: %s", user_id)
+        logger.debug("🔑 Updating tokens for user ID: %s", user_id)
         db_user = self.get_by_id(user_id)
         if not db_user:
             logger.warning("⚠️ User not found for token update: %s", user_id)
@@ -97,7 +97,7 @@ class UserService:
             token_updates.append("expires_at")
         self.db.commit()
         self.db.refresh(db_user)
-        logger.info("✅ Updated tokens for user %s: %s", db_user.email, ", ".join(token_updates))
+        logger.debug("✅ Updated tokens for user %s: %s", db_user.email, ", ".join(token_updates))
         return db_user
 
     def deactivate(self, user_id: str) -> Optional[User]:

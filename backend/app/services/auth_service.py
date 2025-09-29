@@ -4,13 +4,13 @@ Service to handle Google OAuth2 authentication
 
 import secrets
 import logging
-from typing import Dict, Any
+from typing import Any
 
 import requests
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
-# from googleapiclient.discovery import build
+
 from app.core.config import settings
 from app.core.cache import redis_client
 
@@ -54,12 +54,11 @@ class GoogleOAuthService:
             'include_granted_scopes': 'true',
             'state': state,
         }
-        # Only force consent if explicitly requested (e.g., for first-time users)
         if force_consent:
             auth_params['prompt'] = 'consent'
-            logger.info("Generated OAuth URL with forced consent and state: %s", state)
+            logger.debug("Generated OAuth URL with forced consent and state: %s", state)
         else:
-            logger.info("Generated OAuth URL with state: %s", state)
+            logger.debug("Generated OAuth URL with state: %s", state)
         authorization_url, _ = flow.authorization_url(**auth_params)
         return authorization_url, state
 
@@ -68,21 +67,21 @@ class GoogleOAuthService:
         logger.debug("🔍 Verifying OAuth state: %s", state)
         stored_state = redis_client.get(f"oauth_state:{state}")
         if stored_state:
-            redis_client.delete(f"oauth_state:{state}")  # Use once
+            redis_client.delete(f"oauth_state:{state}")
             logger.info("✅ OAuth state verified successfully")
             return True
         logger.warning("⚠️ Invalid or expired OAuth state: %s", state)
         return False
 
-    def exchange_code_for_tokens(self, code: str, state: str) -> Dict[str, Any]:
+    def exchange_code_for_tokens(self, code: str, state: str) -> dict[str, Any]:
         """Exchange authorization code for tokens and user info"""
-        logger.info("🔄 Starting token exchange process")
+        logger.debug("🔄 Starting token exchange process")
         if not self.verify_state(state):
             logger.error("❌ Token exchange failed: Invalid or expired state parameter")
             raise ValueError("Invalid or expired state parameter")
         return self._direct_token_exchange(code)
 
-    def _direct_token_exchange(self, code: str) -> Dict[str, Any]:
+    def _direct_token_exchange(self, code: str) -> dict[str, Any]:
         """Direct token exchange without strict scope validation"""
         token_url = "https://oauth2.googleapis.com/token"
         token_data = {
@@ -99,7 +98,6 @@ class GoogleOAuthService:
             token_response.raise_for_status()
             tokens = token_response.json()
             logger.info("✅ Token exchange successful")
-            # Get user info using the access token
             user_info_url = "https://www.googleapis.com/oauth2/v2/userinfo"
             headers = {'Authorization': f"Bearer {tokens['access_token']}"}
             logger.info("🔄 Fetching user information from Google")
@@ -126,9 +124,9 @@ class GoogleOAuthService:
                 logger.error("❌ Response content: %s", e.response.text)
             raise e
 
-    def refresh_access_token(self, refresh_token: str) -> Dict[str, Any]:
+    def refresh_access_token(self, refresh_token: str) -> dict[str, Any]:
         """Refresh access token using refresh token"""
-        logger.info("🔄 Refreshing access token")
+        logger.debug("🔄 Refreshing access token")
         try:
             credentials = Credentials(
                 token=None,
@@ -139,7 +137,7 @@ class GoogleOAuthService:
             )
             request = Request()
             credentials.refresh(request)
-            logger.info("✅ Access token refreshed successfully")
+            logger.debug("✅ Access token refreshed successfully")
             return {
                 'access_token': credentials.token,
                 'expires_at': credentials.expiry

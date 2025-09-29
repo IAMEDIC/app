@@ -88,10 +88,8 @@ async def get_study(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Study not found"
         )
-    # Get media for the study
     media_list = media_service.get_media_by_study(study_id, doctor_id)
     media_summaries = [MediaSummary.model_validate(media) for media in media_list]
-    # Create response with media
     study_dict = Study.model_validate(study).model_dump()
     study_dict["media"] = media_summaries
     return StudyWithMedia(**study_dict)

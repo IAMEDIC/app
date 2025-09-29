@@ -1,5 +1,9 @@
-# Import all schemas here
-from .user import (
+"""
+Schemas package
+"""
+
+
+from app.schemas.user import (
     User,
     UserCreate,
     UserUpdate,
@@ -11,20 +15,20 @@ from .user import (
     GoogleCallback,
     LoginResponse,
 )
-from .user_role import (
+from app.schemas.user_role import (
     UserRole,
     UserRoleCreate,
     UserRoleUpdate,
     UserRoleInDB,
 )
-from .doctor_profile import (
+from app.schemas.doctor_profile import (
     DoctorProfile,
     DoctorProfileCreate,
     DoctorProfileUpdate,
     DoctorProfileInDB,
     DoctorProfileApproval,
 )
-from .study import (
+from app.schemas.study import (
     Study,
     StudyCreate,
     StudyUpdate,
@@ -33,7 +37,7 @@ from .study import (
     StudyListResponse,
     StudySummary,
 )
-from .media import (
+from app.schemas.media import (
     Media,
     MediaCreate,
     MediaUpdate,
@@ -43,7 +47,7 @@ from .media import (
     MediaUploadResponse,
     StorageInfo,
 )
-from .frame import (
+from app.schemas.frame import (
     Frame,
     FrameCreate,
     FrameUpdate,
@@ -57,31 +61,31 @@ from .frame import (
     AutoExtractionRequest,
     AutoExtractionResponse,
 )
-from .picture_classification_prediction import (
+from app.schemas.picture_classification_prediction import (
     PictureClassificationPrediction,
     PictureClassificationPredictionCreate,
     PictureClassificationPredictionUpdate,
     PictureClassificationPredictionInDB,
 )
-from .picture_classification_annotation import (
+from app.schemas.picture_classification_annotation import (
     PictureClassificationAnnotation,
     PictureClassificationAnnotationCreate,
     PictureClassificationAnnotationUpdate,
     PictureClassificationAnnotationInDB,
 )
-from .picture_bb_prediction import (
+from app.schemas.picture_bb_prediction import (
     PictureBBPrediction,
     PictureBBPredictionCreate,
     PictureBBPredictionUpdate,
     PictureBBPredictionInDB,
 )
-from .picture_bb_annotation import (
+from app.schemas.picture_bb_annotation import (
     PictureBBAnnotation,
     PictureBBAnnotationCreate,
     PictureBBAnnotationUpdate,
     PictureBBAnnotationInDB,
 )
-from .ai_predictions import (
+from app.schemas.ai_predictions import (
     ModelInfo,
     PredictionRequest,
     ClassificationPredictionResponse,
@@ -126,6 +130,18 @@ __all__ = [
     "MediaListResponse",
     "MediaUploadResponse",
     "StorageInfo",
+    "Frame",
+    "FrameCreate",
+    "FrameUpdate",
+    "FrameInDB",
+    "FrameSummary",
+    "FrameListResponse",
+    "FrameCreateRequest",
+    "FrameCreateResponse",
+    "VideoMetadata",
+    "AutoExtractionParams",
+    "AutoExtractionRequest",
+    "AutoExtractionResponse",
     "PictureClassificationPrediction",
     "PictureClassificationPredictionCreate",
     "PictureClassificationPredictionUpdate",

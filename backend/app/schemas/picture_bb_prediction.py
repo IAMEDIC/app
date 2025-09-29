@@ -2,9 +2,11 @@
 Picture bounding box prediction schema definitions.
 """
 
+
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
+
 from pydantic import BaseModel, Field, ConfigDict
 
 from app.models.media import MediaType
@@ -48,4 +50,3 @@ class PictureBBPredictionInDB(PictureBBPredictionBase):
 
 class PictureBBPrediction(PictureBBPredictionInDB):
     """Schema for picture bounding box prediction responses"""
-    pass

@@ -2,10 +2,12 @@
 AI prediction service for business logic operations.
 """
 
+
 import logging
-import httpx
-from typing import List, Optional, Dict, Any
+from typing import Optional, Any, cast
 from uuid import UUID
+
+import httpx
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
@@ -17,11 +19,14 @@ from app.models.picture_bb_annotation import PictureBBAnnotation
 from app.schemas.picture_classification_prediction import PictureClassificationPredictionCreate
 from app.schemas.picture_classification_annotation import PictureClassificationAnnotationCreate
 from app.schemas.picture_bb_prediction import PictureBBPredictionCreate
+from app.schemas.picture_bb_prediction import PictureBBPrediction as PictureBBPredictionSchema
 from app.schemas.picture_bb_annotation import PictureBBAnnotationCreate
+from app.schemas.picture_bb_annotation import PictureBBAnnotation as PictureBBAnnotationSchema
 from app.schemas.ai_predictions import (
     ModelInfo, ClassificationPredictionResponse, BBPredictionResponse, 
     MediaPredictionsResponse
 )
+
 
 logger = logging.getLogger(__name__)
 
@@ -49,58 +54,56 @@ class AIPredictionService:
         except Exception as e:
             logger.error(f"Error getting {model_type} model info: {e}")
             return None
+        
+    def get_existing_classification_prediction(self, media_id: UUID, model_version: str) -> Optional[PictureClassificationPrediction]:
+        """Check for existing classification prediction"""
+        existing = self.db.query(PictureClassificationPrediction).filter(
+            PictureClassificationPrediction.media_id == media_id,
+            PictureClassificationPrediction.model_version == model_version
+        ).first()
+        return existing
 
     async def predict_classification(self, media_id: UUID, image_data_b64: str, width: int, height: int, force_refresh: bool = False) -> Optional[PictureClassificationPrediction]:
         """Get classification prediction for a media file"""
         try:
-            logger.info(f"🔍 Starting classification prediction for media {media_id}, force_refresh={force_refresh}")
-            
-            # Get media info
+            logger.debug(f"🔍 Starting classification prediction for media {media_id}, force_refresh={force_refresh}")
             media = self.db.query(Media).filter(Media.id == media_id).first()
             if not media:
                 logger.error(f"Media not found: {media_id}")
                 return None
-
-            # Check if prediction already exists and force_refresh is False
+            model_info = await self.get_model_info("classifier")
+            if not model_info:
+                logger.error("Model info not available, cannot proceed with prediction")
+                return None
+            model_version = model_info.version
             if not force_refresh:
-                existing = self.db.query(PictureClassificationPrediction).filter(
-                    PictureClassificationPrediction.media_id == media_id
-                ).first()
+                existing = self.get_existing_classification_prediction(media_id, model_version)
                 if existing:
-                    logger.info(f"📋 Found existing classification prediction for media {media_id}, returning cached result")
+                    logger.debug(f"📋 Found existing, updated classification prediction for media {media_id}, returning cached result")
                     return existing
-            
-            logger.info(f"🚀 Making HTTP request to frame-classifier-service for media {media_id}")
-
-            # Call the classifier service
+            logger.debug(f"🚀 Making HTTP request to frame-classifier-service for media {media_id}")
             async with httpx.AsyncClient() as client:
-                logger.info(f"📡 Calling {self.classifier_service_url}/predict with image data: {width}x{height} base64 encoded")
+                logger.debug(f"📡 Calling {self.classifier_service_url}/predict with image data: {width}x{height} base64 encoded")
                 response = await client.post(
                     f"{self.classifier_service_url}/predict",
                     json={"data": image_data_b64, "width": width, "height": height}
                 )
-                
-                logger.info(f"✅ Received response from frame-classifier-service: status={response.status_code}")
-                
+                logger.debug(f"✅ Received response from frame-classifier-service: status={response.status_code}")
                 if response.status_code == 200:
                     result = response.json()
-                    logger.info(f"🎯 Classification result: {result}")
+                    logger.debug(f"🎯 Classification result: {result}")
                     prediction_value = result.get("prediction", 0.0)
                     model_version = result.get("model_version", "unknown")
-                    
-                    # Create or update prediction
                     prediction_data = PictureClassificationPredictionCreate(
                         media_id=media_id,
-                        media_type=media.media_type.value,  # Convert enum to string
+                        media_type=media.media_type.value,
                         prediction=prediction_value,
                         model_version=model_version
                     )
-                    
-                    return self._save_classification_prediction(prediction_data, force_refresh)
+                    return self.save_classification_prediction(prediction_data, force_refresh)
                 else:
                     logger.error(f"❌ Classification prediction failed: status={response.status_code}, response={response.text}")
                     return None
-
         except httpx.RequestError as e:
             logger.error(f"🌐 Network error calling frame-classifier-service: {e}")
             return None
@@ -111,47 +114,45 @@ class AIPredictionService:
             logger.error(f"💥 Unexpected error in classification prediction: {e}")
             return None
 
-    async def predict_bounding_boxes(self, media_id: UUID, image_data_b64: str, width: int, height: int, force_refresh: bool = False) -> List[PictureBBPrediction]:
+    async def predict_bounding_boxes(self, media_id: UUID, image_data_b64: str, width: int, height: int, force_refresh: bool = False) -> list[PictureBBPrediction]:
         """Get bounding box predictions for a media file"""
         try:
-            # Get media info
             media = self.db.query(Media).filter(Media.id == media_id).first()
             if not media:
                 logger.error(f"Media not found: {media_id}")
                 return []
-
-            # Check if predictions already exist and force_refresh is False
+            model_info = await self.get_model_info("bounding_box")
+            if not model_info:
+                logger.error("Model info not available, cannot proceed with prediction")
+                return []
+            model_version = model_info.version
             if not force_refresh:
                 existing = self.db.query(PictureBBPrediction).filter(
-                    PictureBBPrediction.media_id == media_id
+                    PictureBBPrediction.media_id == media_id,
+                    PictureBBPrediction.model_version == model_version
                 ).all()
                 if existing:
+                    logger.debug(f"📋 Found existing, updated bounding box predictions for media {media_id}, returning cached results")
                     return existing
-
-            # Call the bounding box service
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     f"{self.bb_service_url}/predict",
                     json={"data": image_data_b64, "width": width, "height": height}
                 )
-                
                 if response.status_code == 200:
                     result = response.json()
                     predictions = result.get("predictions", [])
                     model_version = result.get("model_version", "unknown")
-                    
-                    # Delete existing predictions if force_refresh
                     if force_refresh:
                         self.db.query(PictureBBPrediction).filter(
-                            PictureBBPrediction.media_id == media_id
+                            PictureBBPrediction.media_id == media_id,
+                            PictureBBPrediction.model_version == model_version
                         ).delete()
-                    
-                    # Create new predictions
                     bb_predictions = []
                     for pred in predictions:
                         prediction_data = PictureBBPredictionCreate(
                             media_id=media_id,
-                            media_type=media.media_type.value,  # Convert enum to string
+                            media_type=media.media_type.value,
                             bb_class=pred["class_name"],
                             confidence=pred.get("confidence", 0.0),
                             x_min=pred["x_min"],
@@ -163,37 +164,29 @@ class AIPredictionService:
                         bb_prediction = self._save_bb_prediction(prediction_data)
                         if bb_prediction:
                             bb_predictions.append(bb_prediction)
-                    
                     self.db.commit()
                     return bb_predictions
                 else:
                     logger.error(f"BB prediction failed: {response.status_code}")
                     return []
-
         except Exception as e:
             logger.error(f"Error in BB prediction: {e}")
             return []
 
     def get_media_predictions(self, media_id: UUID) -> MediaPredictionsResponse:
         """Get all predictions and annotations for a media file"""
-        # Get classification prediction and annotation
         classification_prediction = self.db.query(PictureClassificationPrediction).filter(
             PictureClassificationPrediction.media_id == media_id
         ).first()
-        
         classification_annotation = self.db.query(PictureClassificationAnnotation).filter(
             PictureClassificationAnnotation.media_id == media_id
         ).first()
-        
-        # Get bounding box predictions and annotations
         bb_predictions = self.db.query(PictureBBPrediction).filter(
             PictureBBPrediction.media_id == media_id
         ).all()
-        
         bb_annotations = self.db.query(PictureBBAnnotation).filter(
             PictureBBAnnotation.media_id == media_id
         ).all()
-        
         return MediaPredictionsResponse(
             media_id=media_id,
             classification=ClassificationPredictionResponse(
@@ -201,8 +194,8 @@ class AIPredictionService:
                 annotation=classification_annotation
             ),
             bounding_boxes=BBPredictionResponse(
-                predictions=bb_predictions,
-                annotations=bb_annotations
+                predictions=cast(list[PictureBBPredictionSchema], bb_predictions),
+                annotations=cast(list[PictureBBAnnotationSchema], bb_annotations)
             )
         )
 
@@ -212,46 +205,36 @@ class AIPredictionService:
             media = self.db.query(Media).filter(Media.id == media_id).first()
             if not media:
                 return None
-
-            # Check if annotation exists
             existing = self.db.query(PictureClassificationAnnotation).filter(
                 PictureClassificationAnnotation.media_id == media_id
             ).first()
-            
             if existing:
-                # Update existing annotation
                 for key, value in {"usefulness": usefulness}.items():
                     setattr(existing, key, value)
                 self.db.commit()
                 self.db.refresh(existing)
                 return existing
             else:
-                # Create new annotation
                 annotation_data = PictureClassificationAnnotationCreate(
                     media_id=media_id,
                     media_type=media.media_type.value,  # Convert enum to string
                     usefulness=usefulness
                 )
                 return self._save_classification_annotation(annotation_data)
-
         except Exception as e:
             logger.error(f"Error saving classification annotation: {e}")
             self.db.rollback()
             return None
 
-    def save_bb_annotations(self, media_id: UUID, annotations: List[Dict[str, Any]]) -> List[PictureBBAnnotation]:
+    def save_bb_annotations(self, media_id: UUID, annotations: list[dict[str, Any]]) -> list[PictureBBAnnotation]:
         """Save or update bounding box annotations"""
         try:
             media = self.db.query(Media).filter(Media.id == media_id).first()
             if not media:
                 return []
-
-            # Delete existing annotations for this media
             self.db.query(PictureBBAnnotation).filter(
                 PictureBBAnnotation.media_id == media_id
             ).delete()
-
-            # Create new annotations
             saved_annotations = []
             for ann in annotations:
                 annotation_data = PictureBBAnnotationCreate(
@@ -268,30 +251,26 @@ class AIPredictionService:
                 bb_annotation = self._save_bb_annotation(annotation_data)
                 if bb_annotation:
                     saved_annotations.append(bb_annotation)
-
             self.db.commit()
             return saved_annotations
-
         except Exception as e:
             logger.error(f"Error saving BB annotations: {e}")
             self.db.rollback()
             return []
 
-    def _save_classification_prediction(self, prediction_data: PictureClassificationPredictionCreate, force_refresh: bool = False) -> Optional[PictureClassificationPrediction]:
+    def save_classification_prediction(self, prediction_data: PictureClassificationPredictionCreate, force_refresh: bool = False) -> Optional[PictureClassificationPrediction]:
         """Save classification prediction to database"""
         try:
             if force_refresh:
-                # Delete existing prediction
                 self.db.query(PictureClassificationPrediction).filter(
-                    PictureClassificationPrediction.media_id == prediction_data.media_id
+                    PictureClassificationPrediction.media_id == prediction_data.media_id,
+                    PictureClassificationPrediction.model_version == prediction_data.model_version
                 ).delete()
-
             prediction = PictureClassificationPrediction(**prediction_data.model_dump())
             self.db.add(prediction)
             self.db.commit()
             self.db.refresh(prediction)
             return prediction
-
         except IntegrityError as e:
             self.db.rollback()
             logger.error(f"Integrity error saving classification prediction: {e}")
@@ -309,7 +288,6 @@ class AIPredictionService:
             self.db.commit()
             self.db.refresh(annotation)
             return annotation
-
         except IntegrityError as e:
             self.db.rollback()
             logger.error(f"Integrity error saving classification annotation: {e}")
@@ -324,8 +302,7 @@ class AIPredictionService:
         try:
             prediction = PictureBBPrediction(**prediction_data.model_dump())
             self.db.add(prediction)
-            return prediction  # Don't commit here, will be committed in batch
-
+            return prediction
         except Exception as e:
             logger.error(f"Error creating BB prediction: {e}")
             return None
@@ -335,8 +312,7 @@ class AIPredictionService:
         try:
             annotation = PictureBBAnnotation(**annotation_data.model_dump())
             self.db.add(annotation)
-            return annotation  # Don't commit here, will be committed in batch
-
+            return annotation
         except Exception as e:
             logger.error(f"Error creating BB annotation: {e}")
             return None

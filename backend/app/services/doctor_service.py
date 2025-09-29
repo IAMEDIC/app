@@ -2,15 +2,18 @@
 Doctor service for doctor profile management operations.
 """
 
+
 import logging
-from typing import Optional
+from typing import Optional, cast
 from uuid import UUID
 
 from sqlalchemy.orm import Session
+from sqlalchemy import Column
 
 from app.models.doctor_profile import DoctorProfile as DoctorProfileModel, DoctorProfileStatus
 from app.models.user_role import UserRole, UserRoleType
 from app.schemas.doctor_profile import DoctorProfile as DoctorProfileSchema, DoctorProfileCreate
+
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +30,6 @@ class DoctorService:
         profile_data: DoctorProfileCreate
     ) -> DoctorProfileSchema:
         """Create a new doctor profile"""
-        # Check if matriculation ID is already taken
         existing_profile = self.db.query(DoctorProfileModel).filter(
             DoctorProfileModel.matriculation_id == profile_data.matriculation_id
         ).first()
@@ -64,7 +66,6 @@ class DoctorService:
         ).first()
         if not profile:
             return None
-        # Check if new matriculation ID conflicts with another profile
         if profile_data.matriculation_id != profile.matriculation_id:
             existing_profile = self.db.query(DoctorProfileModel).filter(
                 DoctorProfileModel.matriculation_id == profile_data.matriculation_id,
@@ -72,13 +73,11 @@ class DoctorService:
             ).first()
             if existing_profile:
                 raise ValueError("Matriculation ID already exists")
-        # Update fields - type ignore comments to suppress false positive SQLAlchemy type errors
-        profile.matriculation_id = profile_data.matriculation_id  # type: ignore
-        profile.legal_name = profile_data.legal_name  # type: ignore
-        profile.specialization = profile_data.specialization  # type: ignore
-        # Reset status to pending when profile is updated
-        profile.status = DoctorProfileStatus.PENDING.value  # type: ignore
-        profile.notes = None  # type: ignore
+        profile.matriculation_id = cast(Column[str], profile_data.matriculation_id)
+        profile.legal_name = cast(Column[str], profile_data.legal_name)
+        profile.specialization = cast(Column[str], profile_data.specialization)
+        profile.status = cast(Column[str], DoctorProfileStatus.PENDING.value)
+        profile.notes = cast(Column[str], None)
         self.db.commit()
         self.db.refresh(profile)
         logger.info("📝 Doctor profile updated for user %s", user_id)
