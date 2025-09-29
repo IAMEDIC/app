@@ -55,11 +55,11 @@ class Media(Base):
     # Constraints
     __table_args__ = (
         CheckConstraint(
-            f"media_type IN ('{MediaType.IMAGE}', '{MediaType.VIDEO}', '{MediaType.FRAME}')",
+            f"media_type IN ('{MediaType.IMAGE.value}', '{MediaType.VIDEO.value}', '{MediaType.FRAME.value}')",
             name='valid_media_type'
         ),
         CheckConstraint(
-            f"upload_status IN ('{UploadStatus.UPLOADED}', '{UploadStatus.PROCESSING}', '{UploadStatus.FAILED}')",
+            f"upload_status IN ('{UploadStatus.UPLOADED.value}', '{UploadStatus.PROCESSING.value}', '{UploadStatus.FAILED.value}')",
             name='valid_upload_status'
         ),
     )
