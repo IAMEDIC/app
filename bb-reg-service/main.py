@@ -94,7 +94,7 @@ class ModelService:
             model_version_info = mlflow_client.get_model_version_by_alias(name=MLFLOW_MODEL_NAME, alias=MLFLOW_MODEL_ALIAS)
             run_id = model_version_info.run_id
             self.model_version = model_version_info.version
-            model_file_name = model_version_info.source.split("/")[-1]
+            model_file_name = model_version_info.source.split("/")[-1] # type: ignore
             mlflow.artifacts.download_artifacts(run_id=run_id, dst_path=MODELS_DIR)
             self.model = ort.InferenceSession(f"{MODELS_DIR}/{model_file_name}")
             print(f"Model loaded successfully. Version: {self.model_version}")
@@ -106,7 +106,7 @@ class ModelService:
         """Get model information"""
         return ModelInfo(
             name=MLFLOW_MODEL_NAME,
-            version=self.model_version or "unknown",
+            version=f"{MLFLOW_MODEL_NAME} - {self.model_version}",
             expected_width=TARGET_IMAGE_WIDTH,
             expected_height=TARGET_IMAGE_HEIGHT,
             classes=list(CLASS_NAMES.values())
@@ -202,7 +202,7 @@ async def predict(request: PredictionRequest):
         image = np.frombuffer(image_bytes, dtype=np.uint8).reshape((request.height, request.width))
         original_height, original_width = request.height, request.width
         pil_image = PILImage.fromarray(image)
-        pil_image = pil_image.resize((TARGET_IMAGE_WIDTH, TARGET_IMAGE_HEIGHT), PILImage.LANCZOS)
+        pil_image = pil_image.resize((TARGET_IMAGE_WIDTH, TARGET_IMAGE_HEIGHT), PILImage.Resampling.LANCZOS)
         image = np.array(pil_image)
         image = (image.astype(np.float32) / 255.0 - 0.5) / 0.5  # Normalize to [-1, 1]
         image = np.expand_dims(image, axis=0)  # Add batch dimension
@@ -227,7 +227,7 @@ async def predict(request: PredictionRequest):
                 height=float(height)
             )
             predictions.append(prediction)
-        return PredictionResponse(predictions=predictions, model_version=model_service.model_version or "unknown")
+        return PredictionResponse(predictions=predictions, model_version=f"{MLFLOW_MODEL_NAME} - {model_service.model_version}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 

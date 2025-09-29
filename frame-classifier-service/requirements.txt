@@ -1,5 +1,5 @@
-fastapi
-uvicorn
-onnxruntime
-pillow
-mlflow==3.1.1
+fastapi>=0.118.0,<1.0
+uvicorn[standard]>=0.37.0,<1.0
+onnxruntime>=1.23.0,<2.0
+pillow>=11.3.0,<12.0
+mlflow>=3.4.0,<4.0

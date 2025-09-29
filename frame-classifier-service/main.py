@@ -1,22 +1,31 @@
-import mlflow.artifacts
-import numpy as np
+"""
+Classification service
+- Loads model from MLflow Model Registry
+- Serves prediction requests
+- Shall not be exposed publicly
+"""
+
+
 import os
 import base64
-import onnxruntime as ort
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 from PIL import Image as PILImage
 import mlflow
+import mlflow.artifacts
 from mlflow.tracking import MlflowClient
+import onnxruntime as ort
+import numpy as np
+
 
 MLFLOW_URI = os.getenv("MLFLOW_URI", "http://host.docker.internal:8080")
 MLFLOW_MODEL_NAME = os.getenv("MLFLOW_MODEL_NAME", "")
 MLFLOW_MODEL_ALIAS = os.getenv("MLFLOW_MODEL_ALIAS", "champion")
 TARGET_IMAGE_HEIGHT = int(os.getenv("TARGET_IMAGE_HEIGHT", -1))
 TARGET_IMAGE_WIDTH = int(os.getenv("TARGET_IMAGE_WIDTH", -1))
-
 MODELS_DIR = "/app/models"
 os.makedirs(MODELS_DIR, exist_ok=True)
 
@@ -35,22 +44,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 class PredictionRequest(BaseModel):
+    """Request schema for prediction"""
     data: str  # base64 encoded image bytes
     width: int  # image width
     height: int  # image height
 
+
 class PredictionResponse(BaseModel):
+    """Single prediction result"""
     prediction: float
     model_version: str
 
+
 class ModelInfo(BaseModel):
+    """Model information"""
     name: str
     version: str
     expected_width: int
     expected_height: int
 
+
 class ModelService:
+    """Service to manage model loading and predictions"""
+
     def __init__(self):
         self.model = None
         self.model_version = None
@@ -62,7 +80,7 @@ class ModelService:
             model_version_info = mlflow_client.get_model_version_by_alias(name=MLFLOW_MODEL_NAME, alias=MLFLOW_MODEL_ALIAS)
             run_id = model_version_info.run_id
             self.model_version = model_version_info.version
-            model_file_name = model_version_info.source.split("/")[-1]
+            model_file_name = model_version_info.source.split("/")[-1] # type: ignore
             mlflow.artifacts.download_artifacts(run_id=run_id, dst_path=MODELS_DIR)
             self.model = ort.InferenceSession(f"{MODELS_DIR}/{model_file_name}")
             print(f"Model loaded successfully. Version: {self.model_version}")
@@ -74,7 +92,7 @@ class ModelService:
         """Get model information"""
         return ModelInfo(
             name=MLFLOW_MODEL_NAME,
-            version=self.model_version or "unknown",
+            version=f"{MLFLOW_MODEL_NAME} - {self.model_version}",
             expected_width=TARGET_IMAGE_WIDTH,
             expected_height=TARGET_IMAGE_HEIGHT
         )
@@ -110,16 +128,20 @@ class ModelService:
         result = self.model.run(None, {"input": data})
         return result
 
+
 # Initialize model service
 model_service = ModelService()
+
 
 @app.get("/")
 def read_root():
     return {"message": "Frame Classification Service is running"}
 
+
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
 
 @app.get("/model-info", response_model=ModelInfo)
 async def get_model_info():
@@ -128,6 +150,7 @@ async def get_model_info():
         return model_service.get_model_info()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/reload-model")
 async def reload_model():
@@ -142,34 +165,31 @@ async def reload_model():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to check/reload model: {str(e)}")
 
+
 @app.post("/predict", response_model=PredictionResponse)
 async def predict(request: PredictionRequest):
     try:
         print(f"Received prediction request for {request.width}x{request.height} image")
-        
         # Decode base64 image data
         image_bytes = base64.b64decode(request.data)
         image = np.frombuffer(image_bytes, dtype=np.uint8).reshape((request.height, request.width))
-        
         # Convert to PIL and resize
         pil_image = PILImage.fromarray(image)
-        pil_image = pil_image.resize((TARGET_IMAGE_WIDTH, TARGET_IMAGE_HEIGHT), PILImage.LANCZOS)
+        pil_image = pil_image.resize((TARGET_IMAGE_WIDTH, TARGET_IMAGE_HEIGHT), PILImage.Resampling.LANCZOS)
         image = np.array(pil_image)
         print("Image resized")
-        
         # Normalize to [-1, 1]
         image = (image.astype(np.float32) / 255.0 - 0.5) / 0.5
         image = np.expand_dims(image, axis=0)  # Add batch dimension
         image = np.expand_dims(image, axis=0)  # Add channel dimension
-        
         # Make prediction
         outputs = model_service.predict(image)
         print(outputs)
         prob = outputs[0][0] # [[probability]] 
-        return PredictionResponse(prediction=prob, model_version=model_service.model_version or "unknown")
-
+        return PredictionResponse(prediction=prob, model_version=f"{MLFLOW_MODEL_NAME} - {model_service.model_version}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

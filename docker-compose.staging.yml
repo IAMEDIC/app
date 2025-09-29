@@ -1,35 +1,16 @@
-# Docker Compose override configuration for staging deployment
-# Usage: docker-compose -f docker-compose.yml -f docker-compose.staging.yml up
-
-services:
-  frontend:
-    # Keep production build but expose on port 80 for staging access
-    # Production target is already set in base docker-compose.yml
-    
+services:    
   backend:
     build:
-      target: staging  # Use staging target (single worker)
+      target: staging
     ports:
-      - "8000:8000"  # Expose backend port for staging access
+      - "8000:8000"
     environment:
       - DEBUG=false
       - FRONTEND_URL=http://localhost
       - GOOGLE_REDIRECT_URI=http://localhost/api/auth/google/callback
-    
   postgres:
-    environment:
-      - POSTGRES_PASSWORD=staging_secure_password_change_me
-    volumes:
-      - postgres_staging_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"  # Expose for staging debugging if needed
-    
+      - "5432:5432"
   redis:
-    volumes:
-      - redis_staging_data:/data
     ports:
-      - "6379:6379"  # Expose for staging debugging if needed
-
-volumes:
-  postgres_staging_data:
-  redis_staging_data:
+      - "6379:6379"
