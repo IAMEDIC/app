@@ -39,8 +39,8 @@ class FileStorageService:
     File storage service that abstracts file operations.
     Currently implements local storage but can be easily extended for cloud storage.
     """
-    # Maximum file size: 100MB
-    MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB in bytes
+    # Maximum file size: 1GB
+    MAX_FILE_SIZE = 1024 * 1024 * 1024  # 1GB in bytes
     # Maximum total storage per doctor: 2GB
     MAX_TOTAL_STORAGE = 2 * 1024 * 1024 * 1024  # 2GB in bytes
     # Supported image MIME types
