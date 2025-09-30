@@ -254,6 +254,8 @@ async def predict(request: PredictionRequest):
                 y_min = (y_center_rel - height_rel / 2) * original_height
                 width = width_rel * original_width
                 height = height_rel * original_height
+            if width <= 0 or height <= 0:
+                continue
             prediction = Prediction(
                 class_name=class_name,
                 confidence=float(class_prob),
