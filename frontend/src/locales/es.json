@@ -104,6 +104,7 @@
     "processing": "Procesando",
     "failed": "Falló",
     "uploaded": "Subido",
+    "uploadSuccess": "✅ Archivo \"{filename}\" subido exitosamente!",
     "type": "Tipo"
   },
   "user": {
@@ -182,6 +183,7 @@
       "removeFile": "Quitar archivo",
       "uploadFiles": "Subir Archivos",
       "uploading": "Subiendo archivos...",
+      "uploadingFiles": "Subiendo archivos...",
       "pleaseWait": "Por favor espera mientras se suben tus archivos.",
       "recentUploads": "Subidas Recientes",
       "fileSizeExceeded": "El tamaño del archivo debe ser menor a 1GB",

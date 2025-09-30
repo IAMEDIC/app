@@ -77,6 +77,7 @@ export const StudyView: React.FC = () => {
   // Media state
   const [uploadLoading, setUploadLoading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
   
   // Storage context
   const { storageInfo, refreshStorageInfo } = useStorageInfo();
@@ -194,6 +195,14 @@ export const StudyView: React.FC = () => {
 
       // Refresh storage info after upload
       await refreshStorageInfo();
+      
+      // Show success message
+      setUploadSuccess(t('media.uploadSuccess', { filename: file.name }));
+      
+      // Clear success message after 4 seconds
+      setTimeout(() => {
+        setUploadSuccess(null);
+      }, 4000);
     } catch (err: any) {
       setUploadError(err.response?.data?.detail || t('errors.failedToUploadMedia'));
     } finally {
@@ -351,36 +360,6 @@ export const StudyView: React.FC = () => {
             </>
           )}
         </Box>
-        
-        {/* Study Info */}
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <Box display="flex" gap={4} flexWrap="wrap">
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                {t('studyView.created')}
-              </Typography>
-              <Typography variant="body2">
-                {formatDate(study.created_at)}
-              </Typography>
-            </Box>
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                {t('studyView.lastModified')}
-              </Typography>
-              <Typography variant="body2">
-                {formatDate(study.updated_at)}
-              </Typography>
-            </Box>
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                {t('studyView.mediaFiles')}
-              </Typography>
-              <Typography variant="body2">
-                {t('studyView.filesCount', { count: study.media.length })}
-              </Typography>
-            </Box>
-          </Box>
-        </Paper>
       </Box>
 
       {/* Error Display */}
@@ -393,11 +372,44 @@ export const StudyView: React.FC = () => {
       {/* Tabs */}
       <Paper sx={{ width: '100%' }}>
         <Tabs value={currentTab} onChange={(_, newValue) => setCurrentTab(newValue)}>
+          <Tab label={t('studyView.studyDetails')} />
           <Tab label={t('studyView.mediaFilesTab', { count: study.media.length })} />
           <Tab label={t('studyView.uploadMediaTab')} />
         </Tabs>
         
         <TabPanel value={currentTab} index={0}>
+          {/* Study Information Tab */}
+          <Paper sx={{ p: 3 }}>
+            <Box display="flex" gap={4} flexWrap="wrap">
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  {t('studyView.created')}
+                </Typography>
+                <Typography variant="body2">
+                  {formatDate(study.created_at)}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  {t('studyView.lastModified')}
+                </Typography>
+                <Typography variant="body2">
+                  {formatDate(study.updated_at)}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  {t('studyView.mediaFiles')}
+                </Typography>
+                <Typography variant="body2">
+                  {t('studyView.filesCount', { count: study.media.length })}
+                </Typography>
+              </Box>
+            </Box>
+          </Paper>
+        </TabPanel>
+        
+        <TabPanel value={currentTab} index={1}>
           <MediaGallery
             media={study.media}
             studyId={study.id}
@@ -406,13 +418,12 @@ export const StudyView: React.FC = () => {
           />
         </TabPanel>
         
-        <TabPanel value={currentTab} index={1}>
+        <TabPanel value={currentTab} index={2}>
           <MediaUpload
             onUpload={handleMediaUpload}
             uploading={uploadLoading}
             error={uploadError}
-            recentUploads={study.media.slice(-5)} // Show last 5 uploads
-            onRemoveRecent={handleMediaDelete}
+            success={uploadSuccess}
             storageInfo={storageInfo}
           />
         </TabPanel>

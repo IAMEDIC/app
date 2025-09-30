@@ -11,25 +11,22 @@ import {
   ListItemText,
   ListItemIcon,
   IconButton,
-  Chip,
 } from '@mui/material';
 import {
   CloudUpload as UploadIcon,
   Image as ImageIcon,
   VideoFile as VideoIcon,
   Delete as DeleteIcon,
-  CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
 } from '@mui/icons-material';
-import { MediaSummary, MediaType, StorageInfo } from '@/types';
+import { StorageInfo } from '@/types';
 import { useTranslation } from '@/contexts/LanguageContext';
 
 interface MediaUploadProps {
   onUpload: (file: File) => Promise<void>;
   uploading?: boolean;
   error?: string | null;
-  recentUploads?: MediaSummary[];
-  onRemoveRecent?: (mediaId: string) => void;
+  success?: string | null;
   storageInfo?: StorageInfo | null;
 }
 
@@ -41,8 +38,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   onUpload,
   uploading = false,
   error = null,
-  recentUploads = [],
-  onRemoveRecent,
+  success = null,
   storageInfo = null,
 }) => {
   const { t } = useTranslation();
@@ -206,29 +202,44 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const getMediaIcon = (mediaType: MediaType) => {
-    return mediaType === 'image' ? <ImageIcon /> : <VideoIcon />;
-  };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'uploaded':
-        return <CheckCircleIcon color="success" />;
-      case 'failed':
-        return <ErrorIcon color="error" />;
-      case 'processing':
-        return <LinearProgress />;
-      default:
-        return null;
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    return t(`media.${status}`, { defaultValue: status });
-  };
 
   return (
     <Box>
+      {/* Success Display */}
+      {success && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          {success}
+        </Alert>
+      )}
+      
+      {/* Error Display - moved to top for better visibility */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+      {validationErrors.length > 0 && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            {t('components.mediaUpload.validationErrors')}
+          </Typography>
+          <List dense>
+            {validationErrors.map((err, idx) => (
+              <ListItem key={idx}>
+                <ListItemIcon><ErrorIcon color="error" /></ListItemIcon>
+                <ListItemText primary={err} />
+              </ListItem>
+            ))}
+          </List>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+            <Button variant="outlined" size="small" onClick={() => setValidationErrors([])}>
+              {t('common.clear')}
+            </Button>
+          </Box>
+        </Alert>
+      )}
+
       {/* Storage Warning */}
       {storageInfo && storageInfo.used_percentage >= 80 && (
         <Alert 
@@ -243,11 +254,27 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
         </Alert>
       )}
 
-      {/* File Upload Area */}
+      {/* Upload Progress - moved up for better visibility */}
+      {uploading && (
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <UploadIcon color="primary" />
+            <Typography variant="body2" fontWeight="medium">
+              {t('components.mediaUpload.uploadingFiles')}
+            </Typography>
+          </Box>
+          <LinearProgress sx={{ mb: 1 }} />
+          <Typography variant="caption" color="text.secondary">
+            {t('components.mediaUpload.pleaseWait')}
+          </Typography>
+        </Paper>
+      )}
+
+      {/* File Upload Area - More compact and prominent */}
       <Paper
         sx={{
-          p: 3,
-          mb: 3,
+          p: 2,
+          mb: 2,
           border: dragActive ? 2 : 1,
           borderStyle: 'dashed',
           borderColor: dragActive ? 'primary.main' : 'grey.300',
@@ -261,7 +288,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
         onDrop={handleDrop}
       >
         <Box textAlign="center">
-          <UploadIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+          <UploadIcon sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
           <Typography variant="h6" gutterBottom>
             {t('media.uploadMedia')}
           </Typography>
@@ -278,11 +305,17 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
             disabled={uploading}
           />
           <label htmlFor="media-upload-input">
-            <Button variant="outlined" component="span" disabled={uploading}>
+            <Button 
+              variant="contained" 
+              component="span" 
+              disabled={uploading}
+              size="large"
+              startIcon={<UploadIcon />}
+            >
               {t('components.mediaUpload.selectFiles')}
             </Button>
           </label>
-          <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+          <Typography variant="caption" display="block" sx={{ mt: 1, color: 'text.secondary' }}>
             {t('components.mediaUpload.supportedFormats')}
             <br />
             {t('components.mediaUpload.maxFileSize')}
@@ -290,12 +323,40 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
         </Box>
       </Paper>
 
-      {/* Selected Files */}
+      {/* Selected Files with prominent upload button */}
       {selectedFiles.length > 0 && (
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            {t('components.mediaUpload.selectedFiles')} ({selectedFiles.length})
-          </Typography>
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6">
+              {t('components.mediaUpload.selectedFiles')} ({selectedFiles.length})
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                variant="contained"
+                size="large"
+                onClick={uploadSelectedFiles}
+                disabled={uploading || selectedFiles.length === 0}
+                startIcon={<UploadIcon />}
+                color="primary"
+              >
+                {uploading ? t('components.mediaUpload.uploading') : t('components.mediaUpload.uploadFiles')}
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  selectedFiles.forEach(file => {
+                    if (file.preview) {
+                      URL.revokeObjectURL(file.preview);
+                    }
+                  });
+                  setSelectedFiles([]);
+                }}
+                disabled={uploading}
+              >
+                {t('common.remove')}
+              </Button>
+            </Box>
+          </Box>
           <List dense>
             {selectedFiles.map((file, index) => (
               <ListItem
@@ -316,110 +377,12 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
               </ListItem>
             ))}
           </List>
-          <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
-            <Button
-              variant="contained"
-              onClick={uploadSelectedFiles}
-              disabled={uploading || selectedFiles.length === 0}
-              startIcon={<UploadIcon />}
-            >
-              {uploading ? t('components.mediaUpload.uploading') : t('components.mediaUpload.uploadFiles')}
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={() => {
-                selectedFiles.forEach(file => {
-                  if (file.preview) {
-                    URL.revokeObjectURL(file.preview);
-                  }
-                });
-                setSelectedFiles([]);
-              }}
-              disabled={uploading}
-            >
-              {t('common.remove')}
-            </Button>
-          </Box>
         </Paper>
       )}
 
-      {/* Upload Progress */}
-      {uploading && (
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <Typography variant="body2" gutterBottom>
-            {t('components.mediaUpload.pleaseWait')}
-          </Typography>
-          <LinearProgress />
-        </Paper>
-      )}
 
-      {/* Error Display */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
-      {validationErrors.length > 0 && (
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <Typography variant="subtitle2" gutterBottom>
-            {t('components.mediaUpload.validationErrors')}
-          </Typography>
-          <List dense>
-            {validationErrors.map((err, idx) => (
-              <ListItem key={idx}>
-                <ListItemIcon><ErrorIcon color="error" /></ListItemIcon>
-                <ListItemText primary={err} />
-              </ListItem>
-            ))}
-          </List>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Button variant="outlined" onClick={() => setValidationErrors([])}>
-              {t('common.clear')}
-            </Button>
-          </Box>
-        </Paper>
-      )}
 
-      {/* Recent Uploads */}
-      {recentUploads.length > 0 && (
-        <Paper sx={{ p: 2 }}>
-          <Typography variant="h6" gutterBottom>
-            {t('components.mediaUpload.recentUploads')}
-          </Typography>
-          <List dense>
-            {recentUploads.map((media) => (
-              <ListItem
-                key={media.id}
-                secondaryAction={
-                  onRemoveRecent && (
-                    <IconButton edge="end" onClick={() => onRemoveRecent(media.id)}>
-                      <DeleteIcon />
-                    </IconButton>
-                  )
-                }
-              >
-                <ListItemIcon>
-                  {getMediaIcon(media.media_type)}
-                </ListItemIcon>
-                <ListItemText
-                  primary={media.filename}
-                  secondary={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <span>{formatFileSize(media.file_size)}</span>
-                      <Chip 
-                        size="small" 
-                        label={getStatusText(media.upload_status)}
-                        color={media.upload_status === 'uploaded' ? 'success' : 'default'}
-                      />
-                    </Box>
-                  }
-                />
-                {getStatusIcon(media.upload_status)}
-              </ListItem>
-            ))}
-          </List>
-        </Paper>
-      )}
+
     </Box>
   );
 };

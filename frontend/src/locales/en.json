@@ -104,6 +104,7 @@
     "processing": "Processing",
     "failed": "Failed",
     "uploaded": "Uploaded",
+    "uploadSuccess": "✅ File \"{filename}\" uploaded successfully!",
     "type": "Type"
   },
   "user": {
@@ -182,6 +183,7 @@
       "removeFile": "Remove file",
       "uploadFiles": "Upload Files",
       "uploading": "Uploading files...",
+      "uploadingFiles": "Uploading files...",
       "pleaseWait": "Please wait while your files are being uploaded.",
       "recentUploads": "Recent Uploads",
       "fileSizeExceeded": "File size must be less than 1GB",
