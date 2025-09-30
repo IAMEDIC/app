@@ -48,6 +48,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   const { t } = useTranslation();
   const [dragActive, setDragActive] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<FileWithPreview[]>([]);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   const acceptedTypes = {
     'image/jpeg': ['.jpg', '.jpeg'],
@@ -68,10 +69,13 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
     'video/x-matroska': ['.mkv'],
     'video/ogg': ['.ogg'],
     'video/mpeg': ['.mpeg', '.mpg'],
-  };
+    // DICOM (accept by extension; MIME can be vendor-specific)
+    'application/dicom': ['.dcm'],
+    'application/octet-stream': ['.dcm'],
+  } as const;
 
   const validateFile = (file: File): string | null => {
-    const maxSize = 100 * 1024 * 1024; // 100MB
+    const maxSize = 1024 * 1024 * 1024; // 1GB
     if (file.size > maxSize) {
       return t('components.mediaUpload.fileSizeExceeded');
     }
@@ -86,8 +90,9 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
     
     const isImage = file.type.startsWith('image/');
     const isVideo = file.type.startsWith('video/');
+    const hasDcmExtension = file.name.toLowerCase().endsWith('.dcm');
     
-    if (!isImage && !isVideo) {
+    if (!isImage && !isVideo && !hasDcmExtension) {
       return t('components.mediaUpload.unsupportedFileType');
     }
 
@@ -108,6 +113,11 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
 
     if (isVideo && !supportedVideoTypes.includes(file.type)) {
       return t('components.mediaUpload.unsupportedVideoFormat');
+    }
+
+    // Allow DICOM by extension regardless of MIME variations
+    if (hasDcmExtension) {
+      return null;
     }
     
     return null;
@@ -133,8 +143,8 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
     });
     
     if (errors.length > 0) {
-      // TODO: Show errors to user
       console.error('File validation errors:', errors);
+      setValidationErrors(prev => [...prev, ...errors]);
     }
     
     setSelectedFiles(prev => [...prev, ...validFiles]);
@@ -261,7 +271,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
           <input
             type="file"
             multiple
-            accept={Object.keys(acceptedTypes).join(',')}
+            accept={[...Object.keys(acceptedTypes), ...Array.from(new Set(Object.values(acceptedTypes).flat()))].join(',')}
             onChange={handleFileSelect}
             style={{ display: 'none' }}
             id="media-upload-input"
@@ -348,6 +358,26 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
+      )}
+      {validationErrors.length > 0 && (
+        <Paper sx={{ p: 2, mb: 3 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            {t('components.mediaUpload.validationErrors')}
+          </Typography>
+          <List dense>
+            {validationErrors.map((err, idx) => (
+              <ListItem key={idx}>
+                <ListItemIcon><ErrorIcon color="error" /></ListItemIcon>
+                <ListItemText primary={err} />
+              </ListItem>
+            ))}
+          </List>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button variant="outlined" onClick={() => setValidationErrors([])}>
+              {t('common.clear')}
+            </Button>
+          </Box>
+        </Paper>
       )}
 
       {/* Recent Uploads */}

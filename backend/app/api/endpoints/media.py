@@ -44,7 +44,24 @@ async def upload_media(
         )
     try:
         file_data = await file.read()
-        media = media_service.create_media(study_id, doctor_id, file_data, file.filename)
+        filename = file.filename
+        # DICOM preprocessing: if .dcm or likely DICOM mime, convert to PNG/MP4 first
+        is_dicom = False
+        if filename and filename.lower().endswith('.dcm'):
+            is_dicom = True
+        elif file.content_type in ('application/dicom', 'application/dicom+json', 'application/octet-stream') and filename and filename.lower().endswith('.dcm'):
+            is_dicom = True
+        if is_dicom:
+            from app.services.dicom_handler import process_dicom
+            try:
+                processed_bytes, out_name, out_mime = process_dicom(file_data, filename)
+                # Replace payload with processed standard media
+                file_data = processed_bytes
+                filename = out_name
+            except Exception as dicom_err:
+                logger.error("📤 DICOM processing failed: %s", dicom_err)
+                raise ValueError(f"DICOM processing failed: {dicom_err}") from dicom_err
+        media = media_service.create_media(study_id, doctor_id, file_data, filename)
         logger.debug("📤 Media uploaded successfully: %s", media.id)
         return MediaUploadResponse(
             media=Media.model_validate(media),
