@@ -72,9 +72,7 @@ export const aiServiceV2 = {
     mediaId: string, 
     request: SaveBoundingBoxAnnotationsRequest
   ): Promise<SaveAnnotationResponse> => {
-    console.log('DEBUG: Calling saveBoundingBoxAnnotations', { mediaId, request });
     const response = await api.post(`/media/${mediaId}/annotations/bounding-boxes`, request);
-    console.log('DEBUG: saveBoundingBoxAnnotations response', response.data);
     return response.data;
   },
 

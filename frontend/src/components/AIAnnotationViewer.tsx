@@ -6,12 +6,7 @@ import {
   Typography,
   Alert,
   CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Paper,
-  IconButton,
   FormControlLabel,
   Switch,
 } from '@mui/material';
@@ -19,9 +14,6 @@ import {
   Psychology as AIIcon,
   Save as SaveIcon,
   Refresh as RefreshIcon,
-  Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon,
-  Delete as DeleteIcon,
   Warning as WarningIcon,
 } from '@mui/icons-material';
 import { 
@@ -68,7 +60,6 @@ export const AIAnnotationViewer: React.FC<AIAnnotationViewerProps> = ({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   
   // Current annotation state (modified by user)
   const [classificationUsefulness, setClassificationUsefulness] = useState<number>(1);
@@ -101,7 +92,7 @@ export const AIAnnotationViewer: React.FC<AIAnnotationViewerProps> = ({
 
   // Notify parent of unsaved changes
   useEffect(() => {
-    console.log('DEBUG: hasUnsavedChanges changed to:', hasUnsavedChanges);
+    
     onUnsavedChanges(hasUnsavedChanges);
   }, [hasUnsavedChanges, onUnsavedChanges]);
 
@@ -215,7 +206,7 @@ export const AIAnnotationViewer: React.FC<AIAnnotationViewerProps> = ({
   };
 
   const saveAnnotations = async () => {
-    console.log('DEBUG: saveAnnotations function called!');
+    
     try {
       setSaving(true);
       setError(null);
@@ -240,20 +231,20 @@ export const AIAnnotationViewer: React.FC<AIAnnotationViewerProps> = ({
         annotationBoxes
       });
       
-      console.log('DEBUG: Starting classification save...');
+      
       const classificationResult = await aiServiceV2.saveClassificationAnnotation(mediaId, {
         usefulness: classificationUsefulness
       });
-      console.log('DEBUG: Classification save result:', classificationResult);
       
-      console.log('DEBUG: Starting bounding box save...');
+      
+      
       const boundingBoxResult = await aiServiceV2.saveBoundingBoxAnnotations(mediaId, {
         annotations: annotationBoxes
       });
-      console.log('DEBUG: Bounding box save result:', boundingBoxResult);
+      
       
       const saveResults = [classificationResult, boundingBoxResult];
-      console.log('DEBUG: All save results', saveResults);
+      
       
       // Check if both saves were successful
       const allSuccessful = saveResults.every(result => result.success);
@@ -291,19 +282,7 @@ export const AIAnnotationViewer: React.FC<AIAnnotationViewerProps> = ({
     setHasUnsavedChanges(true);
   };
 
-  const deleteBoundingBox = (boxId: string) => {
-    console.log('DEBUG: Deleting bounding box', boxId);
-    setBoundingBoxes(prev => {
-      const filtered = prev.filter(box => box.id !== boxId);
-      console.log('DEBUG: Remaining boxes after deletion:', filtered.length);
-      return filtered;
-    });
-    console.log('DEBUG: Setting hasUnsavedChanges to true after deletion');
-    setHasUnsavedChanges(true);
-    if (selectedBox === boxId) {
-      setSelectedBox(null);
-    }
-  };
+
 
   const getClassColor = (className: string, isPrediction: boolean = false): string => {
     // Simple color mapping - you can expand this
@@ -471,7 +450,7 @@ export const AIAnnotationViewer: React.FC<AIAnnotationViewerProps> = ({
           
           <Box display="flex" flexDirection="column" gap={1}>
             {(() => {
-              console.log('DEBUG: Rendering bounding boxes, count:', boundingBoxes.length, 'boxes:', boundingBoxes);
+              
               return null;
             })()}
             {boundingBoxes.map((box) => (
@@ -536,25 +515,6 @@ export const AIAnnotationViewer: React.FC<AIAnnotationViewerProps> = ({
                       >
                         ✗
                       </Button>
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          updateBoundingBox(box.id, { is_hidden: !box.is_hidden });
-                        }}
-                      >
-                        {box.is_hidden ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteBoundingBox(box.id);
-                        }}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
                     </>
                   )}
                 </Box>
@@ -563,27 +523,6 @@ export const AIAnnotationViewer: React.FC<AIAnnotationViewerProps> = ({
           </Box>
         </Paper>
       )}
-
-      {/* Confirmation Dialog */}
-      <Dialog open={showConfirmDialog} onClose={() => setShowConfirmDialog(false)}>
-        <DialogTitle>Unsaved Changes</DialogTitle>
-        <DialogContent>
-          <Typography>
-            You have unsaved changes to your annotations. Do you want to save them before continuing?
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowConfirmDialog(false)}>
-            Cancel
-          </Button>
-          <Button onClick={() => setShowConfirmDialog(false)} color="error">
-            Discard Changes
-          </Button>
-          <Button onClick={saveAnnotations} variant="contained">
-            Save Changes
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 };

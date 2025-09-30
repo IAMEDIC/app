@@ -27,7 +27,7 @@ const DoctorPage: React.FC = () => {
         setDoctorProfile(null);
       } else if (err.response?.status === 401 || err.response?.status === 403) {
         // Authentication issue - will be handled by axios interceptor
-        console.log('Authentication error, token refresh should handle this');
+        
         setError('Authentication issue. Please try again.');
       } else {
         console.error('Failed to load doctor profile:', err);

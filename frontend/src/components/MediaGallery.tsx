@@ -16,8 +16,6 @@ import {
   Tooltip,
   CircularProgress,
   Alert,
-  Tab,
-  Tabs,
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
@@ -25,7 +23,6 @@ import {
   Visibility as ViewIcon,
   VideoFile as VideoIcon,
   Close as CloseIcon,
-  Psychology as AIIcon,
 } from '@mui/icons-material';
 import { MediaSummary } from '@/types';
 import { AnnotationsTab } from './AnnotationsTab';
@@ -56,7 +53,6 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
   const [selectedMedia, setSelectedMedia] = useState<MediaSummary | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<MediaSummary | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState(0); // 0: View, 1: Annotations
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   
@@ -100,7 +96,6 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
 
   const handleViewMedia = (mediaItem: MediaSummary) => {
     setSelectedMedia(mediaItem);
-    setActiveTab(0); // Start with view tab
     setHasUnsavedChanges(false);
   };
 
@@ -109,14 +104,12 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
       setShowUnsavedWarning(true);
     } else {
       setSelectedMedia(null);
-      setActiveTab(0);
       setHasUnsavedChanges(false);
     }
   };
 
   const handleForceClose = () => {
     setSelectedMedia(null);
-    setActiveTab(0);
     setHasUnsavedChanges(false);
     setShowUnsavedWarning(false);
   };
@@ -410,7 +403,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
       <Dialog
         open={!!selectedMedia}
         onClose={handleCloseDialog}
-        maxWidth={activeTab === 1 || selectedMedia?.media_type === 'video' ? "xl" : "md"}
+        maxWidth={selectedMedia?.media_type === 'video' ? "xl" : "xl"}
         fullWidth
       >
         {selectedMedia && (
@@ -433,28 +426,14 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
                 </IconButton>
               </Box>
 
-              {/* Tabs for images only */}
-              {selectedMedia.media_type === 'image' && (
-                <Tabs 
-                  value={activeTab} 
-                  onChange={(_, newValue) => setActiveTab(newValue)}
-                  sx={{ mt: 1 }}
-                >
-                  <Tab label={t('common.view')} />
-                  <Tab 
-                    label={t('components.mediaGallery.annotations')}
-                    icon={<AIIcon />}
-                    iconPosition="start"
-                  />
-                </Tabs>
-              )}
+              {/* No tabs - always show annotations for images */}
             </DialogTitle>
             <DialogContent>
               {selectedMedia.media_type === 'image' ? (
                 <AuthenticatedImageWithAI
                   mediaId={selectedMedia.id}
                   alt={selectedMedia.filename}
-                  showAI={activeTab === 1}
+                  showAI={true}
                 />
               ) : (
                 <VideoPlayerContainer 

@@ -163,7 +163,6 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
       } else {
         // New frame extracted successfully
         setFrames(prev => [...prev, response.frame].sort((a, b) => a.timestamp_seconds - b.timestamp_seconds));
-        console.log('Frame extracted successfully:', response.message);
       }
     } catch (err) {
       console.error('Failed to extract frame:', err);
@@ -204,10 +203,6 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
         const combined = [...prev, ...newFrames];
         return combined.sort((a, b) => a.timestamp_seconds - b.timestamp_seconds);
       });
-      
-      // Show success message with statistics
-      const message = `${response.message}. Analyzed ${response.total_frames_analyzed} frames, found ${response.runs_found} runs, extracted ${response.compliant_frames} compliant frames.`;
-      console.log('Auto extraction completed:', message);
       
     } catch (err) {
       console.error('Failed to auto extract frames:', err);

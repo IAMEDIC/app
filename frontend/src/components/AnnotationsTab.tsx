@@ -20,7 +20,6 @@ import {
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
   Close as CloseIcon,
-  Save as SaveIcon
 } from '@mui/icons-material';
 import { MediaSummary } from '@/types';
 import { aiServiceV2 } from '@/services/ai_v2';
@@ -57,8 +56,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
   const [usefulness, setUsefulness] = useState<number | null>(null);
   const [classificationPrediction, setClassificationPrediction] = useState<number | null>(null);
   const [boundingBoxes, setBoundingBoxes] = useState<BoundingBox[]>([]);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
   // Loading states
   const [loadingClassification, setLoadingClassification] = useState(false);
@@ -87,13 +85,22 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
   // Load existing saved annotations and display existing predictions (without generating new ones)
   useEffect(() => {
     const loadExistingData = async () => {
+      
       try {
         // Load existing annotations only (no predictions)
         const { classificationAnnotation, boundingBoxAnnotations } = await aiServiceV2.loadAnnotationsOnly(media.id);
         
+        console.log('📥 Loaded annotations:', { 
+          classificationAnnotation, 
+          boundingBoxCount: boundingBoxAnnotations.annotations?.length || 0 
+        });
+        
         // Load saved classification annotations
         if (classificationAnnotation) {
+          
           setUsefulness(classificationAnnotation.usefulness);
+        } else {
+          
         }
 
         // Load existing classification prediction for display only (without generating new ones)
@@ -101,6 +108,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
           const existingPrediction = await aiServiceV2.getExistingClassificationPrediction(media.id);
           if (existingPrediction) {
             const prediction = existingPrediction.prediction > 0.5 ? 1 : 0;
+            
             setClassificationPrediction(prediction);
             // Important: Do NOT auto-assign to usefulness when loading on view open
           }
@@ -112,7 +120,10 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
         const boxes: BoundingBox[] = [];
         let colorIndex = 0;
         
+        
+        
         boundingBoxAnnotations.annotations?.forEach(ann => {
+          
           boxes.push({
             id: `ann-${colorIndex}`, // Generate a frontend ID
             class: ann.bb_class,
@@ -126,6 +137,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
           });
           colorIndex++;
         });
+        
         
         setBoundingBoxes(boxes);
       } catch (error) {
@@ -156,6 +168,25 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
 
     getModelInfo();
   }, []);
+
+  // Auto-adjust selectedClass when it becomes unavailable due to new bounding boxes
+  useEffect(() => {
+    if (selectedClass && availableClasses.length > 0) {
+      const availableUniqueClasses = availableClasses.filter(
+        className => !boundingBoxes.some(box => box.class === className)
+      );
+      
+      // If current selectedClass is no longer available, switch to first available or empty
+      if (!availableUniqueClasses.includes(selectedClass)) {
+        console.log('🔄 Selected class no longer available, switching:', {
+          oldClass: selectedClass,
+          newClass: availableUniqueClasses[0] || '',
+          availableClasses: availableUniqueClasses
+        });
+        setSelectedClass(availableUniqueClasses[0] || '');
+      }
+    }
+  }, [boundingBoxes, selectedClass, availableClasses]);
 
   // Global mouse tracking for resize operations that go outside canvas
   useEffect(() => {
@@ -347,7 +378,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
     setBoundingBoxes(prev => prev.map(box => 
       box.id === selectedBoxId ? { ...box, ...newBox } : box
     ));
-    setHasUnsavedChanges(true);
+    triggerAutoSave();
   };
 
   const getCursorStyle = (x: number, y: number): string => {
@@ -357,24 +388,6 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
     const hoveredBox = getBoxAtPoint(x, y);
     
     if (hoveredBox) {
-      // Check if hovering over control buttons (only if box is large enough to show them)
-      const buttonSize = 16;
-      const margin = 4;
-      const minButtonSpace = 2 * buttonSize + 2 + 2 * margin;
-      
-      if (hoveredBox.width >= minButtonSpace && hoveredBox.height >= buttonSize + 2 * margin) {
-        // Hide/Show button area
-        if (x >= hoveredBox.x + margin && x <= hoveredBox.x + margin + buttonSize &&
-            y >= hoveredBox.y + margin && y <= hoveredBox.y + margin + buttonSize) {
-          return 'pointer';
-        }
-        
-        // Delete button area
-        if (x >= hoveredBox.x + margin + buttonSize + 2 && x <= hoveredBox.x + margin + buttonSize + 2 + buttonSize &&
-            y >= hoveredBox.y + margin && y <= hoveredBox.y + margin + buttonSize) {
-          return 'pointer';
-        }
-      }
       
       // Check for resize handles on selected box
       if (selectedBoxId && hoveredBox.id === selectedBoxId) {
@@ -432,27 +445,6 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
           height: clickedBox.height
         });
       } else {
-        // Check if clicking on control buttons (only if box is large enough to show them)
-        const buttonSize = 16;
-        const margin = 4;
-        const minButtonSpace = 2 * buttonSize + 2 + 2 * margin; // Space needed for both buttons plus margins
-        
-        if (clickedBox.width >= minButtonSpace && clickedBox.height >= buttonSize + 2 * margin) {
-          // Hide/Show button area (top-left inside box)
-          if (x >= clickedBox.x + margin && x <= clickedBox.x + margin + buttonSize &&
-              y >= clickedBox.y + margin && y <= clickedBox.y + margin + buttonSize) {
-            handleToggleVisibility(clickedBox.id);
-            return;
-          }
-          
-          // Delete button area (next to hide button)
-          if (x >= clickedBox.x + margin + buttonSize + 2 && x <= clickedBox.x + margin + buttonSize + 2 + buttonSize &&
-              y >= clickedBox.y + margin && y <= clickedBox.y + margin + buttonSize) {
-            handleDeleteBox(clickedBox.id);
-            return;
-          }
-        }
-        
         // Start dragging the box
         setIsDragging(true);
         setDragStart({ x: x - clickedBox.x, y: y - clickedBox.y });
@@ -483,14 +475,14 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
       // Drag the selected box
       setBoundingBoxes(prev => prev.map(box => 
         box.id === selectedBoxId 
-          ? { 
+          ? {
               ...box, 
               x: Math.max(0, x - dragStart.x), 
               y: Math.max(0, y - dragStart.y) 
             }
           : box
       ));
-      setHasUnsavedChanges(true);
+      triggerAutoSave();
     } else if (isResizing && selectedBoxId && resizeHandle) {
       // Use the new resize handler that properly tracks anchors
       handleResize(x, y);
@@ -524,7 +516,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
         };
         
         setBoundingBoxes(prev => [...prev, newBox]);
-        setHasUnsavedChanges(true);
+        triggerAutoSave();
         
         // Auto-cancel creation mode after placing a box
         setIsCreatingBox(false);
@@ -612,7 +604,6 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
       if (box.isHidden) return;
       
       const isSelected = selectedBoxId === box.id;
-      const isHovered = hoveredBoxId === box.id;
       
       // Transform box coordinates from image space to canvas space
       const canvasBox = imageToCanvas(box.x, box.y);
@@ -660,31 +651,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
         });
       }
       
-      // Draw control buttons inside box if hovered or selected and box is large enough
-      if (isHovered || isSelected) {
-        const buttonSize = 16;
-        const margin = 4;
-        const minButtonSpace = 2 * buttonSize + 2 + 2 * margin; // Space needed for both buttons plus margins
-        
-        // Only show buttons if box is large enough to accommodate them
-        if (canvasWidth >= minButtonSpace && canvasHeight >= buttonSize + 2 * margin) {
-          // Hide/Show button (top-left)
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-          ctx.fillRect(canvasBox.x + margin, canvasBox.y + margin, buttonSize, buttonSize);
-          ctx.fillStyle = 'white';
-          ctx.font = '10px Arial';
-          ctx.textAlign = 'center';
-          ctx.fillText('👁', canvasBox.x + margin + buttonSize/2, canvasBox.y + margin + 11);
-          
-          // Delete button (next to hide button)
-          ctx.fillStyle = 'rgba(220, 53, 69, 0.8)';
-          ctx.fillRect(canvasBox.x + margin + buttonSize + 2, canvasBox.y + margin, buttonSize, buttonSize);
-          ctx.fillStyle = 'white';
-          ctx.fillText('✕', canvasBox.x + margin + buttonSize + 2 + buttonSize/2, canvasBox.y + margin + 11);
-          
-          ctx.textAlign = 'left'; // Reset text align
-        }
-      }
+      // Buttons removed - actions available from right panel bounding box list
     });
     
     // Draw preview box while creating
@@ -789,7 +756,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
       // Set usefulness if not already set (auto-assignment only on first prediction)
       if (usefulness === null) {
         setUsefulness(prediction);
-        setHasUnsavedChanges(true);
+        triggerAutoSave();
       }
     } catch (error) {
       console.error('Failed to get classification prediction:', error);
@@ -825,8 +792,10 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
       });
 
       if (newBoxes.length > 0) {
-        setBoundingBoxes(prev => [...prev, ...newBoxes]);
-        setHasUnsavedChanges(true);
+        const updatedBoxes = [...boundingBoxes, ...newBoxes];
+        setBoundingBoxes(updatedBoxes);
+        // Save immediately when adding predicted boxes, passing the new state directly
+        triggerAutoSave(true, usefulness ?? undefined, updatedBoxes);
       }
     } catch (error) {
       console.error('Failed to get bounding box predictions:', error);
@@ -838,14 +807,20 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
   // Handle usefulness change
   const handleUsefulnessChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(event.target.value);
+    
     setUsefulness(value);
     
     // If marked as not useful (0), delete all bounding boxes
+    let updatedBoxes = boundingBoxes;
     if (value === 0) {
-      setBoundingBoxes([]);
+      
+      updatedBoxes = [];
+      setBoundingBoxes(updatedBoxes);
     }
     
-    setHasUnsavedChanges(true);
+    // Save immediately for usefulness changes as they're critical
+    
+    triggerAutoSave(true, value, updatedBoxes);
   };
 
   // Handle bounding box visibility toggle
@@ -853,33 +828,41 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
     setBoundingBoxes(prev => prev.map(box =>
       box.id === boxId ? { ...box, isHidden: !box.isHidden } : box
     ));
-    setHasUnsavedChanges(true);
+    triggerAutoSave();
   };
 
   // Handle bounding box deletion
   const handleDeleteBox = (boxId: string) => {
     setBoundingBoxes(prev => prev.filter(box => box.id !== boxId));
-    setHasUnsavedChanges(true);
+    triggerAutoSave();
   };
 
-  // Handle save annotations
-  const handleSaveAnnotations = async () => {
-    setSaving(true);
+  // Auto-save function with optional override parameters
+  const autoSave = useCallback(async (overrideUsefulness?: number, overrideBoundingBoxes?: BoundingBox[]) => {
+    if (isSaving) return; // Prevent concurrent saves
+    
+    const currentUsefulness = overrideUsefulness !== undefined ? overrideUsefulness : usefulness;
+    const currentBoundingBoxes = overrideBoundingBoxes || boundingBoxes;
+    
+    console.log('🔄 Auto-save starting...', { 
+      mediaId: media.id, 
+      usefulness: currentUsefulness, 
+      boundingBoxCount: currentBoundingBoxes.length,
+      isOverride: !!overrideBoundingBoxes
+    });
+    
+    setIsSaving(true);
     try {
-      let savedCount = 0;
-      
       // Save classification annotation separately
-      if (usefulness !== null) {
-        const classificationResult = await aiServiceV2.saveClassificationAnnotation(media.id, {
-          usefulness
+      if (currentUsefulness !== null) {
+        await aiServiceV2.saveClassificationAnnotation(media.id, {
+          usefulness: currentUsefulness
         });
-        if (classificationResult.success) {
-          savedCount++;
-        }
+        
       }
 
       // Save bounding box annotations separately (always call, even with empty list to clear existing annotations)
-      const bbAnnotations = boundingBoxes.map(box => ({
+      const bbAnnotations = currentBoundingBoxes.map(box => ({
         bb_class: box.class,
         usefulness: box.usefulness,
         x_min: box.x,
@@ -889,22 +872,51 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
         is_hidden: box.isHidden
       }));
 
-      const bbResult = await aiServiceV2.saveBoundingBoxAnnotations(media.id, {
+      await aiServiceV2.saveBoundingBoxAnnotations(media.id, {
         annotations: bbAnnotations
       });
-      if (bbResult.success) {
-        savedCount++;
-      }
-
-      if (savedCount > 0) {
-        setHasUnsavedChanges(false);
-      }
+      
+      
     } catch (error) {
-      console.error('Failed to save annotations:', error);
+      console.error('❌ Auto-save failed:', error);
     } finally {
-      setSaving(false);
+      setIsSaving(false);
+      
     }
-  };
+  }, [media.id, usefulness, boundingBoxes, isSaving]);
+
+  // Ref for debounced auto-save timeout
+  const autoSaveTimeoutRef = useRef<number>();
+
+  // Trigger debounced auto-save
+  const triggerAutoSave = useCallback((immediate = false, overrideUsefulness?: number, overrideBoundingBoxes?: BoundingBox[]) => {
+    // Clear existing timeout
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+    
+    if (immediate) {
+      // Save immediately for critical changes
+      autoSave(overrideUsefulness, overrideBoundingBoxes);
+    } else {
+      // Set new timeout for auto-save
+      autoSaveTimeoutRef.current = setTimeout(() => {
+        autoSave(overrideUsefulness, overrideBoundingBoxes);
+      }, 1000);
+    }
+  }, [autoSave]);
+
+  // Cleanup timeout on unmount and save any pending changes
+  useEffect(() => {
+    return () => {
+      
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+        // Save immediately on unmount if there was a pending save
+        autoSave();
+      }
+    };
+  }, [autoSave]);
 
   if (imageLoading) {
     return (
@@ -916,18 +928,6 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
 
   return (
     <Box p={2}>
-      {/* Header with Save Button */}
-      <Box display="flex" justifyContent="flex-start" mb={2}>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
-          onClick={handleSaveAnnotations}
-          disabled={saving || !hasUnsavedChanges}
-        >
-          {saving ? t('components.annotations.saving') : hasUnsavedChanges ? t('components.annotations.saveAnnotations') : t('components.annotations.noChangesToSave')}
-        </Button>
-      </Box>
       
       <Box display="flex" gap={2} height="80vh">
         {/* Left Panel - Classification */}

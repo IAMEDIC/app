@@ -88,15 +88,9 @@ api.interceptors.response.use(
         isRefreshing = true;
 
         try {
-          // Attempt to refresh the token using httpOnly cookies
-          console.log('🔄 Attempting to refresh token...');
-          
           await axios.post('/api/auth/refresh', {}, {
             withCredentials: true // Include httpOnly cookie
           });
-
-          // With httpOnly cookies, the new token is automatically stored
-          console.log('✅ Token refreshed successfully');
           
           // Process queued requests - no token needed since it's in httpOnly cookie
           processQueue(null, 'cookie-token');
@@ -106,7 +100,6 @@ api.interceptors.response.use(
           return api(originalRequest);
           
         } catch (refreshError) {
-          console.log('❌ Token refresh failed:', refreshError);
           
           // Clear any localStorage tokens (backward compatibility)
           localStorage.removeItem('access_token');
