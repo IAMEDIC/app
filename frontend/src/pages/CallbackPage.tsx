@@ -15,28 +15,26 @@ const CallbackPage: React.FC = () => {
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        const token = searchParams.get('token');
+        const success = searchParams.get('success');
         const error = searchParams.get('error');
-        const userId = searchParams.get('user_id');
-        const email = searchParams.get('email');
-        const name = searchParams.get('name');
 
         if (error) {
           throw new Error(`Authentication failed: ${error}`);
         }
 
-        if (!token || !userId || !email || !name) {
-          throw new Error('Missing authentication data. Please try logging in again.');
+        if (!success) {
+          throw new Error('Authentication callback failed. Please try logging in again.');
         }
 
-        // Store token first
-        localStorage.setItem('access_token', token);
-
-        // Fetch complete user data with roles
+        // With httpOnly cookies, the token is automatically stored by the browser
+        // We just need to fetch user data and update the store
+        
+        // Fetch complete user data with roles from API
+        // The httpOnly cookie will be automatically included in the request
         const completeUser = await authService.getCurrentUser();
 
-        // Store user data and token
-        login(completeUser, token);
+        // Store user data (no token needed - it's in httpOnly cookie)
+        login(completeUser, ''); // Empty token string since it's in httpOnly cookie
         
         // Redirect to home page
         navigate('/', { replace: true });

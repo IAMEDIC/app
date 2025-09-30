@@ -23,9 +23,13 @@ const api: AxiosInstance = axios.create({
   },
 });
 
-// Request interceptor to add auth token
+// Request interceptor to ensure credentials are included (for httpOnly cookies)
 api.interceptors.request.use(
   (config) => {
+    // Ensure credentials (cookies) are included with every request
+    config.withCredentials = true;
+    
+    // Fallback: still support Authorization header for backward compatibility
     const token = localStorage.getItem('access_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -84,42 +88,27 @@ api.interceptors.response.use(
         isRefreshing = true;
 
         try {
-          // Attempt to refresh the token
+          // Attempt to refresh the token using httpOnly cookies
           console.log('🔄 Attempting to refresh token...');
-          const currentToken = localStorage.getItem('access_token');
           
-          if (!currentToken) {
-            throw new Error('No token to refresh');
-          }
-
-          const refreshResponse = await axios.post('/api/auth/refresh', {}, {
-            headers: {
-              Authorization: `Bearer ${currentToken}`
-            }
+          await axios.post('/api/auth/refresh', {}, {
+            withCredentials: true // Include httpOnly cookie
           });
 
-          const { access_token } = refreshResponse.data;
-          
-          // Update token in localStorage
-          localStorage.setItem('access_token', access_token);
-          
-          // Update auth store
-          const { useAuthStore } = await import('@/store/authStore');
-          useAuthStore.getState().updateToken(access_token);
-          
+          // With httpOnly cookies, the new token is automatically stored
           console.log('✅ Token refreshed successfully');
           
-          // Process queued requests
-          processQueue(null, access_token);
+          // Process queued requests - no token needed since it's in httpOnly cookie
+          processQueue(null, 'cookie-token');
           
-          // Retry the original request
-          originalRequest.headers.Authorization = `Bearer ${access_token}`;
+          // Retry the original request - no need to set Authorization header
+          originalRequest.withCredentials = true;
           return api(originalRequest);
           
         } catch (refreshError) {
           console.log('❌ Token refresh failed:', refreshError);
           
-          // Clear tokens and redirect to login
+          // Clear any localStorage tokens (backward compatibility)
           localStorage.removeItem('access_token');
           
           // Update auth store

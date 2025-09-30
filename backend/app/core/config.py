@@ -20,7 +20,10 @@ class Settings(BaseSettings):
     # Security
     secret_key: str = "your-secret-key-change-in-production"
     algorithm: str = "HS256"
-    access_token_expire_minutes: int = 30
+    access_token_expire_minutes: int = 1440  # 24 hours
+    session_inactivity_timeout_hours: int = 4  # Redis session timeout
+    cookie_secure: bool = True  # HTTPS only in production
+    cookie_domain: str = "localhost"  # Configure for your domain
     # Database
     postgres_user: str = "iamedic"
     postgres_password: str = "iamedic"

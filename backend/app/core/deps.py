@@ -9,7 +9,7 @@ from typing import Optional, cast
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, status, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -17,11 +17,11 @@ from app.core.security import verify_token
 from app.services.user_service import UserService
 from app.services.admin_service import AdminService
 from app.services.doctor_service import DoctorService
+from app.services.session_service import SessionService
 from app.models.user import User
 
 
 logger = logging.getLogger(__name__)
-security = HTTPBearer()
 
 credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -31,13 +31,26 @@ credentials_exception = HTTPException(
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
     db: Session = Depends(get_db)
 ) -> User:
-    """Get current authenticated user"""
+    """Get current authenticated user from httpOnly cookie"""
     logger.debug("🔍 Starting user authentication verification")
+    
+    # Try to get token from httpOnly cookie first
+    token = request.cookies.get("access_token")
+    
+    # Fallback to Authorization header for API compatibility
+    if not token:
+        auth_header = request.headers.get("authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+    
+    if not token:
+        logger.warning("⚠️ No token found in cookie or header")
+        raise credentials_exception
+    
     try:
-        token = credentials.credentials
         logger.debug("🔍 Token received, verifying...")
         email = verify_token(token)
         if email is None:
@@ -58,6 +71,26 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Inactive user"
         )
+    
+    # Check session validity and update activity
+    try:
+        from app.services.session_service import SessionService
+        session_service = SessionService()
+        if not session_service.is_session_active(str(user.id)):
+            logger.warning("⚠️ User session expired: %s", email)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session expired due to inactivity"
+            )
+        # Update last activity
+        session_service.update_activity(str(user.id))
+    except ImportError:
+        # Fallback if session service is not available
+        pass
+    except Exception as e:
+        logger.warning("⚠️ Session check failed for user %s: %s", email, str(e))
+        # Don't fail the request, just log the issue
+        
     logger.debug("✅ User authenticated successfully: %s", email)
     return user
 
@@ -74,13 +107,20 @@ def get_optional_current_user(
     db: Session = Depends(get_db)
 ) -> Optional[User]:
     """Get current user if authenticated, None otherwise"""
-    # Check if Authorization header exists
-    auth_header = request.headers.get("authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        logger.debug("🔍 No valid authorization header found")
+    # Try to get token from httpOnly cookie first
+    token = request.cookies.get("access_token")
+    
+    # Fallback to Authorization header
+    if not token:
+        auth_header = request.headers.get("authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+    
+    if not token:
+        logger.debug("🔍 No token found in cookie or header")
         return None
+        
     try:
-        token = auth_header.split(" ")[1]
         email = verify_token(token)
         if email is None:
             logger.debug("🔍 Invalid token in optional auth")
@@ -90,6 +130,14 @@ def get_optional_current_user(
         if user is None or user.is_active is False:
             logger.debug("🔍 User not found or inactive in optional auth: %s", email)
             return None
+            
+        # Update session activity for valid users
+        try:
+            session_service = SessionService()
+            session_service.update_activity(str(user.id))
+        except Exception as e:
+            logger.debug("⚠️ Failed to update session activity: %s", str(e))
+            
         logger.debug("✅ Optional auth successful: %s", email)
         return user
     except Exception as e: # pylint: disable=broad-except

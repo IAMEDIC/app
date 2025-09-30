@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from jose import jwt
+from jose.exceptions import JWTError, ExpiredSignatureError
 
 from app.core.database import get_db
 from app.core.security import create_access_token
@@ -19,6 +20,7 @@ from app.core.config import settings
 from app.core.deps import get_current_active_user, get_optional_current_user
 from app.services.user_service import UserService
 from app.services.auth_service import GoogleOAuthService
+from app.services.session_service import SessionService
 from app.schemas.user import (
     GoogleAuthURL,
     LoginResponse,
@@ -130,20 +132,29 @@ async def google_callback(
         )
         logger.debug("🔑 Updated OAuth tokens for user: %s", user.email)
         access_token = create_access_token(
-            data={"sub": user.email},
+            data={"sub": user.email, "user_id": str(user.id)},
             expires_delta=timedelta(minutes=settings.access_token_expire_minutes)
         )
         logger.debug("🎫 Generated JWT token for user: %s", user.email)
-        frontend_url = "http://localhost:3000"
-        callback_params = {
-            "token": access_token,
-            "user_id": str(user.id),
-            "email": user.email,
-            "name": user.name
-        }
-        redirect_url = f"{frontend_url}/auth/callback?{urlencode(callback_params)}"
-        logger.debug("🔄 Redirecting user %s to frontend", user.email)
-        return RedirectResponse(url=redirect_url, status_code=302)
+        # Create session tracking
+        session_service = SessionService()
+        session_service.create_session(str(user.id), str(user.email))
+        # Create redirect response with httpOnly cookie
+        frontend_url = settings.frontend_url
+        redirect_url = f"{frontend_url}/auth/callback?success=true"
+        response = RedirectResponse(url=redirect_url, status_code=302)
+        # Set httpOnly cookie with token
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=settings.cookie_secure,
+            samesite="lax",
+            max_age=settings.access_token_expire_minutes * 60,
+            domain=settings.cookie_domain if settings.cookie_domain != "localhost" else None
+        )
+        logger.debug("🔄 Redirecting user %s to frontend with httpOnly cookie", user.email)
+        return response
     except ValueError as e:
         logger.error("❌ OAuth callback validation error: %s", e, exc_info=True)
         frontend_url = "http://localhost:3000"
@@ -186,9 +197,10 @@ async def logout(
     current_user: UserModel = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Logout user (clear tokens)"""
+    """Logout user (clear tokens and cookies)"""
     try:
         logger.debug("🚪 User logout initiated: %s", current_user.email)
+        # Clear Google tokens from database
         user_service = UserService(db)
         user_service.update_tokens(
             str(current_user.id),
@@ -196,8 +208,21 @@ async def logout(
             refresh_token=None,
             token_expires_at=None
         )
+        # Invalidate session in Redis
+        session_service = SessionService()
+        session_service.invalidate_session(str(current_user.id))
+        # Create response and clear cookies
+        response = Response(
+            content='{"message": "Successfully logged out"}',
+            media_type="application/json"
+        )
+        # Clear httpOnly cookie
+        response.delete_cookie(
+            key="access_token",
+            domain=settings.cookie_domain if settings.cookie_domain != "localhost" else None
+        )        
         logger.debug("✅ User successfully logged out: %s", current_user.email)
-        return {"message": "Successfully logged out"}
+        return response        
     except Exception as e:
         logger.error("❌ Logout error for user %s: %s", current_user.email, e, exc_info=True)
         raise HTTPException(
@@ -221,14 +246,20 @@ async def refresh_token(
             )
         token = auth_header.split(" ")[1]
         try:
-            payload = jwt.get_unverified_claims(token)
+            # ✅ SECURITY FIX: Properly verify JWT signature
+            payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
             email = payload.get("sub")
             if not email:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid token format"
                 )
-        except Exception:
+        except ExpiredSignatureError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has expired"
+            )
+        except JWTError:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token format"

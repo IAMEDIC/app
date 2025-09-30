@@ -20,8 +20,11 @@ export const useAuthStore = create<AuthStore>()(
       error: null,
 
       login: (user: User, token: string) => {
-        // Store token in localStorage for API calls
-        localStorage.setItem('access_token', token);
+        // With httpOnly cookies, token is managed by the browser
+        // Keep localStorage for backward compatibility
+        if (token) {
+          localStorage.setItem('access_token', token);
+        }
         set({
           user,
           isAuthenticated: true,
@@ -31,8 +34,17 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       logout: () => {
-        // Clear token from localStorage
+        // Clear token from localStorage (backward compatibility)
         localStorage.removeItem('access_token');
+        
+        // Call logout endpoint to clear httpOnly cookies
+        fetch('/api/auth/logout', {
+          method: 'POST',
+          credentials: 'include' // Include httpOnly cookies
+        }).catch(err => {
+          console.warn('Failed to call logout endpoint:', err);
+        });
+        
         set({
           user: null,
           isAuthenticated: false,
@@ -42,8 +54,11 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       updateToken: (token: string) => {
-        // Update token in localStorage
-        localStorage.setItem('access_token', token);
+        // With httpOnly cookies, token is automatically updated by browser
+        // Keep localStorage for backward compatibility
+        if (token && token !== 'cookie-token') {
+          localStorage.setItem('access_token', token);
+        }
         // No need to update state as user info doesn't change
       },
 
