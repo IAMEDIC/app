@@ -46,6 +46,11 @@ interface AnnotationsTabProps {
 
 const COLORS = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F'];
 
+// Utility function to generate unique IDs
+const generateUniqueId = (prefix: string): string => {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+};
+
 export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }) => {
   const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -125,7 +130,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
         boundingBoxAnnotations.annotations?.forEach(ann => {
           
           boxes.push({
-            id: `ann-${colorIndex}`, // Generate a frontend ID
+            id: generateUniqueId('ann'), // Generate unique frontend ID
             class: ann.bb_class,
             x: ann.x_min,
             y: ann.y_min,
@@ -140,6 +145,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
         
         
         setBoundingBoxes(boxes);
+        console.log('🔍 Loaded bounding boxes with IDs:', boxes.map(b => ({ id: b.id, class: b.class })));
       } catch (error) {
         console.error('Failed to load existing data:', error);
       }
@@ -290,23 +296,21 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
     return null;
   };
 
-  const getCanvasDimensions = (): { width: number; height: number } => {
-    const canvas = canvasRef.current;
-    return canvas ? { width: canvas.width, height: canvas.height } : { width: 0, height: 0 };
-  };
-
-
-
-  const handleResize = (x: number, y: number) => {
+  const handleResize = (canvasX: number, canvasY: number) => {
     if (!selectedBoxId || !resizeHandle || !resizeAnchor) return;
     
     const selectedBox = boundingBoxes.find(box => box.id === selectedBoxId);
     if (!selectedBox) return;
     
+    // Convert canvas coordinates to image coordinates for calculations
+    const imageCoords = canvasToImage(canvasX, canvasY);
+    const x = imageCoords.x;
+    const y = imageCoords.y;
+    
     let newBox = { ...selectedBox };
     
     // Calculate new bounds based on mouse position and which handle is being dragged
-    // Use anchor points to ensure opposite corners/edges stay completely static
+    // All calculations are done in image coordinate space
     switch (resizeHandle) {
       case 'nw':
         // Top-left corner follows mouse, bottom-right stays fixed at anchor
@@ -366,10 +370,12 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
         break;
     }
     
-    // Apply canvas boundary constraints without changing anchor behavior
-    const canvasDims = getCanvasDimensions();
-    newBox.x = Math.max(0, Math.min(newBox.x, canvasDims.width - newBox.width));
-    newBox.y = Math.max(0, Math.min(newBox.y, canvasDims.height - newBox.height));
+    // Apply image boundary constraints (in image coordinate space)
+    const image = imageRef.current;
+    if (image) {
+      newBox.x = Math.max(0, Math.min(newBox.x, image.naturalWidth - newBox.width));
+      newBox.y = Math.max(0, Math.min(newBox.y, image.naturalHeight - newBox.height));
+    }
     
     // Ensure minimum size
     if (newBox.width < 10) newBox.width = 10;
@@ -445,9 +451,10 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
           height: clickedBox.height
         });
       } else {
-        // Start dragging the box
+        // Start dragging the box - convert to image coordinates
+        const imageCoords = canvasToImage(x, y);
         setIsDragging(true);
-        setDragStart({ x: x - clickedBox.x, y: y - clickedBox.y });
+        setDragStart({ x: imageCoords.x - clickedBox.x, y: imageCoords.y - clickedBox.y });
       }
     } else {
       setSelectedBoxId(null);
@@ -472,19 +479,29 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
     }
     
     if (isDragging && selectedBoxId && dragStart) {
-      // Drag the selected box
-      setBoundingBoxes(prev => prev.map(box => 
-        box.id === selectedBoxId 
-          ? {
-              ...box, 
-              x: Math.max(0, x - dragStart.x), 
-              y: Math.max(0, y - dragStart.y) 
-            }
-          : box
-      ));
-      triggerAutoSave();
+      // Convert canvas coordinates to image coordinates for dragging
+      const imageCoords = canvasToImage(x, y);
+      const newX = imageCoords.x - dragStart.x;
+      const newY = imageCoords.y - dragStart.y;
+      
+      // Apply boundaries in image coordinate space
+      const image = imageRef.current;
+      if (image) {
+        const selectedBox = boundingBoxes.find(box => box.id === selectedBoxId);
+        if (selectedBox) {
+          const clampedX = Math.max(0, Math.min(newX, image.naturalWidth - selectedBox.width));
+          const clampedY = Math.max(0, Math.min(newY, image.naturalHeight - selectedBox.height));
+          
+          setBoundingBoxes(prev => prev.map(box => 
+            box.id === selectedBoxId 
+              ? { ...box, x: clampedX, y: clampedY }
+              : box
+          ));
+          triggerAutoSave();
+        }
+      }
     } else if (isResizing && selectedBoxId && resizeHandle) {
-      // Use the new resize handler that properly tracks anchors
+      // Pass canvas coordinates to resize handler which will convert them
       handleResize(x, y);
     }
   };
@@ -504,7 +521,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
         const imageBottomRight = canvasToImage(canvasTopLeft.x + width, canvasTopLeft.y + height);
         
         const newBox: BoundingBox = {
-          id: `new-${Date.now()}`,
+          id: generateUniqueId('new'),
           class: selectedClass,
           x: imageTopLeft.x,
           y: imageTopLeft.y,
@@ -729,9 +746,27 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
     const canvas = canvasRef.current;
     if (!image || !canvas) return;
 
-    // Set canvas to a fixed display size that will be scaled by CSS
-    const displayWidth = 800;
-    const displayHeight = 600;
+    // Calculate responsive canvas size based on container and image aspect ratio
+    const container = canvas.parentElement;
+    if (!container) return;
+    
+    const containerRect = container.getBoundingClientRect();
+    const maxWidth = Math.min(containerRect.width - 40, 1000); // Leave some margin, max 1000px
+    const maxHeight = Math.min(containerRect.height - 40, 700); // Leave some margin, max 700px
+    
+    const imageAspectRatio = image.naturalWidth / image.naturalHeight;
+    
+    let displayWidth, displayHeight;
+    
+    if (imageAspectRatio > maxWidth / maxHeight) {
+      // Image is wider relative to container - fit to width
+      displayWidth = maxWidth;
+      displayHeight = maxWidth / imageAspectRatio;
+    } else {
+      // Image is taller relative to container - fit to height  
+      displayHeight = maxHeight;
+      displayWidth = maxHeight * imageAspectRatio;
+    }
     
     canvas.width = displayWidth;
     canvas.height = displayHeight;
@@ -776,7 +811,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
       result.predictions?.forEach(pred => {
         if (pred.confidence > 0.5 && !boundingBoxes.find(box => box.class === pred.bb_class)) {
           newBoxes.push({
-            id: `pred-${colorIndex}`, // Generate frontend ID
+            id: generateUniqueId('pred'), // Generate unique frontend ID
             class: pred.bb_class,
             x: pred.x_min,
             y: pred.y_min,
@@ -794,6 +829,8 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
       if (newBoxes.length > 0) {
         const updatedBoxes = [...boundingBoxes, ...newBoxes];
         setBoundingBoxes(updatedBoxes);
+        console.log('🔍 Added prediction boxes with IDs:', newBoxes.map(b => ({ id: b.id, class: b.class })));
+        console.log('🔍 All boxes now have IDs:', updatedBoxes.map(b => ({ id: b.id, class: b.class })));
         // Save immediately when adding predicted boxes, passing the new state directly
         triggerAutoSave(true, usefulness ?? undefined, updatedBoxes);
       }
@@ -825,15 +862,28 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
 
   // Handle bounding box visibility toggle
   const handleToggleVisibility = (boxId: string) => {
-    setBoundingBoxes(prev => prev.map(box =>
-      box.id === boxId ? { ...box, isHidden: !box.isHidden } : box
-    ));
+    console.log('👁️ Toggling visibility for box ID:', boxId);
+    setBoundingBoxes(prev => {
+      const updatedBoxes = prev.map(box =>
+        box.id === boxId ? { ...box, isHidden: !box.isHidden } : box
+      );
+      const toggledBox = updatedBoxes.find(box => box.id === boxId);
+      console.log('👁️ Toggled box:', { id: toggledBox?.id, class: toggledBox?.class, isHidden: toggledBox?.isHidden });
+      return updatedBoxes;
+    });
     triggerAutoSave();
   };
 
   // Handle bounding box deletion
   const handleDeleteBox = (boxId: string) => {
-    setBoundingBoxes(prev => prev.filter(box => box.id !== boxId));
+    console.log('🗑️ Deleting box ID:', boxId);
+    setBoundingBoxes(prev => {
+      const boxToDelete = prev.find(box => box.id === boxId);
+      console.log('🗑️ Box to delete:', { id: boxToDelete?.id, class: boxToDelete?.class });
+      const remainingBoxes = prev.filter(box => box.id !== boxId);
+      console.log('🗑️ Remaining boxes:', remainingBoxes.map(b => ({ id: b.id, class: b.class })));
+      return remainingBoxes;
+    });
     triggerAutoSave();
   };
 
@@ -929,9 +979,9 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
   return (
     <Box p={2}>
       
-      <Box display="flex" gap={2} height="80vh">
+      <Box display="flex" gap={2} maxHeight="calc(100vh - 200px)" minHeight="600px">
         {/* Left Panel - Classification */}
-        <Box width="250px">
+        <Box width="250px" sx={{ maxHeight: '100%', overflowY: 'auto' }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -993,7 +1043,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
         </Box>
 
         {/* Center Panel - Canvas */}
-        <Box flex={1} position="relative">
+        <Box flex={1} position="relative" sx={{ minWidth: '400px', maxHeight: '100%' }}>
           <Box 
             border="1px solid #ccc" 
             borderRadius={1} 
@@ -1002,8 +1052,9 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
             display="flex"
             justifyContent="center"
             alignItems="center"
+            sx={{ maxHeight: '100%' }}
           >
-            <div style={{ position: 'relative', maxWidth: '100%', maxHeight: '100%' }}>
+            <div style={{ position: 'relative', maxWidth: '100%', maxHeight: '100%', width: '100%', height: '100%' }}>
               <img
                 ref={imageRef}
                 src={imageSrc || ''}
@@ -1035,7 +1086,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
 
         {/* Right Panel - Detected Structures */}
         {usefulness === 1 && (
-          <Box width="300px">
+          <Box width="300px" sx={{ maxHeight: '100%', overflowY: 'auto' }}>
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
@@ -1116,7 +1167,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
                   })()
                 )}
 
-                <Box display="flex" flexDirection="column" gap={1}>
+                <Box display="flex" flexDirection="column" gap={1} sx={{ maxHeight: '400px', overflowY: 'auto' }}>
                   {boundingBoxes.map(box => (
                     <Card key={box.id} variant="outlined">
                       <CardContent sx={{ p: 1 }}>

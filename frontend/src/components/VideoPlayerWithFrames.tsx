@@ -446,7 +446,7 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
                 </IconButton>
               </Box>
             </DialogTitle>
-            <DialogContent>
+            <DialogContent sx={{ height: '80vh', overflow: 'hidden', p: 0 }}>
               <AnnotationsTab 
                 media={{
                   id: selectedFrame.frame_media_id,

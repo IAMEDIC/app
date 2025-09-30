@@ -138,27 +138,26 @@ export const ImageWithAnnotations: React.FC<ImageWithAnnotationsProps> = ({
     const rect = containerRef.current.getBoundingClientRect();
     const currentX = e.clientX - rect.left;
     const currentY = e.clientY - rect.top;
+    
+    // Calculate deltas from original drag start position
     const deltaX = currentX - dragStart.x;
     const deltaY = currentY - dragStart.y;
 
     const originalPixels = normalizedToPixels(dragStart.boxState);
-
     let newPixelBox = { ...originalPixels };
 
     if (dragType === 'move') {
+      // Apply delta to original position with proper bounds checking
       newPixelBox.x = Math.max(0, Math.min(containerDimensions.width - newPixelBox.width, originalPixels.x + deltaX));
       newPixelBox.y = Math.max(0, Math.min(containerDimensions.height - newPixelBox.height, originalPixels.y + deltaY));
     } else if (dragType === 'resize') {
-      newPixelBox.width = Math.max(MIN_BOX_SIZE, originalPixels.width + deltaX);
-      newPixelBox.height = Math.max(MIN_BOX_SIZE, originalPixels.height + deltaY);
+      // For resize, expand from bottom-right corner
+      const newWidth = Math.max(MIN_BOX_SIZE, originalPixels.width + deltaX);
+      const newHeight = Math.max(MIN_BOX_SIZE, originalPixels.height + deltaY);
       
-      // Ensure the box doesn't go outside the image
-      if (newPixelBox.x + newPixelBox.width > containerDimensions.width) {
-        newPixelBox.width = containerDimensions.width - newPixelBox.x;
-      }
-      if (newPixelBox.y + newPixelBox.height > containerDimensions.height) {
-        newPixelBox.height = containerDimensions.height - newPixelBox.y;
-      }
+      // Ensure the box doesn't go outside the image bounds
+      newPixelBox.width = Math.min(newWidth, containerDimensions.width - originalPixels.x);
+      newPixelBox.height = Math.min(newHeight, containerDimensions.height - originalPixels.y);
     }
 
     const normalizedBox = pixelsToNormalized(newPixelBox);
@@ -209,8 +208,9 @@ export const ImageWithAnnotations: React.FC<ImageWithAnnotationsProps> = ({
         onLoad={handleImageLoad}
         style={{
           maxWidth: '100%',
-          maxHeight: '100%',
+          maxHeight: '80vh',
           display: 'block',
+          objectFit: 'contain',
         }}
         draggable={false}
       />
