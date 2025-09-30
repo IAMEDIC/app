@@ -9,6 +9,7 @@ Bounding Box Regression Service
 import os
 import base64
 
+import cv2
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -20,12 +21,15 @@ from mlflow.tracking import MlflowClient
 import onnxruntime as ort
 import numpy as np
 
+from yolo_inference import YOLOONNXInference
+
 
 MLFLOW_URI = os.getenv("MLFLOW_URI", "http://host.docker.internal:8080")
 MLFLOW_MODEL_NAME = os.getenv("MLFLOW_MODEL_NAME", "")
 MLFLOW_MODEL_ALIAS = os.getenv("MLFLOW_MODEL_ALIAS", "champion")
 TARGET_IMAGE_HEIGHT = int(os.getenv("TARGET_IMAGE_HEIGHT", -1))
 TARGET_IMAGE_WIDTH = int(os.getenv("TARGET_IMAGE_WIDTH", -1))
+CLASS_NAMES = {i : name for i, name in enumerate(list(os.getenv("CLASS_NAMES", "").strip("[]").split(", ")))}
 
 MODELS_DIR = "/app/models"
 os.makedirs(MODELS_DIR, exist_ok=True)
@@ -34,18 +38,6 @@ mlflow.set_tracking_uri(MLFLOW_URI)
 mlflow.set_registry_uri(MLFLOW_URI)
 mlflow_client = MlflowClient(tracking_uri=MLFLOW_URI,
                              registry_uri=MLFLOW_URI)
-
-CLASS_NAMES = {
-    0: "CM",
-    1: "IT",
-    2: "NT",
-    3: "midbrain",
-    4: "nasal bone",
-    5: "nasal skin",
-    6: "nasal tip",
-    7: "palate",
-    8: "thalami"
-}
 
 
 class PredictionRequest(BaseModel):
@@ -80,6 +72,23 @@ class ModelInfo(BaseModel):
     classes: list[str]
 
 
+class ClassicInference:
+    """Classic ONNX inference without special preprocessing/postprocessing"""
+
+    def __init__(self, onnx_path: str):
+        """
+        Initialize ONNX inference engine.
+        Args:
+            onnx_path: Path to the ONNX model file
+        """
+        self.session = ort.InferenceSession(onnx_path)
+
+    def __call__(self, data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Make prediction using the ONNX model"""
+        result = self.session.run(None, {"input": data})
+        return result
+
+
 class ModelService:
     """Service to manage model loading and predictions"""
     def __init__(self):
@@ -96,7 +105,10 @@ class ModelService:
             self.model_version = model_version_info.version
             model_file_name = model_version_info.source.split("/")[-1] # type: ignore
             mlflow.artifacts.download_artifacts(run_id=run_id, dst_path=MODELS_DIR)
-            self.model = ort.InferenceSession(f"{MODELS_DIR}/{model_file_name}")
+            if "yolo" in MLFLOW_MODEL_NAME:
+                self.model = YOLOONNXInference(f"{MODELS_DIR}/{model_file_name}", num_classes=len(CLASS_NAMES))
+            else:
+                self.model = ClassicInference(f"{MODELS_DIR}/{model_file_name}")
             print(f"Model loaded successfully. Version: {self.model_version}")
         except Exception as e:
             print(f"Error loading model: {e}")
@@ -137,11 +149,11 @@ class ModelService:
             print(f"Error reloading model: {e}")
             raise
 
-    def predict(self, data: np.ndarray) -> np.ndarray:
+    def predict(self, data) -> tuple[np.ndarray, np.ndarray]:
         """Make predictions using the loaded model"""
         if self.model is None:
             raise RuntimeError("Model not loaded")
-        result = self.model.run(None, {"input": data})
+        result = self.model(data)
         return result
 
 
@@ -199,25 +211,49 @@ async def predict(request: PredictionRequest):
     """Make predictions on the provided image data"""
     try:
         image_bytes = base64.b64decode(request.data)
-        image = np.frombuffer(image_bytes, dtype=np.uint8).reshape((request.height, request.width))
         original_height, original_width = request.height, request.width
-        pil_image = PILImage.fromarray(image)
-        pil_image = pil_image.resize((TARGET_IMAGE_WIDTH, TARGET_IMAGE_HEIGHT), PILImage.Resampling.LANCZOS)
-        image = np.array(pil_image)
-        image = (image.astype(np.float32) / 255.0 - 0.5) / 0.5  # Normalize to [-1, 1]
-        image = np.expand_dims(image, axis=0)  # Add batch dimension
-        image = np.expand_dims(image, axis=0)  # Add channel dimension
-        outputs = model_service.predict(image)
-        class_probs = outputs[0][0] # [K] 
-        boxes = outputs[1][0]       # [K, 4]
+        if isinstance(model_service.model, YOLOONNXInference):
+            # YOLO models expect BGR color images
+            gray_image = np.frombuffer(image_bytes, dtype=np.uint8).reshape((request.height, request.width))
+            image = cv2.cvtColor(gray_image, cv2.COLOR_GRAY2BGR)
+            # YOLO expects list of images
+            outputs = model_service.predict([image])
+            confidences, boxes = outputs  # [K, B], [K, B, 4]
+            # Extract results for single image (batch index 0)
+            class_probs = confidences[:, 0]  # [K]
+            box_coords = boxes[:, 0, :]      # [K, 4]
+            
+        elif isinstance(model_service.model, ClassicInference):
+            # Classic models expect preprocessed single-channel images
+            image = np.frombuffer(image_bytes, dtype=np.uint8).reshape((request.height, request.width))
+            pil_image = PILImage.fromarray(image)
+            pil_image = pil_image.resize((TARGET_IMAGE_WIDTH, TARGET_IMAGE_HEIGHT), PILImage.Resampling.LANCZOS)
+            image = np.array(pil_image)
+            image = (image.astype(np.float32) / 255.0 - 0.5) / 0.5  # Normalize to [-1, 1]
+            image = np.expand_dims(image, axis=0)  # Add batch dimension
+            image = np.expand_dims(image, axis=0)  # Add channel dimension
+            outputs = model_service.predict(image)
+            class_probs = outputs[0][0] # [K]
+            box_coords = outputs[1][0]  # [K, 4]
+        else:
+            raise ValueError(f"Unknown model type: {type(model_service.model)}")
         predictions = []
-        for i, (class_prob, box) in enumerate(zip(class_probs, boxes)):
+        for i, (class_prob, box) in enumerate(zip(class_probs, box_coords)):
             class_name = CLASS_NAMES[i]
-            x_center_rel, y_center_rel, width_rel, height_rel = box
-            x_min = (x_center_rel - width_rel / 2) * original_width
-            y_min = (y_center_rel - height_rel / 2) * original_height
-            width = width_rel * original_width
-            height = height_rel * original_height
+            if isinstance(model_service.model, YOLOONNXInference):
+                # YOLO returns absolute coordinates [x1, y1, x2, y2]
+                x1, y1, x2, y2 = box
+                x_min = float(x1)
+                y_min = float(y1) 
+                width = float(x2 - x1)
+                height = float(y2 - y1)
+            else:
+                # Classic models return relative coordinates [x_center, y_center, width, height]
+                x_center_rel, y_center_rel, width_rel, height_rel = box
+                x_min = (x_center_rel - width_rel / 2) * original_width
+                y_min = (y_center_rel - height_rel / 2) * original_height
+                width = width_rel * original_width
+                height = height_rel * original_height
             prediction = Prediction(
                 class_name=class_name,
                 confidence=float(class_prob),

@@ -11,11 +11,7 @@ import {
   StudyListResponse,
   MediaUploadResponse,
   MediaListResponse,
-  StorageInfo,
-  ModelInfo,
-  MediaPredictionsResponse,
-  SaveAnnotationsRequest,
-  SaveAnnotationsResponse
+  StorageInfo
 } from '@/types';
 
 // Create axios instance with base configuration
@@ -268,51 +264,6 @@ export const mediaService = {
   // Delete media
   deleteMedia: async (studyId: string, mediaId: string): Promise<{ message: string }> => {
     const response = await api.delete(`/studies/${studyId}/media/${mediaId}`);
-    return response.data;
-  },
-};
-
-// AI/ML service functions
-export const aiService = {
-  // Get classifier model info
-  getClassifierModelInfo: async (): Promise<ModelInfo> => {
-    const response = await api.get('/ai/models/classifier/info');
-    return response.data;
-  },
-
-  // Get bounding box model info
-  getBBModelInfo: async (): Promise<ModelInfo> => {
-    const response = await api.get('/ai/models/bb-regressor/info');
-    return response.data;
-  },
-
-  // Generate classification prediction only
-  generateClassificationPrediction: async (mediaId: string, forceRefresh: boolean = false): Promise<MediaPredictionsResponse> => {
-    const response = await api.post(`/media/${mediaId}/predictions/classification`, {
-      media_id: mediaId,
-      force_refresh: forceRefresh
-    });
-    return response.data;
-  },
-
-  // Generate bounding box predictions only
-  generateBBPredictions: async (mediaId: string, forceRefresh: boolean = false): Promise<MediaPredictionsResponse> => {
-    const response = await api.post(`/media/${mediaId}/predictions/bounding-boxes`, {
-      media_id: mediaId,
-      force_refresh: forceRefresh
-    });
-    return response.data;
-  },
-
-  // Get existing predictions and annotations for a media file
-  getMediaPredictions: async (mediaId: string): Promise<MediaPredictionsResponse> => {
-    const response = await api.get(`/media/${mediaId}/predictions`);
-    return response.data;
-  },
-
-  // Save annotations
-  saveAnnotations: async (mediaId: string, annotationsData: SaveAnnotationsRequest): Promise<SaveAnnotationsResponse> => {
-    const response = await api.post(`/media/${mediaId}/annotations/save`, annotationsData);
     return response.data;
   },
 };

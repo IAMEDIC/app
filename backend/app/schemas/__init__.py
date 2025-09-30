@@ -85,14 +85,19 @@ from app.schemas.picture_bb_annotation import (
     PictureBBAnnotationUpdate,
     PictureBBAnnotationInDB,
 )
-from app.schemas.ai_predictions import (
+from app.schemas.ai_responses import (
     ModelInfo,
-    PredictionRequest,
     ClassificationPredictionResponse,
-    BBPredictionResponse,
-    MediaPredictionsResponse,
-    SaveAnnotationsRequest,
-    SaveAnnotationsResponse,
+    BoundingBoxPrediction,
+    BoundingBoxPredictionsResponse,
+    ClassificationAnnotationResponse,
+    BoundingBoxAnnotation,
+    BoundingBoxAnnotationsResponse,
+    SaveClassificationAnnotationRequest,
+    SaveAnnotationResponse,
+    SaveBoundingBoxAnnotationItem,
+    SaveBoundingBoxAnnotationsRequest,
+    GeneratePredictionRequest
 )
 
 __all__ = [
@@ -159,10 +164,16 @@ __all__ = [
     "PictureBBAnnotationUpdate",
     "PictureBBAnnotationInDB",
     "ModelInfo",
-    "PredictionRequest",
     "ClassificationPredictionResponse",
-    "BBPredictionResponse",
-    "MediaPredictionsResponse",
-    "SaveAnnotationsRequest",
-    "SaveAnnotationsResponse",
+    "BoundingBoxPrediction",
+    "BoundingBoxPredictionsResponse",
+    "ClassificationAnnotationResponse",
+    "BoundingBoxAnnotation",
+    "BoundingBoxAnnotationsResponse",
+    "SaveClassificationAnnotationRequest",
+    "SaveAnnotationResponse",
+    "SaveBoundingBoxAnnotationItem",
+    "SaveBoundingBoxAnnotationsRequest",
+    "SaveClassificationAnnotationRequest",
+    "GeneratePredictionRequest"
 ]

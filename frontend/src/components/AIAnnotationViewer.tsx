@@ -25,11 +25,15 @@ import {
   Warning as WarningIcon,
 } from '@mui/icons-material';
 import { 
-  MediaPredictionsResponse, 
   ModelInfo,
-  SaveAnnotationsRequest 
-} from '@/types';
-import { aiService } from '@/services/api';
+
+  ClassificationPredictionResponse,
+  BoundingBoxPredictionsResponse,
+  ClassificationAnnotationResponse,
+  BoundingBoxAnnotationsResponse,
+
+} from '@/types/ai_v2';
+import { aiServiceV2 } from '@/services/ai_v2';
 
 interface BoundingBox {
   id: string;
@@ -52,7 +56,11 @@ export const AIAnnotationViewer: React.FC<AIAnnotationViewerProps> = ({
   mediaId,
   onUnsavedChanges,
 }) => {
-  const [predictions, setPredictions] = useState<MediaPredictionsResponse | null>(null);
+  // Separate state for predictions and annotations
+  const [classificationPrediction, setClassificationPrediction] = useState<ClassificationPredictionResponse | null>(null);
+  const [, setBoundingBoxPredictions] = useState<BoundingBoxPredictionsResponse | null>(null);
+  const [classificationAnnotation, setClassificationAnnotation] = useState<ClassificationAnnotationResponse | null>(null);
+  const [, setBoundingBoxAnnotations] = useState<BoundingBoxAnnotationsResponse | null>(null);
   const [classifierModel, setClassifierModel] = useState<ModelInfo | null>(null);
   const [bbModel, setBBModel] = useState<ModelInfo | null>(null);
   const [loading, setLoading] = useState(false);
@@ -74,8 +82,8 @@ export const AIAnnotationViewer: React.FC<AIAnnotationViewerProps> = ({
     const loadModelInfo = async () => {
       try {
         const [classifierInfo, bbInfo] = await Promise.all([
-          aiService.getClassifierModelInfo(),
-          aiService.getBBModelInfo(),
+          aiServiceV2.getClassifierModelInfo(),
+          aiServiceV2.getBBModelInfo(),
         ]);
         setClassifierModel(classifierInfo);
         setBBModel(bbInfo);
@@ -93,6 +101,7 @@ export const AIAnnotationViewer: React.FC<AIAnnotationViewerProps> = ({
 
   // Notify parent of unsaved changes
   useEffect(() => {
+    console.log('DEBUG: hasUnsavedChanges changed to:', hasUnsavedChanges);
     onUnsavedChanges(hasUnsavedChanges);
   }, [hasUnsavedChanges, onUnsavedChanges]);
 
@@ -100,41 +109,57 @@ export const AIAnnotationViewer: React.FC<AIAnnotationViewerProps> = ({
     try {
       setLoading(true);
       setError(null);
-      const data = await aiService.getMediaPredictions(mediaId);
-      setPredictions(data);
       
-      // Initialize state from loaded data
-      if (data.classification.annotation) {
-        setClassificationUsefulness(data.classification.annotation.usefulness);
+      // Load all data using v2 API loadAllData convenience method
+      const data = await aiServiceV2.loadAllData(mediaId);
+      
+      // Set separate state for predictions and annotations
+      setClassificationPrediction(data.existingClassificationPrediction);
+      setBoundingBoxPredictions(data.existingBoundingBoxPredictions);
+      setClassificationAnnotation(data.classificationAnnotation);
+      setBoundingBoxAnnotations(data.boundingBoxAnnotations);
+      
+      // Initialize usefulness from annotation if it exists
+      if (data.classificationAnnotation) {
+        setClassificationUsefulness(data.classificationAnnotation.usefulness);
       }
       
-      // Convert predictions and annotations to unified format
-      const allBoxes: BoundingBox[] = [
-        // Add predictions
-        ...data.bounding_boxes.predictions.map(pred => ({
-          id: `pred-${pred.id}`,
-          bb_class: pred.bb_class,
-          usefulness: 1, // Default for predictions
-          x_min: pred.x_min,
-          y_min: pred.y_min,
-          width: pred.width,
-          height: pred.height,
-          is_hidden: false,
-          isPrediction: true,
-        })),
-        // Add annotations
-        ...data.bounding_boxes.annotations.map(ann => ({
-          id: `ann-${ann.id}`,
-          bb_class: ann.bb_class,
-          usefulness: ann.usefulness,
-          x_min: ann.x_min,
-          y_min: ann.y_min,
-          width: ann.width,
-          height: ann.height,
-          is_hidden: ann.is_hidden,
-          isPrediction: false,
-        })),
-      ];
+      // Convert predictions and annotations to unified format for UI
+      const allBoxes: BoundingBox[] = [];
+      
+      // Add predictions if they exist
+      if (data.existingBoundingBoxPredictions?.predictions) {
+        allBoxes.push(
+          ...data.existingBoundingBoxPredictions.predictions.map((pred, index) => ({
+            id: `pred-${index}`,
+            bb_class: pred.bb_class,
+            usefulness: 1, // Default for predictions
+            x_min: pred.x_min,
+            y_min: pred.y_min,
+            width: pred.width,
+            height: pred.height,
+            is_hidden: false,
+            isPrediction: true,
+          }))
+        );
+      }
+      
+      // Add annotations if they exist
+      if (data.boundingBoxAnnotations?.annotations) {
+        allBoxes.push(
+          ...data.boundingBoxAnnotations.annotations.map((ann, index) => ({
+            id: `ann-${index}`,
+            bb_class: ann.bb_class,
+            usefulness: ann.usefulness,
+            x_min: ann.x_min,
+            y_min: ann.y_min,
+            width: ann.width,
+            height: ann.height,
+            is_hidden: ann.is_hidden,
+            isPrediction: false,
+          }))
+        );
+      }
       
       setBoundingBoxes(allBoxes);
       setHasUnsavedChanges(false);
@@ -150,20 +175,24 @@ export const AIAnnotationViewer: React.FC<AIAnnotationViewerProps> = ({
     try {
       setGenerating(true);
       setError(null);
-      const data = await aiService.generateBBPredictions(mediaId, forceRefresh);
-      setPredictions(data);
       
-      // Update state from new predictions
-      if (data.classification.annotation) {
-        setClassificationUsefulness(data.classification.annotation.usefulness);
-      }
+      // Generate new predictions using v2 API
+      const [newClassificationPred, newBBPreds] = await Promise.all([
+        aiServiceV2.generateClassificationPrediction(mediaId, forceRefresh),
+        aiServiceV2.generateBoundingBoxPredictions(mediaId, forceRefresh)
+      ]);
       
-      // Reload bounding boxes
-      const allBoxes: BoundingBox[] = [
-        ...data.bounding_boxes.predictions.map((pred: any) => ({
-          id: `pred-${pred.id}`,
+      // Update prediction state
+      setClassificationPrediction(newClassificationPred);
+      setBoundingBoxPredictions(newBBPreds);
+      
+      // Update bounding boxes display with new predictions
+      const newPredBoxes: BoundingBox[] = [
+        // Add new predictions
+        ...newBBPreds.predictions.map((pred, index) => ({
+          id: `pred-${index}`,
           bb_class: pred.bb_class,
-          usefulness: 1,
+          usefulness: 1, // Default for predictions
           x_min: pred.x_min,
           y_min: pred.y_min,
           width: pred.width,
@@ -171,20 +200,11 @@ export const AIAnnotationViewer: React.FC<AIAnnotationViewerProps> = ({
           is_hidden: false,
           isPrediction: true,
         })),
-        ...data.bounding_boxes.annotations.map((ann: any) => ({
-          id: `ann-${ann.id}`,
-          bb_class: ann.bb_class,
-          usefulness: ann.usefulness,
-          x_min: ann.x_min,
-          y_min: ann.y_min,
-          width: ann.width,
-          height: ann.height,
-          is_hidden: ann.is_hidden,
-          isPrediction: false,
-        })),
+        // Keep existing annotations (filter from current boundingBoxes)
+        ...boundingBoxes.filter(box => !box.isPrediction)
       ];
       
-      setBoundingBoxes(allBoxes);
+      setBoundingBoxes(newPredBoxes);
       setHasUnsavedChanges(true); // Mark as changed since predictions create initial annotations
     } catch (error) {
       console.error('Failed to generate predictions:', error);
@@ -195,6 +215,7 @@ export const AIAnnotationViewer: React.FC<AIAnnotationViewerProps> = ({
   };
 
   const saveAnnotations = async () => {
+    console.log('DEBUG: saveAnnotations function called!');
     try {
       setSaving(true);
       setError(null);
@@ -212,22 +233,41 @@ export const AIAnnotationViewer: React.FC<AIAnnotationViewerProps> = ({
           is_hidden: box.is_hidden,
         }));
 
-      const saveData: SaveAnnotationsRequest = {
-        media_id: mediaId,
-        classification_annotation: {
-          usefulness: classificationUsefulness,
-        },
-        bb_annotations: annotationBoxes,
-      };
-
-      const result = await aiService.saveAnnotations(mediaId, saveData);
+      // Save using v2 API separate calls
+      console.log('DEBUG: About to save annotations', {
+        classificationUsefulness,
+        annotationBoxesCount: annotationBoxes.length,
+        annotationBoxes
+      });
       
-      if (result.success) {
+      console.log('DEBUG: Starting classification save...');
+      const classificationResult = await aiServiceV2.saveClassificationAnnotation(mediaId, {
+        usefulness: classificationUsefulness
+      });
+      console.log('DEBUG: Classification save result:', classificationResult);
+      
+      console.log('DEBUG: Starting bounding box save...');
+      const boundingBoxResult = await aiServiceV2.saveBoundingBoxAnnotations(mediaId, {
+        annotations: annotationBoxes
+      });
+      console.log('DEBUG: Bounding box save result:', boundingBoxResult);
+      
+      const saveResults = [classificationResult, boundingBoxResult];
+      console.log('DEBUG: All save results', saveResults);
+      
+      // Check if both saves were successful
+      const allSuccessful = saveResults.every(result => result.success);
+      
+      if (allSuccessful) {
         setHasUnsavedChanges(false);
         // Reload to get updated IDs and timestamps
         await loadPredictions();
       } else {
-        setError(result.message);
+        const errorMessages = saveResults
+          .filter(result => !result.success)
+          .map(result => result.message)
+          .join(', ');
+        setError(`Failed to save: ${errorMessages}`);
       }
     } catch (error) {
       console.error('Failed to save annotations:', error);
@@ -252,7 +292,13 @@ export const AIAnnotationViewer: React.FC<AIAnnotationViewerProps> = ({
   };
 
   const deleteBoundingBox = (boxId: string) => {
-    setBoundingBoxes(prev => prev.filter(box => box.id !== boxId));
+    console.log('DEBUG: Deleting bounding box', boxId);
+    setBoundingBoxes(prev => {
+      const filtered = prev.filter(box => box.id !== boxId);
+      console.log('DEBUG: Remaining boxes after deletion:', filtered.length);
+      return filtered;
+    });
+    console.log('DEBUG: Setting hasUnsavedChanges to true after deletion');
     setHasUnsavedChanges(true);
     if (selectedBox === boxId) {
       setSelectedBox(null);
@@ -373,19 +419,19 @@ export const AIAnnotationViewer: React.FC<AIAnnotationViewerProps> = ({
       </Paper>
 
       {/* Classification Results */}
-      {predictions?.classification && (
+      {(classificationPrediction || classificationAnnotation) && (
         <Paper sx={{ p: 2, mb: 2 }}>
           <Typography variant="subtitle1" gutterBottom>
             Classification Results
           </Typography>
           
-          {predictions.classification.prediction && (
+          {classificationPrediction && (
             <Box mb={2}>
               <Typography variant="body2" color="text.secondary">
-                Model Confidence: {(predictions.classification.prediction.prediction * 100).toFixed(1)}%
+                Model Confidence: {(classificationPrediction.prediction * 100).toFixed(1)}%
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Model Version: {predictions.classification.prediction.model_version}
+                Model Version: {classificationPrediction.model_version}
               </Typography>
             </Box>
           )}
@@ -424,6 +470,10 @@ export const AIAnnotationViewer: React.FC<AIAnnotationViewerProps> = ({
           </Typography>
           
           <Box display="flex" flexDirection="column" gap={1}>
+            {(() => {
+              console.log('DEBUG: Rendering bounding boxes, count:', boundingBoxes.length, 'boxes:', boundingBoxes);
+              return null;
+            })()}
             {boundingBoxes.map((box) => (
               <Box
                 key={box.id}

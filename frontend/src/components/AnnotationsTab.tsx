@@ -23,7 +23,8 @@ import {
   Save as SaveIcon
 } from '@mui/icons-material';
 import { MediaSummary } from '@/types';
-import { aiService, mediaService } from '@/services/api';
+import { mediaService } from '@/services/api';
+import { aiServiceV2 } from '@/services/ai_v2';
 import { useTranslation } from '@/contexts/LanguageContext';
 
 interface BoundingBox {
@@ -108,25 +109,33 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
   useEffect(() => {
     const loadExistingData = async () => {
       try {
-        const data = await aiService.getMediaPredictions(media.id);
-        
-        // Load existing classification prediction if available (but don't generate new ones)
-        if (data.classification.prediction?.prediction !== undefined) {
-          setClassificationPrediction(data.classification.prediction.prediction > 0.5 ? 1 : 0);
-        }
+        // Load existing annotations only (no predictions)
+        const { classificationAnnotation, boundingBoxAnnotations } = await aiServiceV2.loadAnnotationsOnly(media.id);
         
         // Load saved classification annotations
-        if (data.classification.annotation?.usefulness !== undefined) {
-          setUsefulness(data.classification.annotation.usefulness);
+        if (classificationAnnotation) {
+          setUsefulness(classificationAnnotation.usefulness);
+        }
+
+        // Load existing classification prediction for display only (without generating new ones)
+        try {
+          const existingPrediction = await aiServiceV2.getExistingClassificationPrediction(media.id);
+          if (existingPrediction) {
+            const prediction = existingPrediction.prediction > 0.5 ? 1 : 0;
+            setClassificationPrediction(prediction);
+            // Important: Do NOT auto-assign to usefulness when loading on view open
+          }
+        } catch (predictionError) {
+          console.error('Failed to load classification prediction:', predictionError);
         }
         
         // Load saved bounding box annotations only
         const boxes: BoundingBox[] = [];
         let colorIndex = 0;
         
-        data.bounding_boxes.annotations?.forEach(ann => {
+        boundingBoxAnnotations.annotations?.forEach(ann => {
           boxes.push({
-            id: ann.id,
+            id: `ann-${colorIndex}`, // Generate a frontend ID
             class: ann.bb_class,
             x: ann.x_min,
             y: ann.y_min,
@@ -152,7 +161,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
   useEffect(() => {
     const getModelInfo = async () => {
       try {
-        const modelInfo = await aiService.getBBModelInfo();
+        const modelInfo = await aiServiceV2.getBBModelInfo();
         // Store available classes for creating new bounding boxes
         if (modelInfo.classes) {
           setAvailableClasses(modelInfo.classes);
@@ -794,16 +803,14 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
   const handleGetUsefulnessPrediction = async () => {
     setLoadingClassification(true);
     try {
-      const result = await aiService.generateClassificationPrediction(media.id, false);
-      if (result.classification.prediction?.prediction !== undefined) {
-        const prediction = result.classification.prediction.prediction > 0.5 ? 1 : 0;
-        setClassificationPrediction(prediction);
-        
-        // Set usefulness if not already set
-        if (usefulness === null) {
-          setUsefulness(prediction);
-          setHasUnsavedChanges(true);
-        }
+      const result = await aiServiceV2.generateClassificationPrediction(media.id, false);
+      const prediction = result.prediction > 0.5 ? 1 : 0;
+      setClassificationPrediction(prediction);
+      
+      // Set usefulness if not already set (auto-assignment only on first prediction)
+      if (usefulness === null) {
+        setUsefulness(prediction);
+        setHasUnsavedChanges(true);
       }
     } catch (error) {
       console.error('Failed to get classification prediction:', error);
@@ -816,14 +823,14 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
   const handleGetBoundingBoxes = async () => {
     setLoadingBoundingBoxes(true);
     try {
-      const result = await aiService.generateBBPredictions(media.id, false);
+      const result = await aiServiceV2.generateBoundingBoxPredictions(media.id, false);
       const newBoxes: BoundingBox[] = [];
       let colorIndex = boundingBoxes.length;
 
-      result.bounding_boxes.predictions?.forEach(pred => {
+      result.predictions?.forEach(pred => {
         if (pred.confidence > 0.5 && !boundingBoxes.find(box => box.class === pred.bb_class)) {
           newBoxes.push({
-            id: pred.id,
+            id: `pred-${colorIndex}`, // Generate frontend ID
             class: pred.bb_class,
             x: pred.x_min,
             y: pred.y_min,
@@ -880,24 +887,39 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
   const handleSaveAnnotations = async () => {
     setSaving(true);
     try {
-      const annotationsData = {
-        media_id: media.id,
-        classification_annotation: usefulness !== null ? { 
-          usefulness 
-        } : undefined,
-        bb_annotations: boundingBoxes.map(box => ({
-          bb_class: box.class,
-          usefulness: box.usefulness,
-          x_min: box.x,
-          y_min: box.y,
-          width: box.width,
-          height: box.height,
-          is_hidden: box.isHidden
-        }))
-      };
+      let savedCount = 0;
+      
+      // Save classification annotation separately
+      if (usefulness !== null) {
+        const classificationResult = await aiServiceV2.saveClassificationAnnotation(media.id, {
+          usefulness
+        });
+        if (classificationResult.success) {
+          savedCount++;
+        }
+      }
 
-      await aiService.saveAnnotations(media.id, annotationsData);
-      setHasUnsavedChanges(false);
+      // Save bounding box annotations separately (always call, even with empty list to clear existing annotations)
+      const bbAnnotations = boundingBoxes.map(box => ({
+        bb_class: box.class,
+        usefulness: box.usefulness,
+        x_min: box.x,
+        y_min: box.y,
+        width: box.width,
+        height: box.height,
+        is_hidden: box.isHidden
+      }));
+
+      const bbResult = await aiServiceV2.saveBoundingBoxAnnotations(media.id, {
+        annotations: bbAnnotations
+      });
+      if (bbResult.success) {
+        savedCount++;
+      }
+
+      if (savedCount > 0) {
+        setHasUnsavedChanges(false);
+      }
     } catch (error) {
       console.error('Failed to save annotations:', error);
     } finally {

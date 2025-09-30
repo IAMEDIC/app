@@ -87,3 +87,6 @@ ENV/
 # Backup files
 *.bak
 *.backup
+
+# Copilot
+.github/

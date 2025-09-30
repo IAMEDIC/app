@@ -24,9 +24,8 @@ from app.models.media import Media, MediaType
 from app.models.frame import Frame
 from app.services.media_service import MediaService
 from app.services.frame_service import FrameService
+from app.services.ai_prediction_service_v2 import AIPredictionService
 from app.core.file_storage import FileStorageService
-from app.services.ai_prediction_service import AIPredictionService
-from app.schemas.picture_classification_prediction import PictureClassificationPredictionCreate
 
 
 logger = logging.getLogger(__name__)
@@ -167,7 +166,7 @@ class AutoFrameService:
                 model_info = await self.ai_service.get_model_info("classifier")
                 if not model_info:
                     raise RuntimeError("Classifier model not available in AI service")
-                model_version = model_info.version
+                model_version = model_info.get("version", "unknown")
                 predictions = await self._predict_frames_with_ai_service(video_frames)
                 runs = self.get_runs(predictions, params)
                 logger.debug(f"Found {len(runs)} runs in video {video_media_id}")
@@ -187,18 +186,16 @@ class AutoFrameService:
                             if frame:
                                 frame_media_id = cast(UUID, frame.frame_media_id)
                                 extracted_frames.append(frame)
-                                if self.ai_service.get_existing_classification_prediction(
-                                    frame_media_id,
-                                    model_version
+                                if self.ai_service.get_cached_classification_prediction(
+                                    frame_media_id, model_version
                                 ):
                                     continue
-                                prediction_data = PictureClassificationPredictionCreate(
-                                    media_id=frame_media_id,
-                                    media_type=MediaType.FRAME,
-                                    prediction=run.max_prob,
-                                    model_version=model_version
+                                self.ai_service._cache_classification_prediction(
+                                    frame_media_id,
+                                    MediaType.FRAME.value,
+                                    run.max_prob,
+                                    model_version
                                 )
-                                self.ai_service.save_classification_prediction(prediction_data)
                         except Exception as e:
                             logger.error(f"Failed to extract frame at index {frame_index}: {e}")
                             continue
