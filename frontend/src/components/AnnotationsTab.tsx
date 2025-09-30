@@ -23,8 +23,8 @@ import {
   Save as SaveIcon
 } from '@mui/icons-material';
 import { MediaSummary } from '@/types';
-import { mediaService } from '@/services/api';
 import { aiServiceV2 } from '@/services/ai_v2';
+import { useCachedMedia } from '@/hooks/useCachedMedia';
 import { useTranslation } from '@/contexts/LanguageContext';
 
 interface BoundingBox {
@@ -53,8 +53,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
   const imageRef = useRef<HTMLImageElement>(null);
   
   // State management
-  const [imageSrc, setImageSrc] = useState<string>('');
-  const [imageLoading, setImageLoading] = useState(true);
+  // Image state is now managed by useCachedMedia hook
   const [usefulness, setUsefulness] = useState<number | null>(null);
   const [classificationPrediction, setClassificationPrediction] = useState<number | null>(null);
   const [boundingBoxes, setBoundingBoxes] = useState<BoundingBox[]>([]);
@@ -82,28 +81,8 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
   const [currentMousePos, setCurrentMousePos] = useState<{ x: number; y: number } | null>(null);
   const [canvasCursor, setCanvasCursor] = useState<string>('default');
 
-  // Load image
-  useEffect(() => {
-    const loadImage = async () => {
-      try {
-        setImageLoading(true);
-        const blob = await mediaService.downloadMedia(studyId, media.id);
-        const url = URL.createObjectURL(blob);
-        setImageSrc(url);
-      } catch (error) {
-        console.error('Failed to load image:', error);
-      } finally {
-        setImageLoading(false);
-      }
-    };
-
-    loadImage();
-    return () => {
-      if (imageSrc) {
-        URL.revokeObjectURL(imageSrc);
-      }
-    };
-  }, [media.id, studyId]);
+  // Load image using cache
+  const { src: imageSrc, isLoading: imageLoading } = useCachedMedia(studyId, media.id);
 
   // Load existing saved annotations and display existing predictions (without generating new ones)
   useEffect(() => {
@@ -1027,7 +1006,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
             <div style={{ position: 'relative', maxWidth: '100%', maxHeight: '100%' }}>
               <img
                 ref={imageRef}
-                src={imageSrc}
+                src={imageSrc || ''}
                 alt={media.filename}
                 onLoad={handleImageLoad}
                 style={{ 

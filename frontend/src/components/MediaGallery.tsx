@@ -28,9 +28,11 @@ import {
   Psychology as AIIcon,
 } from '@mui/icons-material';
 import { MediaSummary } from '@/types';
-import { mediaService } from '@/services/api';
 import { AnnotationsTab } from './AnnotationsTab';
 import { VideoPlayerWithFrames } from './VideoPlayerWithFrames';
+import { CachedMediaImage } from './CachedMediaImage';
+import { useMediaCacheStore } from '@/store/mediaCacheStore';
+import { useMediaCacheManager } from '@/utils/mediaCacheUtils';
 import { useTranslation } from '@/contexts/LanguageContext';
 
 interface MediaGalleryProps {
@@ -57,6 +59,9 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
   const [activeTab, setActiveTab] = useState(0); // 0: View, 1: Annotations
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
+  
+  // Media cache management
+  const { handleMediaDeleted } = useMediaCacheManager();
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return `0 ${t('storage.bytes')}`;
@@ -120,6 +125,10 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
     try {
       setActionLoading(`delete-${mediaItem.id}`);
       await onDeleteMedia(mediaItem.id);
+      
+      // Clear the deleted media from cache
+      handleMediaDeleted(mediaItem.id);
+      
       setDeleteDialog(null);
     } catch (error) {
       console.error('Delete failed:', error);
@@ -149,65 +158,6 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
     alt,
     showAI = false
   }) => {
-    const [imageSrc, setImageSrc] = useState<string>('');
-    const [imageLoading, setImageLoading] = useState(true);
-    const [imageError, setImageError] = useState(false);
-
-    useEffect(() => {
-      let isMounted = true;
-      let blobUrl: string | null = null;
-      
-      const loadImage = async () => {
-        try {
-          setImageLoading(true);
-          setImageError(false);
-          
-          // Fetch the media file using authenticated request
-          const blob = await mediaService.downloadMedia(studyId, mediaId);
-          
-          if (isMounted) {
-            blobUrl = URL.createObjectURL(blob);
-            setImageSrc(blobUrl);
-          }
-        } catch (error) {
-          console.error('Failed to load image:', error);
-          if (isMounted) {
-            setImageError(true);
-          }
-        } finally {
-          if (isMounted) {
-            setImageLoading(false);
-          }
-        }
-      };
-
-      loadImage();
-      
-      // Cleanup function
-      return () => {
-        isMounted = false;
-        if (blobUrl) {
-          URL.revokeObjectURL(blobUrl);
-        }
-      };
-    }, [mediaId, studyId]);
-
-    if (imageLoading) {
-      return (
-        <Box display="flex" justifyContent="center" alignItems="center" height="200px">
-          <CircularProgress size={24} />
-        </Box>
-      );
-    }
-
-    if (imageError) {
-      return (
-        <Box display="flex" justifyContent="center" alignItems="center" height="200px">
-          <Typography color="error">Failed to load image</Typography>
-        </Box>
-      );
-    }
-
     if (showAI) {
       return (
         <AnnotationsTab 
@@ -217,75 +167,31 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
       );
     }
 
-    return <img src={imageSrc} alt={alt} style={{ maxWidth: '100%', height: 'auto' }} />;
+    return (
+      <CachedMediaImage
+        studyId={studyId}
+        mediaId={mediaId}
+        alt={alt}
+        style={{ maxWidth: '100%', height: 'auto' }}
+      />
+);
   };
 
-  // Component for displaying authenticated images (legacy)
+  // Component for displaying authenticated images (using cache)
   const AuthenticatedImage: React.FC<{ mediaId: string; alt: string; className?: string }> = ({ 
     mediaId, 
     alt, 
     className 
   }) => {
-    const [imageSrc, setImageSrc] = useState<string>('');
-    const [imageLoading, setImageLoading] = useState(true);
-    const [imageError, setImageError] = useState(false);
-
-    useEffect(() => {
-      let isMounted = true;
-      let blobUrl: string | null = null;
-      
-      const loadImage = async () => {
-        try {
-          setImageLoading(true);
-          setImageError(false);
-          
-          // Fetch the media file using authenticated request
-          const blob = await mediaService.downloadMedia(studyId, mediaId);
-          
-          if (isMounted) {
-            blobUrl = URL.createObjectURL(blob);
-            setImageSrc(blobUrl);
-          }
-        } catch (error) {
-          console.error('Failed to load image:', error);
-          if (isMounted) {
-            setImageError(true);
-          }
-        } finally {
-          if (isMounted) {
-            setImageLoading(false);
-          }
-        }
-      };
-
-      loadImage();
-      
-      // Cleanup function
-      return () => {
-        isMounted = false;
-        if (blobUrl) {
-          URL.revokeObjectURL(blobUrl);
-        }
-      };
-    }, [mediaId, studyId]);
-
-    if (imageLoading) {
-      return (
-        <Box display="flex" justifyContent="center" alignItems="center" height="200px">
-          <CircularProgress size={24} />
-        </Box>
-      );
-    }
-
-    if (imageError) {
-      return (
-        <Box display="flex" justifyContent="center" alignItems="center" height="200px">
-          <Typography color="error">Failed to load image</Typography>
-        </Box>
-      );
-    }
-
-    return <img src={imageSrc} alt={alt} className={className} style={{ maxWidth: '100%', height: 'auto' }} />;
+    return (
+      <CachedMediaImage
+        studyId={studyId}
+        mediaId={mediaId}
+        alt={alt}
+        className={className}
+        style={{ maxWidth: '100%', height: 'auto' }}
+      />
+    );
   };
 
 
@@ -296,49 +202,46 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
     videoId: string;
   }> = ({ studyId, videoId }) => {
     const [videoSrc, setVideoSrc] = useState<string>('');
-    const [videoLoading, setVideoLoading] = useState(true);
-    const [videoError, setVideoError] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<Error | null>(null);
+    
+    const getCachedMedia = useMediaCacheStore((state) => state.getCachedMedia);
 
     useEffect(() => {
       let isMounted = true;
-      let blobUrl: string | null = null;
       
       const loadVideo = async () => {
         try {
-          setVideoLoading(true);
-          setVideoError(false);
+          setIsLoading(true);
+          setError(null);
           
-          // Fetch the media file using authenticated request
-          const blob = await mediaService.downloadMedia(studyId, videoId);
+          const blobUrl = await getCachedMedia(studyId, videoId);
           
           if (isMounted) {
-            blobUrl = URL.createObjectURL(blob);
             setVideoSrc(blobUrl);
           }
-        } catch (error) {
-          console.error('Failed to load video:', error);
+        } catch (err) {
+          const error = err instanceof Error ? err : new Error('Failed to load video');
+          console.error('Failed to load cached video:', error);
+          
           if (isMounted) {
-            setVideoError(true);
+            setError(error);
           }
         } finally {
           if (isMounted) {
-            setVideoLoading(false);
+            setIsLoading(false);
           }
         }
       };
 
       loadVideo();
       
-      // Cleanup function
       return () => {
         isMounted = false;
-        if (blobUrl) {
-          URL.revokeObjectURL(blobUrl);
-        }
       };
-    }, [videoId, studyId]);
+    }, [videoId, studyId, getCachedMedia]);
 
-    if (videoLoading) {
+    if (isLoading) {
       return (
         <Box display="flex" justifyContent="center" alignItems="center" height="400px">
           <CircularProgress />
@@ -346,10 +249,18 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
       );
     }
 
-    if (videoError) {
+    if (error) {
       return (
         <Box display="flex" justifyContent="center" alignItems="center" height="400px">
           <Typography color="error">{t('components.mediaGallery.videoLoadError')}</Typography>
+        </Box>
+      );
+    }
+
+    if (!videoSrc) {
+      return (
+        <Box display="flex" justifyContent="center" alignItems="center" height="400px">
+          <Typography color="text.secondary">No video data</Typography>
         </Box>
       );
     }

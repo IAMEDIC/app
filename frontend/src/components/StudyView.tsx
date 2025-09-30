@@ -31,6 +31,7 @@ import { MediaUpload } from '@/components/MediaUpload';
 import { MediaGallery } from '@/components/MediaGallery';
 import { useStorageInfo } from '@/contexts/StorageContext';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { useMediaCacheManager } from '@/utils/mediaCacheUtils';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -81,6 +82,9 @@ export const StudyView: React.FC = () => {
   
   // Storage context
   const { storageInfo, refreshStorageInfo } = useStorageInfo();
+  
+  // Media cache management
+  const { handleMediaDeleted, handleStudyDeleted } = useMediaCacheManager();
 
   useEffect(() => {
     if (studyId) {
@@ -150,6 +154,10 @@ export const StudyView: React.FC = () => {
     try {
       setDeleteLoading(true);
       await studyService.deleteStudy(study.id);
+      
+      // Clear all media for this study from cache
+      handleStudyDeleted(study.id);
+      
       navigate('/doctor');
     } catch (err: any) {
       setError(err.response?.data?.detail || t('errors.failedToDeleteStudy'));
@@ -216,7 +224,10 @@ export const StudyView: React.FC = () => {
     try {
       await mediaService.deleteMedia(study.id, mediaId);
       
-      // Remove the media from the study
+      // Clear the deleted media from cache
+      handleMediaDeleted(mediaId);
+      
+      // Remove the media from the study (no refetching needed)
       setStudy({
         ...study,
         media: study.media.filter(m => m.id !== mediaId),
