@@ -5,7 +5,7 @@ API router configuration.
 
 from fastapi import APIRouter
 from fastapi.responses import RedirectResponse
-from app.api.endpoints import auth, health, admin, doctor, study, media, ai_predictions_v2, frames
+from app.api.endpoints import auth, health, admin, doctor, study, media, ai_predictions_v2, frames, streaming
 
 
 api_router = APIRouter()
@@ -18,6 +18,7 @@ api_router.include_router(media.router, prefix="", tags=["media"])
 # api_router.include_router(ai_predictions.router, prefix="", tags=["ai-predictions"])  # Old endpoints
 api_router.include_router(ai_predictions_v2.router, prefix="", tags=["ai-predictions-v2"])
 api_router.include_router(frames.router, prefix="", tags=["frames"])
+api_router.include_router(streaming.router, prefix="", tags=["streaming"])
 
 # MLflow redirect
 @api_router.get("/mlflow")

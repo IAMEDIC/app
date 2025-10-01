@@ -29,6 +29,7 @@ import { StudyWithMedia, StudyUpdate, MediaSummary } from '@/types';
 import { studyService, mediaService } from '@/services/api';
 import { MediaUpload } from '@/components/MediaUpload';
 import { MediaGallery } from '@/components/MediaGallery';
+import { StreamingTab } from '@/components/StreamingTab';
 import { useStorageInfo } from '@/contexts/StorageContext';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { useMediaCacheManager } from '@/utils/mediaCacheUtils';
@@ -386,6 +387,7 @@ export const StudyView: React.FC = () => {
           <Tab label={t('studyView.studyDetails')} />
           <Tab label={t('studyView.mediaFilesTab', { count: study.media.length })} />
           <Tab label={t('studyView.uploadMediaTab')} />
+          <Tab label={t('studyView.streamingTab')} />
         </Tabs>
         
         <TabPanel value={currentTab} index={0}>
@@ -436,6 +438,18 @@ export const StudyView: React.FC = () => {
             error={uploadError}
             success={uploadSuccess}
             storageInfo={storageInfo}
+          />
+        </TabPanel>
+        
+        <TabPanel value={currentTab} index={3}>
+          <StreamingTab
+            studyId={study.id}
+            isActive={currentTab === 3}
+            onNewVideo={(videoId) => {
+              console.log('New video created from streaming:', videoId);
+              // Refresh the study to show the new video
+              loadStudy();
+            }}
           />
         </TabPanel>
       </Paper>

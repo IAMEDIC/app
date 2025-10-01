@@ -223,13 +223,6 @@ export const AIAnnotationViewer: React.FC<AIAnnotationViewerProps> = ({
           height: box.height,
           is_hidden: box.is_hidden,
         }));
-
-      // Save using v2 API separate calls
-      console.log('DEBUG: About to save annotations', {
-        classificationUsefulness,
-        annotationBoxesCount: annotationBoxes.length,
-        annotationBoxes
-      });
       
       
       const classificationResult = await aiServiceV2.saveClassificationAnnotation(mediaId, {

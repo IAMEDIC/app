@@ -55,7 +55,10 @@ export const frameService = {
     videoId: string,
     request: import('@/types/autoExtraction').AutoExtractionRequest
   ): Promise<import('@/types/autoExtraction').AutoExtractionResponse> {
-    const response = await api.post(`/studies/${studyId}/media/${videoId}/frames/auto-extract`, request);
+    // Use a longer timeout for auto extraction (60 seconds)
+    const response = await api.post(`/studies/${studyId}/media/${videoId}/frames/auto-extract`, request, {
+      timeout: 60000  // 60 seconds
+    });
     return response.data;
   }
 };

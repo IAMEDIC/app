@@ -95,11 +95,6 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
         // Load existing annotations only (no predictions)
         const { classificationAnnotation, boundingBoxAnnotations } = await aiServiceV2.loadAnnotationsOnly(media.id);
         
-        console.log('📥 Loaded annotations:', { 
-          classificationAnnotation, 
-          boundingBoxCount: boundingBoxAnnotations.annotations?.length || 0 
-        });
-        
         // Load saved classification annotations
         if (classificationAnnotation) {
           
@@ -113,12 +108,10 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
           const existingPrediction = await aiServiceV2.getExistingClassificationPrediction(media.id);
           if (existingPrediction) {
             const prediction = existingPrediction.prediction > 0.5 ? 1 : 0;
-            
             setClassificationPrediction(prediction);
-            // Important: Do NOT auto-assign to usefulness when loading on view open
           }
         } catch (predictionError) {
-          console.error('Failed to load classification prediction:', predictionError);
+          console.error('❌ Failed to load classification prediction for media ID:', media.id, predictionError);
         }
         
         // Load saved bounding box annotations only
@@ -145,7 +138,6 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
         
         
         setBoundingBoxes(boxes);
-        console.log('🔍 Loaded bounding boxes with IDs:', boxes.map(b => ({ id: b.id, class: b.class })));
       } catch (error) {
         console.error('Failed to load existing data:', error);
       }
@@ -184,11 +176,6 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
       
       // If current selectedClass is no longer available, switch to first available or empty
       if (!availableUniqueClasses.includes(selectedClass)) {
-        console.log('🔄 Selected class no longer available, switching:', {
-          oldClass: selectedClass,
-          newClass: availableUniqueClasses[0] || '',
-          availableClasses: availableUniqueClasses
-        });
         setSelectedClass(availableUniqueClasses[0] || '');
       }
     }
@@ -829,8 +816,6 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
       if (newBoxes.length > 0) {
         const updatedBoxes = [...boundingBoxes, ...newBoxes];
         setBoundingBoxes(updatedBoxes);
-        console.log('🔍 Added prediction boxes with IDs:', newBoxes.map(b => ({ id: b.id, class: b.class })));
-        console.log('🔍 All boxes now have IDs:', updatedBoxes.map(b => ({ id: b.id, class: b.class })));
         // Save immediately when adding predicted boxes, passing the new state directly
         triggerAutoSave(true, usefulness ?? undefined, updatedBoxes);
       }
@@ -862,13 +847,10 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
 
   // Handle bounding box visibility toggle
   const handleToggleVisibility = (boxId: string) => {
-    console.log('👁️ Toggling visibility for box ID:', boxId);
     setBoundingBoxes(prev => {
       const updatedBoxes = prev.map(box =>
         box.id === boxId ? { ...box, isHidden: !box.isHidden } : box
       );
-      const toggledBox = updatedBoxes.find(box => box.id === boxId);
-      console.log('👁️ Toggled box:', { id: toggledBox?.id, class: toggledBox?.class, isHidden: toggledBox?.isHidden });
       return updatedBoxes;
     });
     triggerAutoSave();
@@ -876,12 +858,8 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
 
   // Handle bounding box deletion
   const handleDeleteBox = (boxId: string) => {
-    console.log('🗑️ Deleting box ID:', boxId);
     setBoundingBoxes(prev => {
-      const boxToDelete = prev.find(box => box.id === boxId);
-      console.log('🗑️ Box to delete:', { id: boxToDelete?.id, class: boxToDelete?.class });
       const remainingBoxes = prev.filter(box => box.id !== boxId);
-      console.log('🗑️ Remaining boxes:', remainingBoxes.map(b => ({ id: b.id, class: b.class })));
       return remainingBoxes;
     });
     triggerAutoSave();
@@ -893,13 +871,6 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
     
     const currentUsefulness = overrideUsefulness !== undefined ? overrideUsefulness : usefulness;
     const currentBoundingBoxes = overrideBoundingBoxes || boundingBoxes;
-    
-    console.log('🔄 Auto-save starting...', { 
-      mediaId: media.id, 
-      usefulness: currentUsefulness, 
-      boundingBoxCount: currentBoundingBoxes.length,
-      isOverride: !!overrideBoundingBoxes
-    });
     
     setIsSaving(true);
     try {
