@@ -745,15 +745,26 @@ export const StreamingTab: React.FC<StreamingTabProps> = ({
                     {t('streaming.stopRecording')}
                   </Button>
                 ) : (
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    onClick={startRecording}
-                    startIcon={<RecordIcon />}
-                    size="large"
-                  >
-                    {t('streaming.startRecording')}
-                  </Button>
+                  <>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={startRecording}
+                      startIcon={<RecordIcon />}
+                      size="large"
+                    >
+                      {t('streaming.startRecording')}
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      color="secondary"
+                      onClick={handleDisconnectCamera}
+                      startIcon={<DisconnectIcon />}
+                      size="large"
+                    >
+                      {t('streaming.disconnectCamera')}
+                    </Button>
+                  </>
                 )}
 
                 <Box flexGrow={1} />
@@ -762,15 +773,7 @@ export const StreamingTab: React.FC<StreamingTabProps> = ({
                   {t('streaming.fileSize')}: {formatFileSize(stats.fileSize)}
                 </Typography>
 
-                <Tooltip title={t('streaming.disconnectCamera')}>
-                  <IconButton
-                    onClick={handleDisconnectCamera}
-                    disabled={stats.isRecording}
-                    color="primary"
-                  >
-                    <DisconnectIcon />
-                  </IconButton>
-                </Tooltip>
+                {/* Disconnect camera button moved next to Start Recording */}
               </Box>
 
               {/* Recording Progress */}
