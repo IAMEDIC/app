@@ -106,7 +106,24 @@
     "failed": "Falló",
     "uploaded": "Subido",
     "uploadSuccess": "✅ Archivo \"{filename}\" subido exitosamente!",
-    "type": "Tipo"
+    "type": "Tipo",
+    "zoomCrop": {
+      "zoomAndPan": "Zoom y Desplazamiento",
+      "cropImage": "Recortar Imagen",
+      "cropMode": "Modo Recorte",
+      "exitCropMode": "Salir del Modo Recorte",
+      "zoom": "Zoom",
+      "zoomAndCrop": "Zoom y Recorte",
+      "cropFilename": "Nombre del recorte",
+      "selectCropArea": "Haz clic y arrastra para seleccionar el área de recorte",
+      "saveCrop": "Guardar Recorte",
+      "saving": "Guardando...",
+      "cropNameSuffix": "Recorte",
+      "pleaseSelectCropArea": "Por favor selecciona un área de recorte y proporciona un nombre de archivo.",
+      "failedToSaveCrop": "Error al guardar el recorte. Por favor inténtalo de nuevo.",
+      "failedToCreateCropCanvas": "Error al crear el lienzo de recorte",
+      "failedToCreateCropBlob": "Error al crear el blob de recorte"
+    }
   },
   "user": {
     "welcome": "Bienvenido",

@@ -1037,7 +1037,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
                 '&:hover': { bgcolor: 'primary.dark' }
               }}
             >
-              Zoom & Crop
+              {t('media.zoomCrop.zoomAndCrop')}
             </Button>
           </Box>
 

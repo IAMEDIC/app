@@ -21,7 +21,7 @@ import {
   RestartAlt as ResetIcon
 } from '@mui/icons-material';
 import { mediaService } from '@/services/api';
-// import { useTranslation } from '@/contexts/LanguageContext';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface ZoomCropModalProps {
   open: boolean;
@@ -47,7 +47,7 @@ export const ZoomCropModal: React.FC<ZoomCropModalProps> = ({
   studyId,
   onCropSaved
 }) => {
-  // const { t } = useTranslation(); // TODO: Add translations
+  const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -70,12 +70,23 @@ export const ZoomCropModal: React.FC<ZoomCropModalProps> = ({
   const generateCropFilename = useCallback(() => {
     const baseName = originalFilename.replace(/\.[^/.]+$/, ''); // Remove extension
     let index = 1;
-    let suggestion = `${baseName} - Crop ${index}`;
+    let suggestion = `${baseName} - ${t('media.zoomCrop.cropNameSuffix')} ${index}`;
     
     // Note: In a real application, you might want to check existing filenames
     // For now, we'll just use a simple incrementing number
     return suggestion;
-  }, [originalFilename]);
+  }, [originalFilename, t]);
+
+  // Handle keyboard events to prevent browser zoom
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      // Prevent browser zoom shortcuts
+      if (e.key === '+' || e.key === '=' || e.key === '-' || e.key === '0') {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }
+  }, []);
 
   // Reset modal state when opening/closing
   useEffect(() => {
@@ -91,6 +102,16 @@ export const ZoomCropModal: React.FC<ZoomCropModalProps> = ({
       setError(null);
     }
   }, [open, generateCropFilename]);
+
+  // Add keyboard event listener to prevent browser zoom when modal is open
+  useEffect(() => {
+    if (open) {
+      document.addEventListener('keydown', handleKeyDown, true);
+      return () => {
+        document.removeEventListener('keydown', handleKeyDown, true);
+      };
+    }
+  }, [open, handleKeyDown]);
 
   // Draw canvas with zoom and pan
   const drawCanvas = useCallback(() => {
@@ -236,9 +257,16 @@ export const ZoomCropModal: React.FC<ZoomCropModalProps> = ({
     setCropStartPoint(null);
   };
 
-  // Handle wheel zoom
+  // Handle wheel zoom - prevent browser zoom conflicts
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    
+    // Only allow our custom zoom, ignore if Ctrl is pressed to prevent browser zoom conflicts
+    if (e.ctrlKey || e.metaKey) {
+      return;
+    }
+    
     const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
     const newZoom = Math.max(0.1, Math.min(5, zoom * zoomFactor));
     setZoom(newZoom);
@@ -275,7 +303,7 @@ export const ZoomCropModal: React.FC<ZoomCropModalProps> = ({
       // Create a new canvas for the cropped image
       const cropCanvas = document.createElement('canvas');
       const cropCtx = cropCanvas.getContext('2d');
-      if (!cropCtx) throw new Error('Failed to create crop canvas');
+      if (!cropCtx) throw new Error(t('media.zoomCrop.failedToCreateCropCanvas'));
 
       // Set crop canvas size
       cropCanvas.width = Math.round(cropArea.width);
@@ -298,7 +326,7 @@ export const ZoomCropModal: React.FC<ZoomCropModalProps> = ({
       const blob = await new Promise<Blob>((resolve, reject) => {
         cropCanvas.toBlob((blob) => {
           if (blob) resolve(blob);
-          else reject(new Error('Failed to create crop blob'));
+          else reject(new Error(t('media.zoomCrop.failedToCreateCropBlob')));
         }, 'image/png');
       });
 
@@ -315,7 +343,7 @@ export const ZoomCropModal: React.FC<ZoomCropModalProps> = ({
       onClose();
     } catch (error) {
       console.error('Failed to save crop:', error);
-      setError('Failed to save crop. Please try again.');
+      setError(t('media.zoomCrop.failedToSaveCrop'));
     } finally {
       setIsSaving(false);
     }
@@ -339,7 +367,7 @@ export const ZoomCropModal: React.FC<ZoomCropModalProps> = ({
       <DialogTitle>
         <Box display="flex" justifyContent="between" alignItems="center">
           <Typography variant="h6">
-            {isCropMode ? 'Crop Image' : 'Zoom & Pan Image'}
+            {isCropMode ? t('media.zoomCrop.cropImage') : t('media.zoomCrop.zoomAndPan')}
           </Typography>
           <IconButton onClick={onClose}>
             <CloseIcon />
@@ -357,7 +385,7 @@ export const ZoomCropModal: React.FC<ZoomCropModalProps> = ({
               startIcon={<CropIcon />}
               size="small"
             >
-              {isCropMode ? 'Exit Crop Mode' : 'Crop Mode'}
+              {isCropMode ? t('media.zoomCrop.exitCropMode') : t('media.zoomCrop.cropMode')}
             </Button>
             
             <Box display="flex" gap={0.5}>
@@ -373,13 +401,13 @@ export const ZoomCropModal: React.FC<ZoomCropModalProps> = ({
             </Box>
 
             <Typography variant="body2" sx={{ ml: 1 }}>
-              Zoom: {(zoom * 100).toFixed(0)}%
+              {t('media.zoomCrop.zoom')}: {(zoom * 100).toFixed(0)}%
             </Typography>
 
             {isCropMode && (
               <TextField
                 size="small"
-                label="Crop filename"
+                label={t('media.zoomCrop.cropFilename')}
                 value={cropFilename}
                 onChange={(e) => setCropFilename(e.target.value)}
                 sx={{ ml: 'auto', minWidth: 200 }}
@@ -405,7 +433,9 @@ export const ZoomCropModal: React.FC<ZoomCropModalProps> = ({
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
-            bgcolor: '#f5f5f5'
+            bgcolor: '#f5f5f5',
+            userSelect: 'none', // Prevent text selection during drag
+            touchAction: 'none' // Prevent touchpad gestures from interfering
           }}
         >
           <img
@@ -444,7 +474,7 @@ export const ZoomCropModal: React.FC<ZoomCropModalProps> = ({
                 borderRadius: 1 
               }}
             >
-              Click and drag to select crop area
+              {t('media.zoomCrop.selectCropArea')}
             </Typography>
           )}
         </Box>
@@ -452,7 +482,7 @@ export const ZoomCropModal: React.FC<ZoomCropModalProps> = ({
 
       <DialogActions>
         <Button onClick={onClose} disabled={isSaving}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         {isCropMode && cropArea && (
           <Button
@@ -461,7 +491,7 @@ export const ZoomCropModal: React.FC<ZoomCropModalProps> = ({
             disabled={isSaving || !cropFilename.trim()}
             startIcon={isSaving ? <CircularProgress size={16} /> : <SaveIcon />}
           >
-            {isSaving ? 'Saving...' : 'Save Crop'}
+            {isSaving ? t('media.zoomCrop.saving') : t('media.zoomCrop.saveCrop')}
           </Button>
         )}
       </DialogActions>

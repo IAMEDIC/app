@@ -106,7 +106,24 @@
     "failed": "Failed",
     "uploaded": "Uploaded",
     "uploadSuccess": "✅ File \"{filename}\" uploaded successfully!",
-    "type": "Type"
+    "type": "Type",
+    "zoomCrop": {
+      "zoomAndPan": "Zoom & Pan Image",
+      "cropImage": "Crop Image",
+      "cropMode": "Crop Mode",
+      "exitCropMode": "Exit Crop Mode",
+      "zoom": "Zoom",
+      "zoomAndCrop": "Zoom & Crop",
+      "cropFilename": "Crop filename",
+      "selectCropArea": "Click and drag to select crop area",
+      "saveCrop": "Save Crop",
+      "saving": "Saving...",
+      "cropNameSuffix": "Crop",
+      "pleaseSelectCropArea": "Please select a crop area and provide a filename.",
+      "failedToSaveCrop": "Failed to save crop. Please try again.",
+      "failedToCreateCropCanvas": "Failed to create crop canvas",
+      "failedToCreateCropBlob": "Failed to create crop blob"
+    }
   },
   "user": {
     "welcome": "Welcome",
