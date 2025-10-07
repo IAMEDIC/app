@@ -20,11 +20,13 @@ import {
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
   Close as CloseIcon,
+  ZoomIn as ZoomInIcon,
 } from '@mui/icons-material';
 import { MediaSummary } from '@/types';
 import { aiServiceV2 } from '@/services/ai_v2';
 import { useCachedMedia } from '@/hooks/useCachedMedia';
 import { useTranslation } from '@/contexts/LanguageContext';
+import { ZoomCropModal } from './ZoomCropModal';
 
 interface BoundingBox {
   id: string;
@@ -83,6 +85,9 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
   const [newBoxStart, setNewBoxStart] = useState<{ x: number; y: number } | null>(null);
   const [currentMousePos, setCurrentMousePos] = useState<{ x: number; y: number } | null>(null);
   const [canvasCursor, setCanvasCursor] = useState<string>('default');
+
+  // Zoom & Crop modal state
+  const [showZoomCropModal, setShowZoomCropModal] = useState(false);
 
   // Load image using cache
   const { src: imageSrc, isLoading: imageLoading } = useCachedMedia(studyId, media.id);
@@ -1015,17 +1020,37 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
 
         {/* Center Panel - Canvas */}
         <Box flex={1} position="relative" sx={{ minWidth: '400px', maxHeight: '100%' }}>
+          {/* Zoom/Crop Button */}
           <Box 
-            border="1px solid #ccc" 
+            position="absolute" 
+            top={16} 
+            left={16} 
+            zIndex={1}
+          >
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => setShowZoomCropModal(true)}
+              startIcon={<ZoomInIcon />}
+              sx={{ 
+                bgcolor: 'primary.main',
+                '&:hover': { bgcolor: 'primary.dark' }
+              }}
+            >
+              Zoom & Crop
+            </Button>
+          </Box>
+
+          <Box 
             borderRadius={1} 
             overflow="hidden"
             height="100%"
             display="flex"
             justifyContent="center"
             alignItems="center"
-            sx={{ maxHeight: '100%' }}
+            sx={{ maxHeight: '100%', bgcolor: '#f5f5f5' }}
           >
-            <div style={{ position: 'relative', maxWidth: '100%', maxHeight: '100%', width: '100%', height: '100%' }}>
+            <div style={{ position: 'relative', maxWidth: '100%', maxHeight: '100%', width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
               <img
                 ref={imageRef}
                 src={imageSrc || ''}
@@ -1043,7 +1068,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
                 style={{ 
                   maxWidth: '100%', 
                   maxHeight: '100%',
-                  border: '1px solid #ddd',
+                  display: 'block',
                   cursor: canvasCursor
                 }}
                 onMouseDown={handleMouseDown}
@@ -1177,6 +1202,19 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
           </Box>
         )}
       </Box>
+
+      {/* Zoom & Crop Modal */}
+      <ZoomCropModal
+        open={showZoomCropModal}
+        onClose={() => setShowZoomCropModal(false)}
+        imageSrc={imageSrc || ''}
+        originalFilename={media.filename}
+        studyId={studyId}
+        onCropSaved={(newMediaId) => {
+          console.log('New crop saved with media ID:', newMediaId);
+          // TODO: You might want to refresh the media list or notify the parent component
+        }}
+      />
 
     </Box>
   );
