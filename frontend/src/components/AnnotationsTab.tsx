@@ -1210,10 +1210,6 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
         imageSrc={imageSrc || ''}
         originalFilename={media.filename}
         studyId={studyId}
-        onCropSaved={(newMediaId) => {
-          console.log('New crop saved with media ID:', newMediaId);
-          // TODO: You might want to refresh the media list or notify the parent component
-        }}
       />
 
     </Box>

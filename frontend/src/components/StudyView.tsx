@@ -445,8 +445,7 @@ export const StudyView: React.FC = () => {
           <StreamingTab
             studyId={study.id}
             isActive={currentTab === 3}
-            onNewVideo={(videoId) => {
-              console.log('New video created from streaming:', videoId);
+            onNewVideo={() => {
               // Refresh the study to show the new video
               loadStudy();
             }}

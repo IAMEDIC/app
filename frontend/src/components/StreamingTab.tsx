@@ -26,8 +26,10 @@ import {
   Close as CloseIcon,
   Info as InfoIcon,
   LinkOff as DisconnectIcon,
+  Crop as CropIcon,
 } from '@mui/icons-material';
 import { CameraSelector } from './CameraSelector';
+import { StreamCropModal, CropArea } from './StreamCropModal';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { Frame } from '@/types/frame';
 import { AnnotationsTab } from './AnnotationsTab';
@@ -71,6 +73,7 @@ export const StreamingTab: React.FC<StreamingTabProps> = ({
 
   // Stream and recording state
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const originalCameraStreamRef = useRef<MediaStream | null>(null); // Keep reference to original stream
   const [isSetupComplete, setIsSetupComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -101,6 +104,11 @@ export const StreamingTab: React.FC<StreamingTabProps> = ({
   // Dialogs and warnings
   const [showWarningDialog, setShowWarningDialog] = useState(false);
   const [showStopDialog, setShowStopDialog] = useState(false);
+  
+  // Crop functionality state
+  const [cropArea, setCropArea] = useState<CropArea | null>(null);
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [croppedStream, setCroppedStream] = useState<MediaStream | null>(null);
 
 
 
@@ -179,12 +187,33 @@ export const StreamingTab: React.FC<StreamingTabProps> = ({
 
 
 
-  // Update video source when camera stream changes
+  // Update video source when camera stream or crop area changes
   useEffect(() => {
-    if (videoRef.current && cameraStream) {
-      videoRef.current.srcObject = cameraStream;
-    }
-  }, [cameraStream]);
+    const updateVideoSource = async () => {
+      if (videoRef.current && cameraStream) {
+        // If there's a crop area and we're not recording, create a cropped preview
+        if (cropArea && !stats.isRecording && !croppedStream) {
+          try {
+            const previewCroppedStream = await createCroppedStream(cameraStream, cropArea);
+            setCroppedStream(previewCroppedStream);
+            videoRef.current.srcObject = previewCroppedStream;
+          } catch (err) {
+            console.error('Failed to create cropped preview:', err);
+            // Fall back to original stream
+            videoRef.current.srcObject = cameraStream;
+          }
+        } else if (croppedStream && cropArea) {
+          // Use existing cropped stream
+          videoRef.current.srcObject = croppedStream;
+        } else {
+          // No crop area, use original stream
+          videoRef.current.srcObject = cameraStream;
+        }
+      }
+    };
+    
+    updateVideoSource();
+  }, [cameraStream, cropArea, stats.isRecording]);
 
   // Handle duration warnings
   useEffect(() => {
@@ -250,6 +279,18 @@ export const StreamingTab: React.FC<StreamingTabProps> = ({
       setCameraStream(null);
     }
     
+    // Clear original stream reference
+    originalCameraStreamRef.current = null;
+    
+    // Stop cropped stream if it exists
+    if (croppedStream) {
+      croppedStream.getTracks().forEach(track => track.stop());
+      setCroppedStream(null);
+    }
+    
+    // Reset crop settings when camera disconnects
+    setCropArea(null);
+    
     // Reset setup state
     setIsSetupComplete(false);
     
@@ -311,6 +352,7 @@ export const StreamingTab: React.FC<StreamingTabProps> = ({
   const handleCameraSelected = async (_deviceId: string, stream: MediaStream) => {
     try {
       setCameraStream(stream);
+      originalCameraStreamRef.current = stream; // Store original stream reference
       setIsSetupComplete(true);
       setError(null);
       
@@ -346,8 +388,15 @@ export const StreamingTab: React.FC<StreamingTabProps> = ({
         currentSessionIdRef.current = currentSessionId;
       }
       
-      // Setup MediaRecorder
-      const mediaRecorder = new MediaRecorder(cameraStream, {
+      // Create cropped stream if crop area is set
+      let streamToRecord = cameraStream;
+      if (cropArea) {
+        streamToRecord = await createCroppedStream(cameraStream, cropArea);
+        setCroppedStream(streamToRecord);
+      }
+      
+      // Setup MediaRecorder with the appropriate stream (cropped or original)
+      const mediaRecorder = new MediaRecorder(streamToRecord, {
         mimeType: 'video/webm;codecs=vp8,opus', // Fallback to widely supported format
       });
       
@@ -458,6 +507,12 @@ export const StreamingTab: React.FC<StreamingTabProps> = ({
       isRecording: false,
     }));
     
+    // Clean up cropped stream used for recording if it exists
+    if (croppedStream && cropArea) {
+      // Don't stop the cropped stream immediately as it might be used for preview
+      // We'll recreate it for preview in the useEffect
+    }
+    
     // Reset confidence data to initial state when recording stops
     confidenceBufferRef.current = [];
     const initialData: ConfidenceDataPoint[] = Array.from({ length: 100 }, (_, index) => ({
@@ -511,11 +566,21 @@ export const StreamingTab: React.FC<StreamingTabProps> = ({
         
         if (!ctx) return;
 
-        // Set canvas size to match video (downscaled for AI processing)
-        const maxSize = 640;
-        const aspectRatio = video.videoWidth / video.videoHeight;
+        // Determine source dimensions and cropping
+        let sourceX = 0, sourceY = 0, sourceWidth = video.videoWidth, sourceHeight = video.videoHeight;
         
-        if (video.videoWidth > video.videoHeight) {
+        if (cropArea) {
+          sourceX = cropArea.x;
+          sourceY = cropArea.y;
+          sourceWidth = cropArea.width;
+          sourceHeight = cropArea.height;
+        }
+        
+        // Set canvas size to match cropped area (downscaled for AI processing)
+        const maxSize = 640;
+        const aspectRatio = sourceWidth / sourceHeight;
+        
+        if (sourceWidth > sourceHeight) {
           canvas.width = maxSize;
           canvas.height = maxSize / aspectRatio;
         } else {
@@ -523,8 +588,12 @@ export const StreamingTab: React.FC<StreamingTabProps> = ({
           canvas.height = maxSize;
         }
 
-        // Draw current frame to canvas
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        // Draw current frame to canvas (cropped if crop area is set)
+        ctx.drawImage(
+          video,
+          sourceX, sourceY, sourceWidth, sourceHeight, // Source crop area
+          0, 0, canvas.width, canvas.height // Destination
+        );
         
         // Convert to blob for AI processing
         canvas.toBlob(async (blob) => {
@@ -655,6 +724,69 @@ export const StreamingTab: React.FC<StreamingTabProps> = ({
     return 'error'; // <= 1 minute
   };
 
+  // Handle crop modal
+  const handleCropApplied = (newCropArea: CropArea | null) => {
+    setCropArea(newCropArea);
+    // Note: We're not creating a new MediaStream here to avoid camera disconnection
+    // Instead, we'll apply cropping at the processing level
+  };
+
+  const handleCloseCropModal = () => {
+    setShowCropModal(false);
+  };
+
+  // Create a cropped MediaStream using canvas processing
+  const createCroppedStream = async (originalStream: MediaStream, cropArea: CropArea): Promise<MediaStream> => {
+    const video = document.createElement('video');
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    if (!ctx) {
+      throw new Error('Unable to create canvas context for cropping');
+    }
+
+    // Set up video element
+    video.srcObject = originalStream;
+    video.muted = true;
+    await video.play();
+
+    // Set canvas size to crop dimensions
+    canvas.width = cropArea.width;
+    canvas.height = cropArea.height;
+
+    // Create a new MediaStream from the canvas
+    const croppedStream = canvas.captureStream(30); // 30 FPS
+
+    // Start rendering cropped video to canvas
+    const renderFrame = () => {
+      if (video.videoWidth > 0 && video.videoHeight > 0) {
+        // Draw the cropped portion of the video to the canvas
+        ctx.drawImage(
+          video,
+          cropArea.x, cropArea.y, cropArea.width, cropArea.height, // Source crop area
+          0, 0, canvas.width, canvas.height // Destination (full canvas)
+        );
+      }
+      
+      // Continue rendering if the stream is still active
+      if (croppedStream.active) {
+        requestAnimationFrame(renderFrame);
+      }
+    };
+
+    // Start the rendering loop
+    renderFrame();
+
+    // Clean up when the stream is stopped
+    croppedStream.addEventListener('inactive', () => {
+      video.srcObject = null;
+      video.remove();
+      canvas.remove();
+    });
+
+    return croppedStream;
+  };
+
   return (
     <Box>
       {error && (
@@ -763,6 +895,16 @@ export const StreamingTab: React.FC<StreamingTabProps> = ({
                       size="large"
                     >
                       {t('streaming.disconnectCamera')}
+                    </Button>
+                    <Button
+                      variant={cropArea ? "contained" : "outlined"}
+                      color={cropArea ? "success" : "primary"}
+                      onClick={() => setShowCropModal(true)}
+                      startIcon={<CropIcon />}
+                      size="large"
+                      disabled={stats.isRecording}
+                    >
+                      {cropArea ? t('streaming.cropActive') : t('streaming.setCrop')}
                     </Button>
                   </>
                 )}
@@ -947,6 +1089,17 @@ export const StreamingTab: React.FC<StreamingTabProps> = ({
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Stream Crop Modal */}
+      {originalCameraStreamRef.current && (
+        <StreamCropModal
+          open={showCropModal}
+          onClose={handleCloseCropModal}
+          videoStream={originalCameraStreamRef.current}
+          onCropApplied={handleCropApplied}
+          initialCropArea={cropArea}
+        />
+      )}
     </Box>
   );
 };

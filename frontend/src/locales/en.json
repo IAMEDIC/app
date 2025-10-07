@@ -368,6 +368,15 @@
         "low": "Low"
       },
       "waitingForData": "Waiting for confidence data..."
-    }
+    },
+    "cropVideo": "Crop Video Stream",
+    "cropMode": "Crop Mode",
+    "exitCropMode": "Exit Crop Mode",
+    "zoom": "Zoom",
+    "selectCropArea": "Click and drag to select crop area",
+    "applyCrop": "Apply Crop",
+    "removeCrop": "Remove Crop",
+    "setCrop": "Set Crop",
+    "cropActive": "Crop Active"
   }
 }

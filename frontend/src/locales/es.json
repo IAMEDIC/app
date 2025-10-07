@@ -368,6 +368,15 @@
         "low": "Baja"
       },
       "waitingForData": "Esperando datos de confianza..."
-    }
+    },
+    "cropVideo": "Recortar Transmisión de Video",
+    "cropMode": "Modo Recorte",
+    "exitCropMode": "Salir Modo Recorte",
+    "zoom": "Zoom",
+    "selectCropArea": "Haz clic y arrastra para seleccionar área de recorte",
+    "applyCrop": "Aplicar Recorte",
+    "removeCrop": "Quitar Recorte",
+    "setCrop": "Configurar Recorte",
+    "cropActive": "Recorte Activo"
   }
 }
