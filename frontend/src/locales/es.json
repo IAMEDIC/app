@@ -286,7 +286,9 @@
       "modelPredictsNotUseful": "El Modelo de Clasificación predice que esta imagen no es útil",
       "usefulnessEvaluation": "Evaluación de Utilidad",
       "aiPrediction": "Predicción de IA",
-      "noChangesToSave": "No Hay Cambios para Guardar"
+      "noChangesToSave": "No Hay Cambios para Guardar",
+      "savingChanges": "Guardando...",
+      "changesSaved": "Cambios Guardados"
     },
     "videoPlayer": {
       "aiFrameExtraction": "Extracción de Frames con IA",

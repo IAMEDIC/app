@@ -286,7 +286,9 @@
       "modelPredictsNotUseful": "The Classification Model predicts this image is not useful",
       "usefulnessEvaluation": "Usefulness Evaluation",
       "aiPrediction": "AI Prediction",
-      "noChangesToSave": "No Changes to Save"
+      "noChangesToSave": "No Changes to Save",
+      "savingChanges": "Saving...",
+      "changesSaved": "Changes Saved"
     },
     "videoPlayer": {
       "aiFrameExtraction": "AI Frame Extraction",

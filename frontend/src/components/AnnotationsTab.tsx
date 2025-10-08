@@ -27,6 +27,7 @@ import { aiServiceV2 } from '@/services/ai_v2';
 import { useCachedMedia } from '@/hooks/useCachedMedia';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { ZoomCropModal } from './ZoomCropModal';
+import { SavingStatus, SavingStatusType } from './SavingStatus';
 
 interface BoundingBox {
   id: string;
@@ -64,6 +65,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
   const [classificationPrediction, setClassificationPrediction] = useState<number | null>(null);
   const [boundingBoxes, setBoundingBoxes] = useState<BoundingBox[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [savingStatus, setSavingStatus] = useState<SavingStatusType>('idle');
   
   // Loading states
   const [loadingClassification, setLoadingClassification] = useState(false);
@@ -878,6 +880,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
     const currentBoundingBoxes = overrideBoundingBoxes || boundingBoxes;
     
     setIsSaving(true);
+    setSavingStatus('saving');
     try {
       // Save classification annotation separately
       if (currentUsefulness !== null) {
@@ -902,12 +905,14 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
         annotations: bbAnnotations
       });
       
-      
+      // Save completed successfully
+      setSavingStatus('saved');
     } catch (error) {
       console.error('❌ Auto-save failed:', error);
+      // On error, clear the saving status
+      setSavingStatus('idle');
     } finally {
       setIsSaving(false);
-      
     }
   }, [media.id, usefulness, boundingBoxes, isSaving]);
 
@@ -1026,6 +1031,9 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
             top={16} 
             left={16} 
             zIndex={1}
+            display="flex"
+            alignItems="center"
+            gap={1}
           >
             <Button
               variant="contained"
@@ -1039,6 +1047,28 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
             >
               {t('media.zoomCrop.zoomAndCrop')}
             </Button>
+            
+            {/* Saving Status Feedback */}
+            <SavingStatus 
+              status={savingStatus} 
+              renderContainer={(children) => (
+                <Box
+                  sx={{
+                    px: 1.5,
+                    py: 0.5,
+                    borderRadius: 1,
+                    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                    backdropFilter: 'blur(4px)',
+                    minHeight: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    transition: 'all 0.2s ease-in-out'
+                  }}
+                >
+                  {children}
+                </Box>
+              )}
+            />
           </Box>
 
           <Box 
