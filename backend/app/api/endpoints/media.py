@@ -6,10 +6,10 @@ Media endpoints for media file management.
 import logging
 from typing import cast
 from uuid import UUID
-import io
+import re
 
-from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Request, Header
+from fastapi.responses import StreamingResponse, Response
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -149,20 +149,33 @@ async def download_study_media(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Media not found in the specified study"
         )
-    file_data = media_service.get_media_file(media_id, doctor_id)
-    if not file_data:
+    # Get media info for headers
+    media_info = media_service.get_media_info(media_id, doctor_id)
+    if not media_info:
         logger.warning("❌ Media file %s not found on disk", media_id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Media file not found"
         )
-    file_bytes, mime_type, filename = file_data
+    mime_type, filename, file_size = media_info
+    
+    # Get chunked file generator
+    chunk_generator = media_service.get_media_file_chunked(media_id, doctor_id)
+    if not chunk_generator:
+        logger.warning("❌ Media file %s not found on disk", media_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Media file not found"
+        )
+    
     logger.debug("✅ Successfully serving media file: %s (%s)", filename, mime_type)
     return StreamingResponse(
-        io.BytesIO(file_bytes),
+        chunk_generator,
         media_type=mime_type,
         headers={
-            "Content-Disposition": f"attachment; filename=\"{filename}\""
+            "Content-Disposition": f"attachment; filename=\"{filename}\"",
+            "Content-Length": str(file_size),
+            "Accept-Ranges": "bytes"
         }
     )
 
@@ -177,18 +190,30 @@ async def download_media(
     logger.debug("⬇️ Doctor %s downloading media %s", current_user.email, media_id)
     media_service = MediaService(db)
     doctor_id = cast(UUID, current_user.id)
-    file_data = media_service.get_media_file(media_id, doctor_id)
-    if not file_data:
+    # Get media info for headers
+    media_info = media_service.get_media_info(media_id, doctor_id)
+    if not media_info:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Media not found"
         )
-    file_bytes, mime_type, filename = file_data
+    mime_type, filename, file_size = media_info
+    
+    # Get chunked file generator
+    chunk_generator = media_service.get_media_file_chunked(media_id, doctor_id)
+    if not chunk_generator:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Media file not found"
+        )
+    
     return StreamingResponse(
-        io.BytesIO(file_bytes),
+        chunk_generator,
         media_type=mime_type,
         headers={
-            "Content-Disposition": f"attachment; filename=\"{filename}\""
+            "Content-Disposition": f"attachment; filename=\"{filename}\"",
+            "Content-Length": str(file_size),
+            "Accept-Ranges": "bytes"
         }
     )
 
@@ -246,3 +271,304 @@ async def delete_study_media(
         )
     logger.info("🗑️ Media deleted successfully: %s", media_id)
     return {"message": "Media deleted successfully"}
+
+
+@router.get("/studies/{study_id}/media/{media_id}/stream")
+async def stream_media(
+    study_id: UUID,
+    media_id: UUID,
+    request: Request,
+    range: str = Header(None),
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(require_doctor_role)
+):
+    """Stream media file with HTTP Range request support for efficient loading"""
+    logger.debug("🎥 Doctor %s streaming media %s from study %s", current_user.email, media_id, study_id) 
+    media_service = MediaService(db)
+    doctor_id = cast(UUID, current_user.id)
+    
+    # Get media info first (lightweight operation)
+    media_info = media_service.get_media_info(media_id, doctor_id)
+    if not media_info:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Media not found or access denied"
+        )
+    
+    mime_type, filename, file_size = media_info
+    
+    # Verify media belongs to the correct study
+    media = media_service.get_media_by_id(media_id, doctor_id)
+    if not media:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Media not found or access denied"
+        )
+    if str(media.study_id) != str(study_id):
+        logger.warning("❌ Media %s belongs to study %s, not %s", media_id, media.study_id, study_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Media not found in the specified study"
+        )
+    
+    # Parse Range header if present
+    start = 0
+    end = file_size - 1
+    status_code = 200
+    
+    if range:
+        try:
+            range_match = re.match(r'bytes=(\d+)-(\d*)', range)
+            if range_match:
+                start = int(range_match.group(1))
+                if range_match.group(2):
+                    end = min(int(range_match.group(2)), file_size - 1)
+                else:
+                    # If end is not specified, serve from start to end of file
+                    end = file_size - 1
+                status_code = 206  # Partial Content
+            else:
+                logger.warning("❌ Invalid range header format: %s", range)
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid range header format: {range}"
+                )
+        except (ValueError, IndexError) as e:
+            logger.warning("❌ Failed to parse range header %s: %s", range, e)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid range header: {range}"
+            ) from e
+    
+    # Validate range
+    if start >= file_size or end >= file_size or start > end:
+        raise HTTPException(
+            status_code=status.HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE,
+            detail=f"Invalid range: {start}-{end} for file size {file_size}"
+        )
+    
+    # Get the requested range of data
+    try:
+        range_data = media_service.get_media_file_range(media_id, doctor_id, start, end)
+        if not range_data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Media file not found on disk"
+            )
+    except Exception as e:
+        logger.error("❌ Failed to read file range %s-%s for media %s: %s", start, end, media_id, e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to read media file"
+        ) from e
+    
+    file_data, _, _, _ = range_data
+    content_length = end - start + 1
+    
+    # Prepare headers
+    headers = {
+        'Accept-Ranges': 'bytes',
+        'Content-Length': str(content_length),
+        'Content-Type': mime_type,
+    }
+    
+    if status_code == 206:
+        headers['Content-Range'] = f'bytes {start}-{end}/{file_size}'
+    
+    logger.debug("✅ Serving media range %s-%s/%s (%s bytes)", start, end, file_size, content_length)
+    
+    return Response(
+        content=file_data,
+        status_code=status_code,
+        headers=headers
+    )
+
+
+@router.get("/studies/{study_id}/media/{media_id}/video-stream")
+async def stream_video(
+    study_id: UUID,
+    media_id: UUID,
+    request: Request,
+    range: str = Header(None),
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(require_doctor_role)
+):
+    """
+    Enhanced video streaming endpoint optimized for video playback.
+    Provides better caching headers and video-specific optimizations.
+    """
+    logger.debug("🎬 Doctor %s streaming video %s from study %s", current_user.email, media_id, study_id) 
+    media_service = MediaService(db)
+    doctor_id = cast(UUID, current_user.id)
+    
+    # Get media info first (lightweight operation)
+    media_info = media_service.get_media_info(media_id, doctor_id)
+    if not media_info:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Media not found or access denied"
+        )
+    
+    mime_type, filename, file_size = media_info
+    
+    # Ensure this is a video file
+    if not mime_type.startswith('video/'):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This endpoint is only for video files"
+        )
+    
+    # Verify media belongs to the correct study
+    media = media_service.get_media_by_id(media_id, doctor_id)
+    if not media:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Media not found or access denied"
+        )
+    if str(media.study_id) != str(study_id):
+        logger.warning("❌ Video %s belongs to study %s, not %s", media_id, media.study_id, study_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Video not found in the specified study"
+        )
+    
+    # Parse Range header if present
+    start = 0
+    end = file_size - 1
+    status_code = 200
+    
+    if range:
+        try:
+            range_match = re.match(r'bytes=(\d+)-(\d*)', range)
+            if range_match:
+                start = int(range_match.group(1))
+                if range_match.group(2):
+                    end = min(int(range_match.group(2)), file_size - 1)
+                else:
+                    # For video streaming, limit chunk size to 1MB for better progressive loading
+                    chunk_size = 1024 * 1024  # 1MB
+                    end = min(start + chunk_size - 1, file_size - 1)
+                status_code = 206  # Partial Content
+            else:
+                logger.warning("❌ Invalid range header format: %s", range)
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid range header format: {range}"
+                )
+        except (ValueError, IndexError) as e:
+            logger.warning("❌ Failed to parse range header %s: %s", range, e)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid range header: {range}"
+            ) from e
+    
+    # Validate range
+    if start >= file_size or end >= file_size or start > end:
+        raise HTTPException(
+            status_code=status.HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE,
+            detail=f"Invalid range: {start}-{end} for file size {file_size}"
+        )
+    
+    # Get the requested range of data
+    try:
+        range_data = media_service.get_media_file_range(media_id, doctor_id, start, end)
+        if not range_data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Video file not found on disk"
+            )
+    except Exception as e:
+        logger.error("❌ Failed to read video range %s-%s for media %s: %s", start, end, media_id, e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to read video file"
+        ) from e
+    
+    file_data, _, _, _ = range_data
+    content_length = end - start + 1
+    
+    # Enhanced headers for video streaming
+    headers = {
+        'Accept-Ranges': 'bytes',
+        'Content-Length': str(content_length),
+        'Content-Type': mime_type,
+        'Cache-Control': 'public, max-age=3600',  # Cache for 1 hour
+        'X-Content-Type-Options': 'nosniff',
+        'X-Video-Optimized': 'true',  # Custom header to indicate video optimization
+    }
+    
+    if status_code == 206:
+        headers['Content-Range'] = f'bytes {start}-{end}/{file_size}'
+    
+    logger.debug("✅ Serving video range %s-%s/%s (%s bytes)", start, end, file_size, content_length)
+    
+    return Response(
+        content=file_data,
+        status_code=status_code,
+        headers=headers
+    )
+
+
+@router.get("/studies/{study_id}/media/{media_id}/video-thumbnails")
+async def get_video_thumbnails(
+    study_id: UUID,
+    media_id: UUID,
+    thumbnail_count: int = 20,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(require_doctor_role)
+):
+    """
+    Generate thumbnail strip for video scrubbing interface.
+    Returns evenly distributed thumbnails across the video timeline.
+    """
+    logger.debug("🖼️ Doctor %s requesting video thumbnails for %s", current_user.email, media_id)
+    
+    from app.services.auto_frame_service import AutoFrameService
+    
+    auto_frame_service = AutoFrameService(db)
+    doctor_id = cast(UUID, current_user.id)
+    
+    # Validate thumbnail count
+    if thumbnail_count < 5 or thumbnail_count > 50:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Thumbnail count must be between 5 and 50"
+        )
+    
+    try:
+        thumbnails = await auto_frame_service.generate_video_thumbnails(
+            video_media_id=media_id,
+            doctor_id=doctor_id,
+            study_id=study_id,
+            thumbnail_count=thumbnail_count
+        )
+        
+        logger.info("✅ Generated %d thumbnails for video %s", len(thumbnails), media_id)
+        
+        return {
+            "thumbnails": thumbnails,
+            "count": len(thumbnails),
+            "video_id": str(media_id)
+        }
+        
+    except PermissionError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied"
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Video file not found"
+        )
+    except Exception as e:
+        logger.error("❌ Error generating video thumbnails: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate video thumbnails"
+        )

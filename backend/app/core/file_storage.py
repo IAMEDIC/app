@@ -8,6 +8,11 @@ MIME Type Detection:
 - Falls back to filename extension mapping if python-magic is not available
 - For development on Windows/macOS, python-magic-bin should work out of the box
 - For production Linux, libmagic system library is installed via Dockerfile
+
+Video Optimization:
+- MP4 files are automatically optimized for progressive streaming (fast-start)
+- Optimization moves metadata to front of file for immediate playback
+- Gracefully falls back to original file if optimization fails
 """
 
 import uuid
@@ -15,6 +20,9 @@ import mimetypes
 from pathlib import Path
 from typing import Tuple, Optional
 from dataclasses import dataclass
+import logging
+
+logger = logging.getLogger(__name__)
 
 try:
     import magic
@@ -142,12 +150,13 @@ class FileStorageService:
         media_type = self._get_media_type(mime_type)
         return mime_type, media_type
 
-    def create_file(self, file_data: bytes, filename: str) -> FileInfo:
+    def create_file(self, file_data: bytes, filename: str, optimize_video: bool = True) -> FileInfo:
         """
         Store a file and return file information.
         Args:
             file_data: Raw file bytes
             filename: Original filename
+            optimize_video: Whether to optimize video files for streaming (default: True)
         Returns:
             FileInfo object with file details
         Raises:
@@ -157,15 +166,26 @@ class FileStorageService:
         mime_type, media_type = self._validate_file(file_data, filename)
         file_id = str(uuid.uuid4())
         file_path = self._get_file_path(file_id)
+        
         try:
+            # Write original file
             with open(file_path, 'wb') as f:
                 f.write(file_data)
+            
+            # Optimize MP4 videos for progressive streaming
+            if optimize_video and media_type == 'video' and mime_type == 'video/mp4':
+                self._optimize_video_file(file_path)
+                
         except OSError as e:
             raise OSError(f"Failed to write file: {e}") from e
+        
+        # Get final file size (may have changed after optimization)
+        final_size = file_path.stat().st_size
+        
         return FileInfo(
             file_id=file_id,
             filename=filename,
-            file_size=len(file_data),
+            file_size=final_size,
             mime_type=mime_type,
             media_type=media_type
         )
@@ -197,6 +217,61 @@ class FileStorageService:
             return file_data, mime_type
         except OSError as e:
             raise OSError(f"Failed to read file: {e}") from e
+
+    def read_file_chunked(self, file_id: str, chunk_size: int = 8192):
+        """
+        Generator that yields file chunks for streaming.
+        Args:
+            file_id: Unique file identifier
+            chunk_size: Size of each chunk in bytes (default 8KB)
+        Yields:
+            bytes: File chunks
+        Raises:
+            FileNotFoundError: If file doesn't exist
+            OSError: If file cannot be read
+        """
+        file_path = self._get_file_path(file_id)
+        if not file_path.exists():
+            raise FileNotFoundError(f"File not found: {file_id}")
+        
+        try:
+            with open(file_path, 'rb') as f:
+                while True:
+                    chunk = f.read(chunk_size)
+                    if not chunk:
+                        break
+                    yield chunk
+        except OSError as e:
+            raise OSError(f"Failed to read file: {e}") from e
+
+    def read_file_range(self, file_id: str, start: int, end: int):
+        """
+        Read a specific range of bytes from a file.
+        Args:
+            file_id: Unique file identifier
+            start: Starting byte position (inclusive)
+            end: Ending byte position (inclusive)
+        Returns:
+            bytes: File data for the specified range
+        Raises:
+            FileNotFoundError: If file doesn't exist
+            OSError: If file cannot be read
+            ValueError: If range is invalid
+        """
+        file_path = self._get_file_path(file_id)
+        if not file_path.exists():
+            raise FileNotFoundError(f"File not found: {file_id}")
+        
+        if start < 0 or end < start:
+            raise ValueError(f"Invalid range: {start}-{end}")
+        
+        try:
+            with open(file_path, 'rb') as f:
+                f.seek(start)
+                chunk_size = end - start + 1
+                return f.read(chunk_size)
+        except OSError as e:
+            raise OSError(f"Failed to read file range: {e}") from e
 
     def delete_file(self, file_id: str) -> bool:
         """
@@ -276,3 +351,40 @@ class FileStorageService:
             'total_mb': round(total / (1024 * 1024), 2),
             'available_mb': round(available / (1024 * 1024), 2)
         }
+
+    def _optimize_video_file(self, file_path: Path) -> None:
+        """
+        Optimize video file for progressive streaming (in-place).
+        Uses FFmpeg to move metadata to front for fast-start playback.
+        Falls back gracefully if optimization fails.
+        
+        Args:
+            file_path: Path to the video file to optimize
+        """
+        try:
+            from .video_optimizer import video_optimizer
+            
+            # Create temporary file for optimization
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as temp_file:
+                temp_path = temp_file.name
+            
+            # Optimize the video
+            success, optimized_path = video_optimizer.optimize_mp4_for_streaming(
+                str(file_path), 
+                temp_path
+            )
+            
+            if success and optimized_path != str(file_path):
+                # Replace original with optimized version
+                import shutil
+                shutil.move(optimized_path, str(file_path))
+                logger.info(f"Successfully optimized video file: {file_path}")
+            else:
+                # Cleanup temp file if optimization failed
+                Path(temp_path).unlink(missing_ok=True)
+                logger.warning(f"Video optimization failed for: {file_path}")
+                
+        except Exception as e:
+            logger.error(f"Error optimizing video file {file_path}: {e}")
+            # Continue with original file - optimization is optional

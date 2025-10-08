@@ -212,6 +212,63 @@ class MediaService:
             logger.error("Failed to read file %s: %s", db_media.file_path, e)
             return None
 
+    def get_media_file_chunked(self, media_id: UUID, doctor_id: UUID, chunk_size: int = 8192):
+        """
+        Get media file data as chunks for streaming.
+        Args:
+            media_id: ID of the media
+            doctor_id: ID of the doctor
+            chunk_size: Size of each chunk in bytes
+        Yields:
+            bytes: File chunks
+        Returns:
+            Generator of file chunks, or None if media not found
+        """
+        db_media = self.get_media_by_id(media_id, doctor_id)
+        if not db_media:
+            return None
+        try:
+            return self.file_storage.read_file_chunked(str(db_media.file_path), chunk_size)
+        except Exception as e: # pylint: disable=broad-except
+            logger.error("Failed to read file chunks %s: %s", db_media.file_path, e)
+            return None
+
+    def get_media_file_range(self, media_id: UUID, doctor_id: UUID, start: int, end: int) -> Optional[Tuple[bytes, str, str, int]]:
+        """
+        Get a specific range of bytes from a media file.
+        Args:
+            media_id: ID of the media
+            doctor_id: ID of the doctor
+            start: Starting byte position (inclusive)
+            end: Ending byte position (inclusive)
+        Returns:
+            Tuple of (file_data, mime_type, filename, file_size) if found, None otherwise
+        """
+        db_media = self.get_media_by_id(media_id, doctor_id)
+        if not db_media:
+            return None
+        try:
+            file_data = self.file_storage.read_file_range(str(db_media.file_path), start, end)
+            # Use stored mime type from database for consistency
+            return file_data, db_media.mime_type, str(db_media.filename), db_media.file_size
+        except Exception as e: # pylint: disable=broad-except
+            logger.error("Failed to read file range %s: %s", db_media.file_path, e)
+            return None
+
+    def get_media_info(self, media_id: UUID, doctor_id: UUID) -> Optional[Tuple[str, str, int]]:
+        """
+        Get media file information without reading the file.
+        Args:
+            media_id: ID of the media
+            doctor_id: ID of the doctor
+        Returns:
+            Tuple of (mime_type, filename, file_size) if found, None otherwise
+        """
+        db_media = self.get_media_by_id(media_id, doctor_id)
+        if not db_media:
+            return None
+        return db_media.mime_type, str(db_media.filename), db_media.file_size
+
     def get_storage_info(self, doctor_id: UUID) -> dict:
         """
         Get storage usage information for a doctor.

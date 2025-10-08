@@ -265,3 +265,107 @@ class AutoFrameService:
             logger.warning(f"Error calling classifier service: {e}")
             return 0.0
 
+    async def generate_video_thumbnails(
+        self,
+        video_media_id: UUID,
+        doctor_id: UUID,
+        study_id: UUID,
+        thumbnail_count: int = 20
+    ) -> list[dict]:
+        """
+        Generate thumbnail strip for video scrubbing interface.
+        
+        Args:
+            video_media_id: ID of the video media
+            doctor_id: ID of the doctor requesting thumbnails
+            study_id: ID of the study containing the video
+            thumbnail_count: Number of thumbnails to generate (default: 20)
+            
+        Returns:
+            List of thumbnail data with timestamps and base64 images
+        """
+        try:
+            # Verify permissions
+            if not self.media_service.check_study_ownership(study_id, doctor_id):
+                raise PermissionError(f"Access denied for video {video_media_id}")
+            
+            # Get video media
+            video_media = self.db.query(Media).filter(Media.id == video_media_id).first()
+            if not video_media or video_media.media_type.value != MediaType.VIDEO.value:
+                raise ValueError(f"Video media not found: {video_media_id}")
+            
+            # Read video file
+            try:
+                file_data, _ = self.file_storage.read_file(str(video_media.file_path))
+                logger.debug(f"Read video file of size {len(file_data)} bytes for thumbnails")
+            except Exception as e:
+                raise FileNotFoundError(f"Video file not accessible: {e}")
+            
+            # Create temporary file
+            with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as video_temp:
+                video_temp.write(file_data)
+                video_temp_path = video_temp.name
+                logger.debug(f"Temporary video file created at {video_temp_path}")
+            
+            try:
+                # Open video and get basic info
+                cap = cv2.VideoCapture(video_temp_path)
+                if not cap.isOpened():
+                    raise ValueError("Could not open video file")
+                
+                fps = cap.get(cv2.CAP_PROP_FPS)
+                total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                duration_seconds = total_frames / fps if fps > 0 else 0
+                
+                logger.debug(f"Video info: {total_frames} frames, {fps} FPS, {duration_seconds:.2f}s")
+                
+                # Calculate thumbnail positions evenly distributed across video
+                thumbnails = []
+                for i in range(thumbnail_count):
+                    # Calculate timestamp for this thumbnail
+                    progress = i / (thumbnail_count - 1) if thumbnail_count > 1 else 0
+                    timestamp_seconds = progress * duration_seconds
+                    frame_number = int(timestamp_seconds * fps)
+                    
+                    # Seek to frame
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
+                    ret, frame = cap.read()
+                    
+                    if ret:
+                        # Resize frame for thumbnail (maintain aspect ratio)
+                        height, width = frame.shape[:2]
+                        thumbnail_width = 160  # Standard thumbnail width
+                        thumbnail_height = int((thumbnail_width * height) / width)
+                        
+                        thumbnail_frame = cv2.resize(frame, (thumbnail_width, thumbnail_height))
+                        
+                        # Encode as JPEG for efficient transmission
+                        _, encoded_frame = cv2.imencode('.jpg', thumbnail_frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                        frame_b64 = base64.b64encode(encoded_frame.tobytes()).decode('utf-8')
+                        
+                        thumbnails.append({
+                            'timestamp': timestamp_seconds,
+                            'frame_number': frame_number,
+                            'image_data': f"data:image/jpeg;base64,{frame_b64}",
+                            'width': thumbnail_width,
+                            'height': thumbnail_height
+                        })
+                        
+                        logger.debug(f"Generated thumbnail {i+1}/{thumbnail_count} at {timestamp_seconds:.2f}s")
+                    else:
+                        logger.warning(f"Could not extract frame at position {frame_number}")
+                
+                cap.release()
+                logger.info(f"Generated {len(thumbnails)} thumbnails for video {video_media_id}")
+                
+                return thumbnails
+                
+            finally:
+                # Cleanup temporary file
+                if os.path.exists(video_temp_path):
+                    os.unlink(video_temp_path)
+                    
+        except Exception as e:
+            logger.error(f"Error generating video thumbnails for {video_media_id}: {e}")
+            raise
+
