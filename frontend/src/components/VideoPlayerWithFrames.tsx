@@ -42,8 +42,7 @@ import { AnnotationsTab } from './AnnotationsTab';
 import { 
   AutoExtractionParams, 
   AutoExtractionRequest,
-  DEFAULT_AUTO_EXTRACTION_PARAMS,
-  PARAMETER_DESCRIPTIONS 
+  DEFAULT_AUTO_EXTRACTION_PARAMS
 } from '@/types/autoExtraction';
 
 interface VideoPlayerWithFramesProps {
@@ -298,11 +297,29 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
                 </AccordionSummary>
                 <AccordionDetails>
                   <Box display="flex" flexDirection="column" gap={2}>
+                    {/* Prediction Threshold */}
+                    <Box>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Typography variant="body2">{t('components.videoPlayer.predictionThreshold')}: {autoParams.prediction_threshold}</Typography>
+                        <Tooltip title={t('components.videoPlayer.predictionThresholdDesc')}>
+                          <InfoIcon fontSize="small" color="action" />
+                        </Tooltip>
+                      </Box>
+                      <Slider
+                        value={autoParams.prediction_threshold}
+                        onChange={(_, value) => setAutoParams(prev => ({ ...prev, prediction_threshold: value as number }))}
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        size="small"
+                      />
+                    </Box>
+
                     {/* Run Threshold */}
                     <Box>
                       <Box display="flex" alignItems="center" gap={1}>
-                        <Typography variant="body2">Run Threshold: {autoParams.run_threshold}</Typography>
-                        <Tooltip title={PARAMETER_DESCRIPTIONS.run_threshold}>
+                        <Typography variant="body2">{t('components.videoPlayer.runThreshold')}: {autoParams.run_threshold}</Typography>
+                        <Tooltip title={t('components.videoPlayer.runThresholdDesc')}>
                           <InfoIcon fontSize="small" color="action" />
                         </Tooltip>
                       </Box>
@@ -319,8 +336,8 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
                     {/* Min Run Length */}
                     <Box>
                       <Box display="flex" alignItems="center" gap={1}>
-                        <Typography variant="body2">Min Run Length</Typography>
-                        <Tooltip title={PARAMETER_DESCRIPTIONS.min_run_length}>
+                        <Typography variant="body2">{t('components.videoPlayer.minRunLength')}</Typography>
+                        <Tooltip title={t('components.videoPlayer.minRunLengthDesc')}>
                           <InfoIcon fontSize="small" color="action" />
                         </Tooltip>
                       </Box>
@@ -334,29 +351,11 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
                       />
                     </Box>
                     
-                    {/* Prediction Threshold */}
-                    <Box>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Typography variant="body2">Prediction Threshold: {autoParams.prediction_threshold}</Typography>
-                        <Tooltip title={PARAMETER_DESCRIPTIONS.prediction_threshold}>
-                          <InfoIcon fontSize="small" color="action" />
-                        </Tooltip>
-                      </Box>
-                      <Slider
-                        value={autoParams.prediction_threshold}
-                        onChange={(_, value) => setAutoParams(prev => ({ ...prev, prediction_threshold: value as number }))}
-                        min={0}
-                        max={1}
-                        step={0.05}
-                        size="small"
-                      />
-                    </Box>
-                    
                     {/* Patience */}
                     <Box>
                       <Box display="flex" alignItems="center" gap={1}>
-                        <Typography variant="body2">Patience</Typography>
-                        <Tooltip title={PARAMETER_DESCRIPTIONS.patience}>
+                        <Typography variant="body2">{t('components.videoPlayer.patience')}</Typography>
+                        <Tooltip title={t('components.videoPlayer.patienceDesc')}>
                           <InfoIcon fontSize="small" color="action" />
                         </Tooltip>
                       </Box>

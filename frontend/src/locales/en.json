@@ -301,7 +301,15 @@
       "rewindLarge": "Rewind 5 seconds",
       "rewindFrame": "Previous frame",
       "advanceFrame": "Next frame",
-      "advanceLarge": "Advance 5 seconds"
+      "advanceLarge": "Advance 5 seconds",
+      "runThreshold": "Run Threshold",
+      "minRunLength": "Min Run Length",
+      "predictionThreshold": "Prediction Threshold",
+      "patience": "Patience",
+      "runThresholdDesc": "Minimum probability threshold for starting a run. Lower values will detect more potential regions but may include false positives.",
+      "minRunLengthDesc": "Minimum number of consecutive frames to consider a valid run. Higher values require longer consistent predictions.",
+      "predictionThresholdDesc": "Minimum probability threshold for extracting a frame. Only frames with predictions above this value will be extracted.",
+      "patienceDesc": "Number of frames below threshold before ending a run. Higher patience allows for brief dips in prediction confidence."
     },
     "callbackPage": {
       "authenticationFailed": "Authentication Failed",

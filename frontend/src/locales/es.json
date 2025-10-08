@@ -301,7 +301,15 @@
       "rewindLarge": "Retroceder 5 segundos",
       "rewindFrame": "Frame anterior",
       "advanceFrame": "Frame siguiente",
-      "advanceLarge": "Avanzar 5 segundos"
+      "advanceLarge": "Avanzar 5 segundos",
+      "runThreshold": "Umbral de Ejecución",
+      "minRunLength": "Longitud Mínima de Ejecución",
+      "predictionThreshold": "Umbral de Predicción",
+      "patience": "Paciencia",
+      "runThresholdDesc": "Umbral de probabilidad mínimo para iniciar una ejecución. Valores más bajos detectarán más regiones potenciales pero pueden incluir falsos positivos.",
+      "minRunLengthDesc": "Número mínimo de frames consecutivos para considerar una ejecución válida. Valores más altos requieren predicciones consistentes más largas.",
+      "predictionThresholdDesc": "Umbral de probabilidad mínimo para extraer un frame. Solo se extraerán frames con predicciones por encima de este valor.",
+      "patienceDesc": "Número de frames por debajo del umbral antes de terminar una ejecución. Mayor paciencia permite caídas breves en la confianza de la predicción."
     },
     "callbackPage": {
       "authenticationFailed": "Autenticación Fallida",
