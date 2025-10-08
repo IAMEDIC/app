@@ -14,13 +14,15 @@ import {
   MenuItem,
   Chip,
   FormControlLabel,
-  CircularProgress
+  CircularProgress,
+  Tooltip
 } from '@mui/material';
 import {
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
   Close as CloseIcon,
   ZoomIn as ZoomInIcon,
+  Info as InfoIcon,
 } from '@mui/icons-material';
 import { MediaSummary } from '@/types';
 import { aiServiceV2 } from '@/services/ai_v2';
@@ -83,6 +85,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
   // New box creation state
   const [isCreatingBox, setIsCreatingBox] = useState(false);
   const [availableClasses, setAvailableClasses] = useState<string[]>([]);
+  const [classTitles, setClassTitles] = useState<string[]>([]);
   const [selectedClass, setSelectedClass] = useState<string>('');
   const [newBoxStart, setNewBoxStart] = useState<{ x: number; y: number } | null>(null);
   const [currentMousePos, setCurrentMousePos] = useState<{ x: number; y: number } | null>(null);
@@ -93,6 +96,13 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
 
   // Load image using cache
   const { src: imageSrc, isLoading: imageLoading } = useCachedMedia(studyId, media.id);
+
+  // Helper function to get class title for tooltip
+  const getClassTitle = (className: string): string | null => {
+    if (!availableClasses.length || !classTitles.length) return null;
+    const classIndex = availableClasses.indexOf(className);
+    return classIndex >= 0 && classIndex < classTitles.length ? classTitles[classIndex] : null;
+  };
 
   // Load existing saved annotations and display existing predictions (without generating new ones)
   useEffect(() => {
@@ -165,6 +175,10 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
           if (modelInfo.classes.length > 0 && !selectedClass) {
             setSelectedClass(modelInfo.classes[0]);
           }
+        }
+        // Store class titles for hover tooltips
+        if (modelInfo.class_titles) {
+          setClassTitles(modelInfo.class_titles);
         }
       } catch (error) {
         console.error('Failed to get model info:', error);
@@ -1198,11 +1212,18 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
                     <Card key={box.id} variant="outlined">
                       <CardContent sx={{ p: 1 }}>
                         <Box display="flex" alignItems="center" justifyContent="between" gap={1}>
-                          <Chip 
-                            label={box.class} 
-                            size="small" 
-                            style={{ backgroundColor: box.color, color: 'white' }}
-                          />
+                          <Box display="flex" alignItems="center" gap={0.5}>
+                            <Chip 
+                              label={box.class} 
+                              size="small" 
+                              style={{ backgroundColor: box.color, color: 'white' }}
+                            />
+                            {getClassTitle(box.class) && (
+                              <Tooltip title={getClassTitle(box.class)} arrow>
+                                <InfoIcon sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
+                              </Tooltip>
+                            )}
+                          </Box>
                           {box.confidence && (
                             <Typography variant="caption">
                               {(box.confidence * 100).toFixed(1)}%

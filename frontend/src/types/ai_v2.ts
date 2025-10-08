@@ -10,6 +10,7 @@ export interface ModelInfo {
   expected_width: number;
   expected_height: number;
   classes?: string[];
+  class_titles?: string[];
 }
 
 // Clean prediction response types (no IDs, timestamps, etc.)

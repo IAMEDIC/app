@@ -30,6 +30,7 @@ MLFLOW_MODEL_ALIAS = os.getenv("MLFLOW_MODEL_ALIAS", "champion")
 TARGET_IMAGE_HEIGHT = int(os.getenv("TARGET_IMAGE_HEIGHT", -1))
 TARGET_IMAGE_WIDTH = int(os.getenv("TARGET_IMAGE_WIDTH", -1))
 CLASS_NAMES = {i : name for i, name in enumerate(list(os.getenv("CLASS_NAMES", "").strip("[]").split(", ")))}
+CLASS_TITLES = {i : title for i, title in enumerate(list(os.getenv("CLASS_TITLES", "").strip("[]").split(", ")))}
 
 MODELS_DIR = "/app/models"
 os.makedirs(MODELS_DIR, exist_ok=True)
@@ -70,6 +71,7 @@ class ModelInfo(BaseModel):
     expected_width: int
     expected_height: int
     classes: list[str]
+    class_titles: list[str]
 
 
 class ClassicInference:
@@ -121,7 +123,8 @@ class ModelService:
             version=f"{MLFLOW_MODEL_NAME} - {self.model_version}",
             expected_width=TARGET_IMAGE_WIDTH,
             expected_height=TARGET_IMAGE_HEIGHT,
-            classes=list(CLASS_NAMES.values())
+            classes=list(CLASS_NAMES.values()),
+            class_titles=list(CLASS_TITLES.values())
         )
 
     def check_for_model_update(self) -> tuple[bool, str]:

@@ -17,6 +17,7 @@ class ModelInfo(BaseModel):
     expected_width: int = Field(..., description="Expected image width")
     expected_height: int = Field(..., description="Expected image height")
     classes: Optional[list[str]] = Field(None, description="Available classes (for BB models)")
+    class_titles: Optional[list[str]] = Field(None, description="Human-readable titles for classes (for BB models)")
 
 
 # Raw prediction responses (no database IDs or timestamps)
