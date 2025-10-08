@@ -297,7 +297,11 @@
       "advancedSettings": "Advanced Settings",
       "extractFrame": "Extract Frame",
       "extractedFrames": "Extracted Frames",
-      "noFramesExtracted": "No frames extracted yet. Click 'Extract Frame' while watching the video."
+      "noFramesExtracted": "No frames extracted yet. Click 'Extract Frame' while watching the video.",
+      "rewindLarge": "Rewind 5 seconds",
+      "rewindFrame": "Previous frame",
+      "advanceFrame": "Next frame",
+      "advanceLarge": "Advance 5 seconds"
     },
     "callbackPage": {
       "authenticationFailed": "Authentication Failed",

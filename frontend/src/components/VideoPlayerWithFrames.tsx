@@ -30,6 +30,10 @@ import {
   SmartButton as AutoIcon,
   ExpandMore as ExpandMoreIcon,
   Info as InfoIcon,
+  SkipPrevious as SkipPreviousIcon,
+  SkipNext as SkipNextIcon,
+  FastRewind as FastRewindIcon,
+  FastForward as FastForwardIcon,
 } from '@mui/icons-material';
 import { frameService } from '@/services/frameService';
 import { useTranslation } from '@/contexts/LanguageContext';
@@ -128,6 +132,45 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
     if (videoRef.current) {
       videoRef.current.currentTime = time;
       setCurrentTime(time);
+    }
+  };
+
+  // Frame advancement functions
+  const advanceOneFrame = () => {
+    if (videoRef.current && duration > 0) {
+      // Estimate frame rate (assuming 30fps if not available)
+      const estimatedFrameRate = 30;
+      const frameTime = 1 / estimatedFrameRate;
+      const newTime = Math.min(currentTime + frameTime, duration);
+      seekToTime(newTime);
+    }
+  };
+
+  const rewindOneFrame = () => {
+    if (videoRef.current) {
+      // Estimate frame rate (assuming 30fps if not available)
+      const estimatedFrameRate = 30;
+      const frameTime = 1 / estimatedFrameRate;
+      const newTime = Math.max(currentTime - frameTime, 0);
+      seekToTime(newTime);
+    }
+  };
+
+  const advanceLargeStep = () => {
+    if (videoRef.current && duration > 0) {
+      // Large step: 5 seconds
+      const stepSize = 5;
+      const newTime = Math.min(currentTime + stepSize, duration);
+      seekToTime(newTime);
+    }
+  };
+
+  const rewindLargeStep = () => {
+    if (videoRef.current) {
+      // Large step: 5 seconds
+      const stepSize = 5;
+      const newTime = Math.max(currentTime - stepSize, 0);
+      seekToTime(newTime);
     }
   };
 
@@ -353,12 +396,36 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
               
               {/* Video Controls */}
               <Box sx={{ mt: 2 }}>
-                <Box display="flex" alignItems="center" gap={2} mb={1}>
+                <Box display="flex" alignItems="center" gap={1} mb={1} flexWrap="wrap">
                   <IconButton onClick={togglePlayPause} color="primary">
                     {isPlaying ? <PauseIcon /> : <PlayIcon />}
                   </IconButton>
                   
-                  <Typography variant="body2">
+                  {/* Frame Advancement Controls */}
+                  <Box display="flex" alignItems="center" gap={0.5} sx={{ mx: 1 }}>
+                    <Tooltip title={t('components.videoPlayer.rewindLarge')}>
+                      <IconButton onClick={rewindLargeStep} size="small" color="primary">
+                        <FastRewindIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title={t('components.videoPlayer.rewindFrame')}>
+                      <IconButton onClick={rewindOneFrame} size="small" color="primary">
+                        <SkipPreviousIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title={t('components.videoPlayer.advanceFrame')}>
+                      <IconButton onClick={advanceOneFrame} size="small" color="primary">
+                        <SkipNextIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title={t('components.videoPlayer.advanceLarge')}>
+                      <IconButton onClick={advanceLargeStep} size="small" color="primary">
+                        <FastForwardIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                  
+                  <Typography variant="body2" sx={{ mx: 1 }}>
                     {formatTime(currentTime)} / {formatTime(duration)}
                   </Typography>
                   
@@ -368,6 +435,7 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
                     onClick={extractCurrentFrame}
                     disabled={extracting}
                     color="secondary"
+                    size="small"
                   >
                     {extracting ? t('components.videoPlayer.extracting') : t('components.videoPlayer.extractFrame')}
                   </Button>
