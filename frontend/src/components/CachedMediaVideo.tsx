@@ -30,6 +30,7 @@ export const CachedMediaVideo: React.FC<CachedMediaVideoProps> = ({
   const [videoSrc, setVideoSrc] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState(0);
   
   const getCachedMedia = useMediaCacheStore((state) => state.getCachedMedia);
 
@@ -40,8 +41,13 @@ export const CachedMediaVideo: React.FC<CachedMediaVideoProps> = ({
       try {
         setIsLoading(true);
         setError(null);
+        setDownloadProgress(0);
         
-        const blobUrl = await getCachedMedia(studyId, mediaId);
+        const blobUrl = await getCachedMedia(studyId, mediaId, (progress) => {
+          if (isMounted) {
+            setDownloadProgress(progress);
+          }
+        });
         
         if (isMounted) {
           setVideoSrc(blobUrl);
@@ -71,8 +77,11 @@ export const CachedMediaVideo: React.FC<CachedMediaVideoProps> = ({
 
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="400px">
-        <CircularProgress />
+      <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" height="400px">
+        <CircularProgress variant="determinate" value={downloadProgress} size={50} />
+        <Typography variant="body1" sx={{ mt: 2 }}>
+          {downloadProgress}% loaded
+        </Typography>
       </Box>
     );
   }

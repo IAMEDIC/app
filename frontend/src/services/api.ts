@@ -17,7 +17,7 @@ import {
 // Create axios instance with base configuration
 const api: AxiosInstance = axios.create({
   baseURL: '/api',
-  timeout: 10000,
+  timeout: 120000, // 2 minutes for large file downloads
   headers: {
     'Content-Type': 'application/json',
   },
@@ -235,12 +235,34 @@ export const mediaService = {
     return response.data;
   },
 
-  // Download media file
-  downloadMedia: async (studyId: string, mediaId: string): Promise<Blob> => {
-    const response = await api.get(`/studies/${studyId}/media/${mediaId}/download`, {
-      responseType: 'blob',
-    });
-    return response.data;
+  // Download media file (with streaming support)
+  downloadMedia: async (studyId: string, mediaId: string, onProgress?: (progress: number) => void): Promise<Blob> => {
+    try {
+      // Try streaming endpoint first (supports range requests and better memory usage)
+      const response = await api.get(`/studies/${studyId}/media/${mediaId}/stream`, {
+        responseType: 'blob',
+        onDownloadProgress: (progressEvent) => {
+          if (progressEvent.total && onProgress) {
+            const progress = (progressEvent.loaded / progressEvent.total) * 100;
+            onProgress(Math.round(progress));
+          }
+        },
+      });
+      return response.data;
+    } catch (error) {
+      // Fallback to regular download endpoint if streaming fails
+      console.warn('Streaming endpoint failed, falling back to regular download:', error);
+      const response = await api.get(`/studies/${studyId}/media/${mediaId}/download`, {
+        responseType: 'blob',
+        onDownloadProgress: (progressEvent) => {
+          if (progressEvent.total && onProgress) {
+            const progress = (progressEvent.loaded / progressEvent.total) * 100;
+            onProgress(Math.round(progress));
+          }
+        },
+      });
+      return response.data;
+    }
   },
 
   // Delete media

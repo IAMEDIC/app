@@ -2,25 +2,18 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   Grid,
-  Card,
-  CardContent,
-  CardActions,
   Typography,
-  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   Button,
   Chip,
-  Tooltip,
   CircularProgress,
   Alert,
+  IconButton,
 } from '@mui/material';
 import {
-  Delete as DeleteIcon,
-  Download as DownloadIcon,
-  Visibility as ViewIcon,
   VideoFile as VideoIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
@@ -28,6 +21,7 @@ import { MediaSummary } from '@/types';
 import { AnnotationsTab } from './AnnotationsTab';
 import { VideoPlayerWithFrames } from './VideoPlayerWithFrames';
 import { CachedMediaImage } from './CachedMediaImage';
+import { LazyMediaItem } from './LazyMediaItem';
 import { useMediaCacheStore } from '@/store/mediaCacheStore';
 import { useMediaCacheManager } from '@/utils/mediaCacheUtils';
 import { useTranslation } from '@/contexts/LanguageContext';
@@ -77,22 +71,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
     });
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'uploaded':
-        return 'success';
-      case 'processing':
-        return 'warning';
-      case 'failed':
-        return 'error';
-      default:
-        return 'default';
-    }
-  };
 
-  const getStatusText = (status: string) => {
-    return t(`media.${status}`, { defaultValue: status });
-  };
 
   const handleViewMedia = (mediaItem: MediaSummary) => {
     setSelectedMedia(mediaItem);
@@ -170,22 +149,6 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
 );
   };
 
-  // Component for displaying authenticated images (using cache)
-  const AuthenticatedImage: React.FC<{ mediaId: string; alt: string; className?: string }> = ({ 
-    mediaId, 
-    alt, 
-    className 
-  }) => {
-    return (
-      <CachedMediaImage
-        studyId={studyId}
-        mediaId={mediaId}
-        alt={alt}
-        className={className}
-        style={{ maxWidth: '100%', height: 'auto' }}
-      />
-    );
-  };
 
 
 
@@ -302,99 +265,25 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
       <Grid container spacing={2}>
         {media.map((mediaItem) => (
           <Grid item xs={12} sm={6} md={4} lg={3} key={mediaItem.id}>
-            <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-              {/* Media Preview */}
-              <Box sx={{ position: 'relative', height: 200, bgcolor: 'grey.100' }}>
-                {mediaItem.media_type === 'image' ? (
-                  <Box sx={{ height: 200, overflow: 'hidden' }}>
-                    <AuthenticatedImage 
-                      mediaId={mediaItem.id}
-                      alt={mediaItem.filename}
-                    />
-                  </Box>
-                ) : (
-                  <Box
-                    display="flex"
-                    alignItems="center"
-                    justifyContent="center"
-                    height="100%"
-                    sx={{ bgcolor: 'grey.200' }}
-                  >
-                    <VideoIcon sx={{ fontSize: 48, color: 'text.secondary' }} />
-                  </Box>
-                )}
-                
-                {/* Status Badge */}
-                <Chip
-                  label={getStatusText(mediaItem.upload_status)}
-                  color={getStatusColor(mediaItem.upload_status) as any}
-                  size="small"
-                  sx={{
-                    position: 'absolute',
-                    top: 8,
-                    right: 8,
-                  }}
-                />
-              </Box>
-
-              {/* Media Info */}
-              <CardContent sx={{ flexGrow: 1 }}>
-                <Typography variant="subtitle2" noWrap title={mediaItem.filename}>
-                  {mediaItem.filename}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {formatFileSize(mediaItem.file_size)}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {formatDate(mediaItem.created_at)}
-                </Typography>
-              </CardContent>
-
-              {/* Actions */}
-              <CardActions>
-                <Tooltip title={t('components.mediaGallery.view')}>
-                  <IconButton 
-                    size="small" 
-                    onClick={() => handleViewMedia(mediaItem)}
-                    disabled={mediaItem.upload_status !== 'uploaded'}
-                  >
-                    <ViewIcon />
-                  </IconButton>
-                </Tooltip>
-                
-                <Tooltip title={t('components.mediaGallery.download')}>
-                  <IconButton 
-                    size="small" 
-                    onClick={() => handleDownloadMedia(mediaItem)}
-                    disabled={
-                      mediaItem.upload_status !== 'uploaded' || 
-                      actionLoading === `download-${mediaItem.id}`
-                    }
-                  >
-                    {actionLoading === `download-${mediaItem.id}` ? (
-                      <CircularProgress size={20} />
-                    ) : (
-                      <DownloadIcon />
-                    )}
-                  </IconButton>
-                </Tooltip>
-                
-                <Tooltip title={t('components.mediaGallery.delete')}>
-                  <IconButton 
-                    size="small" 
-                    onClick={() => setDeleteDialog(mediaItem)}
-                    disabled={actionLoading === `delete-${mediaItem.id}`}
-                    color="error"
-                  >
-                    {actionLoading === `delete-${mediaItem.id}` ? (
-                      <CircularProgress size={20} />
-                    ) : (
-                      <DeleteIcon />
-                    )}
-                  </IconButton>
-                </Tooltip>
-              </CardActions>
-            </Card>
+            <LazyMediaItem
+              media={mediaItem}
+              studyId={studyId}
+              onView={handleViewMedia}
+              onDelete={(mediaId) => {
+                const mediaToDelete = media.find(m => m.id === mediaId);
+                if (mediaToDelete) {
+                  setDeleteDialog(mediaToDelete);
+                }
+              }}
+              onDownload={(mediaId, _filename) => {
+                const mediaToDownload = media.find(m => m.id === mediaId);
+                if (mediaToDownload) {
+                  handleDownloadMedia(mediaToDownload);
+                }
+              }}
+              rootMargin="100px" // Start loading when 100px away from viewport
+              threshold={0.1}
+            />
           </Grid>
         ))}
       </Grid>

@@ -37,7 +37,7 @@ import {
 } from '@mui/icons-material';
 import { frameService } from '@/services/frameService';
 import { useTranslation } from '@/contexts/LanguageContext';
-import { Frame } from '@/types/frame';
+import { Frame, VideoMetadata } from '@/types/frame';
 import { AnnotationsTab } from './AnnotationsTab';
 import { 
   AutoExtractionParams, 
@@ -61,6 +61,7 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [videoMetadata, setVideoMetadata] = useState<VideoMetadata | null>(null);
   const [frames, setFrames] = useState<Frame[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,6 +78,10 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
     const loadData = async () => {
       try {
         setLoading(true);
+        
+        // Load video metadata (including FPS)
+        const metadata = await frameService.getVideoMetadata(studyId, videoId);
+        setVideoMetadata(metadata);
         
         // Load existing frames
         const framesResponse = await frameService.listVideoFrames(studyId, videoId);
@@ -136,20 +141,18 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
 
   // Frame advancement functions
   const advanceOneFrame = () => {
-    if (videoRef.current && duration > 0) {
-      // Estimate frame rate (assuming 30fps if not available)
-      const estimatedFrameRate = 30;
-      const frameTime = 1 / estimatedFrameRate;
+    if (videoRef.current && duration > 0 && videoMetadata) {
+      // Use actual FPS from video metadata
+      const frameTime = 1 / videoMetadata.fps;
       const newTime = Math.min(currentTime + frameTime, duration);
       seekToTime(newTime);
     }
   };
 
   const rewindOneFrame = () => {
-    if (videoRef.current) {
-      // Estimate frame rate (assuming 30fps if not available)
-      const estimatedFrameRate = 30;
-      const frameTime = 1 / estimatedFrameRate;
+    if (videoRef.current && videoMetadata) {
+      // Use actual FPS from video metadata
+      const frameTime = 1 / videoMetadata.fps;
       const newTime = Math.max(currentTime - frameTime, 0);
       seekToTime(newTime);
     }
@@ -381,9 +384,9 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
             <CardContent>
               <video
                 ref={videoRef}
-                src={videoSrc}
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={handleLoadedMetadata}
+                preload="metadata"
                 style={{ 
                   width: '100%', 
                   height: 'auto',
@@ -391,7 +394,13 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
                   objectFit: 'contain',
                   backgroundColor: '#000'
                 }}
-              />
+              >
+                {/* Progressive streaming source (preferred) */}
+                <source src={`/api/studies/${studyId}/media/${videoId}/video-stream`} type="video/mp4" />
+                {/* Fallback to cached blob */}
+                <source src={videoSrc} type="video/mp4" />
+                Your browser does not support the video tag.
+              </video>
               
               {/* Video Controls */}
               <Box sx={{ mt: 2 }}>
