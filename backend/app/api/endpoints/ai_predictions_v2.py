@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import require_doctor_role
+from app.core.deps import require_doctor_role, require_admin_or_doctor_role
 from app.models.user import User as UserModel
 from app.services.ai_prediction_service_v2 import AIPredictionService
 from app.schemas.ai_responses import (
@@ -223,10 +223,10 @@ async def get_existing_bounding_box_predictions(
 @router.get("/ai/models/classifier/info", response_model=ModelInfo)
 async def get_classifier_model_info(
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_doctor_role)
+    current_user: UserModel = Depends(require_admin_or_doctor_role)
 ) -> ModelInfo:
     """Get classifier model information"""
-    logger.debug("📊 Doctor %s requesting classifier model info", current_user.email)
+    logger.debug("📊 User %s requesting classifier model info", current_user.email)
     ai_service = AIPredictionService(db)
     model_info = await ai_service.get_model_info("classifier")
     if not model_info:
@@ -240,10 +240,10 @@ async def get_classifier_model_info(
 @router.get("/ai/models/bb-regressor/info", response_model=ModelInfo)
 async def get_bb_model_info(
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_doctor_role)
+    current_user: UserModel = Depends(require_admin_or_doctor_role)
 ) -> ModelInfo:
     """Get bounding box model information"""
-    logger.debug("📊 Doctor %s requesting BB model info", current_user.email)
+    logger.debug("📊 User %s requesting BB model info", current_user.email)
     ai_service = AIPredictionService(db)
     model_info = await ai_service.get_model_info("bounding_box")
     if not model_info:

@@ -18,13 +18,40 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import { User, DoctorProfile, DoctorProfileApproval } from '@/types';
+import { ModelStatisticsTab } from '@/components/ModelStatisticsTab';
+import { DataExportTab } from '@/components/DataExportTab';
 import api from '@/services/api';
+
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`admin-tabpanel-${index}`}
+      aria-labelledby={`admin-tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
+    </div>
+  );
+}
 
 interface AdminDashboardProps {}
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
+  const [currentTab, setCurrentTab] = useState(0);
   const [users, setUsers] = useState<User[]>([]);
   const [pendingRegistrations, setPendingRegistrations] = useState<DoctorProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,6 +111,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
     }
   };
 
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setCurrentTab(newValue);
+  };
+
   const getRoleChips = (roles: string[] = []) => {
     return roles.map((role) => (
       <Chip
@@ -116,38 +147,65 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
         Admin Dashboard
       </Typography>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
+      {/* Main Tabs */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs 
+          value={currentTab} 
+          onChange={handleTabChange}
+          aria-label="Admin dashboard tabs"
+        >
+          <Tab 
+            label="User Management" 
+            id="admin-tab-0"
+            aria-controls="admin-tabpanel-0"
+          />
+          <Tab 
+            label="Model Statistics"
+            id="admin-tab-1"
+            aria-controls="admin-tabpanel-1" 
+          />
+          <Tab 
+            label="Data Export"
+            id="admin-tab-2"
+            aria-controls="admin-tabpanel-2" 
+          />
+        </Tabs>
+      </Box>
 
-      {/* Pending Doctor Registrations */}
-      <Paper sx={{ mb: 4 }}>
-        <Box sx={{ p: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Pending Doctor Registrations ({pendingRegistrations.length})
-          </Typography>
-          
-          {pendingRegistrations.length === 0 ? (
-            <Typography color="text.secondary">
-              No pending registrations
+      {/* User Management Tab */}
+      <TabPanel value={currentTab} index={0}>
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
+          </Alert>
+        )}
+
+        {/* Pending Doctor Registrations */}
+        <Paper sx={{ mb: 4 }}>
+          <Box sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Pending Doctor Registrations ({pendingRegistrations.length})
             </Typography>
-          ) : (
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Legal Name</TableCell>
-                    <TableCell>Email</TableCell>
-                    <TableCell>Matriculation ID</TableCell>
-                    <TableCell>Specialization</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {pendingRegistrations.map((profile) => (
+            
+            {pendingRegistrations.length === 0 ? (
+              <Typography color="text.secondary">
+                No pending registrations
+              </Typography>
+            ) : (
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Legal Name</TableCell>
+                      <TableCell>Email</TableCell>
+                      <TableCell>Matriculation ID</TableCell>
+                      <TableCell>Specialization</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {pendingRegistrations.map((profile) => (
                     <TableRow key={profile.id}>
                       <TableCell>{profile.legalName}</TableCell>
                       <TableCell>
@@ -225,8 +283,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
           </TableContainer>
         </Box>
       </Paper>
+      </TabPanel>
 
-      {/* Approval Dialog */}
+      {/* Model Statistics Tab */}
+      <TabPanel value={currentTab} index={1}>
+        <ModelStatisticsTab />
+      </TabPanel>
+
+      {/* Data Export Tab */}
+      <TabPanel value={currentTab} index={2}>
+        <DataExportTab />
+      </TabPanel>
+
+      {/* Approval Dialog - Outside tabs so it can be shown from any tab */}
       <Dialog open={approvalDialog} onClose={() => setApprovalDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>
           {selectedProfile ? 

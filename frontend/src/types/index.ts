@@ -253,3 +253,111 @@ export interface SaveAnnotationsResponse {
   message: string;
   saved_count: number;
 }
+
+// Admin Statistics Types
+export interface StatisticsRequest {
+  model_version: string;
+  start_date: string;
+  end_date: string;
+  iou_threshold?: number;
+  confidence_threshold?: number;
+  include_soft_deleted?: boolean;
+  include_hidden_annotations?: boolean;
+}
+
+export interface ModelVersionInfo {
+  model_name: string;
+  model_version: string;
+  model_alias: string;
+}
+
+export interface ModelInfo {
+  name: string;
+  version: string;
+  expected_width: number;
+  expected_height: number;
+  classes?: string[];
+  class_titles?: string[];
+}
+
+export interface AvailableModelVersions {
+  model_type: string;
+  versions: string[];
+}
+
+export interface ClassificationStatisticsResponse {
+  model_version: ModelVersionInfo;
+  total_predictions: number;
+  total_annotations: number;
+  date_range: {
+    start_date: string;
+    end_date: string;
+  };
+  confusion_matrix: number[][];
+  class_names: string[];
+  accuracy: number;
+  precision_per_class: number[];
+  recall_per_class: number[];
+  f1_per_class: number[];
+  macro_avg: {
+    precision: number;
+    recall: number;
+    f1_score: number;
+  };
+  weighted_avg: {
+    precision: number;
+    recall: number;
+    f1_score: number;
+  };
+  support_per_class: number[];
+  included_soft_deleted: boolean;
+}
+
+export interface BoundingBoxStatisticsResponse {
+  model_version: ModelVersionInfo;
+  total_predictions: number;
+  total_annotations: number;
+  date_range: {
+    start_date: string;
+    end_date: string;
+  };
+  map_scores: {
+    mAP_50: number;
+    mAP_75: number;
+    mAP_50_95: number;
+  };
+  class_names: string[];
+  precision_per_class: number[];
+  recall_per_class: number[];
+  f1_per_class: number[];
+  support_per_class: number[];
+  iou_thresholds: number[];
+  precision_recall_curves: {
+    class_name: string;
+    precision_values: number[];
+    recall_values: number[];
+    thresholds: number[];
+  }[];
+  included_soft_deleted: boolean;
+  included_hidden_annotations: boolean;
+}
+
+// Admin Export Types
+export interface CSVExportRequest {
+  start_date: string;
+  end_date: string;
+  include_soft_deleted?: boolean;
+  include_hidden_annotations?: boolean;
+}
+
+export interface CSVExportInfo {
+  export_type: string;
+  date_range: {
+    start_date: string;
+    end_date: string;
+  };
+  total_records: number;
+  included_soft_deleted: boolean;
+  included_hidden_annotations?: boolean;
+  filename: string;
+}

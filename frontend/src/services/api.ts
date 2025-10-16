@@ -11,7 +11,13 @@ import {
   StudyListResponse,
   MediaUploadResponse,
   MediaListResponse,
-  StorageInfo
+  StorageInfo,
+  StatisticsRequest,
+  ClassificationStatisticsResponse,
+  BoundingBoxStatisticsResponse,
+  CSVExportRequest,
+  AvailableModelVersions,
+  ModelInfo
 } from '@/types';
 
 // Create axios instance with base configuration
@@ -269,6 +275,95 @@ export const mediaService = {
   deleteMedia: async (studyId: string, mediaId: string): Promise<{ message: string }> => {
     const response = await api.delete(`/studies/${studyId}/media/${mediaId}`);
     return response.data;
+  },
+};
+
+// Admin service for statistics and export functionality
+export const adminService = {
+  // Get classification model statistics
+  getClassificationStatistics: async (request: StatisticsRequest): Promise<ClassificationStatisticsResponse> => {
+    const response = await api.post('/admin/statistics/classifier', request);
+    return response.data;
+  },
+
+  // Get bounding box model statistics
+  getBoundingBoxStatistics: async (request: StatisticsRequest): Promise<BoundingBoxStatisticsResponse> => {
+    const response = await api.post('/admin/statistics/bounding-box', request);
+    return response.data;
+  },
+
+  // Export classification annotations as CSV
+  exportClassificationCSV: async (request: CSVExportRequest): Promise<Blob> => {
+    const response = await api.post('/admin/export/annotations/classification', request, {
+      responseType: 'blob',
+      headers: {
+        'Accept': 'text/csv'
+      }
+    });
+    return response.data;
+  },
+
+  // Export bounding box annotations as CSV
+  exportBoundingBoxCSV: async (request: CSVExportRequest): Promise<Blob> => {
+    const response = await api.post('/admin/export/annotations/bounding-boxes', request, {
+      responseType: 'blob',
+      headers: {
+        'Accept': 'text/csv'
+      }
+    });
+    return response.data;
+  },
+
+  // Export classification annotations with media as ZIP
+  exportClassificationZIP: async (request: CSVExportRequest): Promise<Blob> => {
+    const response = await api.post('/admin/export/zip/classification', request, {
+      responseType: 'blob',
+      headers: {
+        'Accept': 'application/zip'
+      }
+    });
+    return response.data;
+  },
+
+  // Export bounding box annotations with media as ZIP
+  exportBoundingBoxZIP: async (request: CSVExportRequest): Promise<Blob> => {
+    const response = await api.post('/admin/export/zip/bounding-boxes', request, {
+      responseType: 'blob',
+      headers: {
+        'Accept': 'application/zip'
+      }
+    });
+    return response.data;
+  },
+
+  // Get available model versions for a specific model type
+  getModelVersions: async (modelType: 'classifier' | 'bounding_box'): Promise<AvailableModelVersions> => {
+    const response = await api.get(`/admin/model-versions/${modelType}`);
+    return response.data;
+  },
+
+  // Get current model info (including current version)
+  getCurrentClassifierInfo: async (): Promise<ModelInfo> => {
+    const response = await api.get('/ai/models/classifier/info');
+    return response.data;
+  },
+
+  // Get current bounding box model info (including current version)
+  getCurrentBoundingBoxInfo: async (): Promise<ModelInfo> => {
+    const response = await api.get('/ai/models/bb-regressor/info');
+    return response.data;
+  },
+
+  // Helper function to download blob as file
+  downloadBlob: (blob: Blob, filename: string) => {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   },
 };
 

@@ -40,7 +40,22 @@ class ErrorBoundary extends Component<Props, State> {
 
 // Functional component to use hooks
 const ErrorBoundaryContent: React.FC<{ error?: Error; onReset: () => void }> = ({ error, onReset }) => {
-  const { t } = useTranslation();
+  // Try to get translation, but fallback to English if not available
+  let t: (key: string) => string;
+  try {
+    const translation = useTranslation();
+    t = translation.t;
+  } catch {
+    // Fallback translations when LanguageProvider is not available
+    t = (key: string) => {
+      const fallbacks: Record<string, string> = {
+        'errors.somethingWentWrong': 'Something went wrong',
+        'errors.tryRefreshing': 'Try refreshing the page or contact support if the problem persists.',
+        'common.refresh': 'Refresh Page'
+      };
+      return fallbacks[key] || key;
+    };
+  }
   
   return (
     <Box

@@ -192,3 +192,40 @@ async def require_doctor_role(
         )
     logger.debug("✅ Doctor access granted: %s", current_user.email)
     return current_user
+
+
+async def require_admin_or_doctor_role(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+) -> User:
+    """Require either admin or doctor role for access"""
+    logger.debug("🔍 Checking admin or doctor role for user: %s", current_user.email)
+    
+    # Check if user is admin first
+    admin_service = AdminService(db)
+    user_id = cast(UUID, current_user.id)
+    if admin_service.is_admin(user_id):
+        logger.debug("✅ Admin access granted: %s", current_user.email)
+        return current_user
+    
+    # If not admin, check if user is an approved doctor
+    doctor_service = DoctorService(db)
+    is_doctor = doctor_service.is_doctor(user_id)
+    if not is_doctor:
+        logger.warning("⚠️ User has neither admin nor doctor role: %s", current_user.email)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin or doctor role required"
+        )
+    
+    doctor_profile = doctor_service.get_doctor_profile_by_user_id(user_id)
+    if not doctor_profile or doctor_profile.status != "approved":
+        logger.warning("⚠️ User is doctor but not approved: %s (profile status: %s)", 
+                      current_user.email, doctor_profile.status if doctor_profile else "None")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin role or approved doctor profile required"
+        )
+    
+    logger.debug("✅ Doctor access granted: %s", current_user.email)
+    return current_user

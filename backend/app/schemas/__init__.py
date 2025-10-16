@@ -99,6 +99,19 @@ from app.schemas.ai_responses import (
     SaveBoundingBoxAnnotationsRequest,
     GeneratePredictionRequest
 )
+from app.schemas.admin_statistics import (
+    ModelVersionInfo,
+    ClassificationStatisticsResponse,
+    BoundingBoxStatisticsResponse,
+    ClassificationMetrics,
+    BoundingBoxMetrics,
+    ClassificationConfusionMatrix,
+    StatisticsRequest
+)
+from app.schemas.csv_export import (
+    CSVExportRequest,
+    CSVExportInfo
+)
 
 __all__ = [
     "User",
@@ -175,5 +188,16 @@ __all__ = [
     "SaveBoundingBoxAnnotationItem",
     "SaveBoundingBoxAnnotationsRequest",
     "SaveClassificationAnnotationRequest",
-    "GeneratePredictionRequest"
+    "GeneratePredictionRequest",
+    # Admin statistics
+    "ModelVersionInfo",
+    "ClassificationStatisticsResponse",
+    "BoundingBoxStatisticsResponse",
+    "ClassificationMetrics",
+    "BoundingBoxMetrics",
+    "ClassificationConfusionMatrix",
+    "StatisticsRequest",
+    # CSV export
+    "CSVExportRequest",
+    "CSVExportInfo"
 ]
