@@ -47,6 +47,7 @@ interface BoundingBox {
 interface AnnotationsTabProps {
   media: MediaSummary;
   studyId: string;
+  onMediaAdded?: (newMedia: MediaSummary) => void;
 }
 
 const COLORS = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F'];
@@ -56,7 +57,7 @@ const generateUniqueId = (prefix: string): string => {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
 
-export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }) => {
+export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId, onMediaAdded }) => {
   const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -886,6 +887,11 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
     triggerAutoSave();
   };
 
+  // Handle crop saved - notify parent about new media
+  const handleCropSaved = (newMedia: MediaSummary) => {
+    onMediaAdded?.(newMedia);
+  };
+
   // Auto-save function with optional override parameters
   const autoSave = useCallback(async (overrideUsefulness?: number, overrideBoundingBoxes?: BoundingBox[]) => {
     if (isSaving) return; // Prevent concurrent saves
@@ -931,7 +937,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
   }, [media.id, usefulness, boundingBoxes, isSaving]);
 
   // Ref for debounced auto-save timeout
-  const autoSaveTimeoutRef = useRef<number>();
+  const autoSaveTimeoutRef = useRef<number>(0);
 
   // Trigger debounced auto-save
   const triggerAutoSave = useCallback((immediate = false, overrideUsefulness?: number, overrideBoundingBoxes?: BoundingBox[]) => {
@@ -1261,6 +1267,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId }
         imageSrc={imageSrc || ''}
         originalFilename={media.filename}
         studyId={studyId}
+        onCropSaved={handleCropSaved}
       />
 
     </Box>

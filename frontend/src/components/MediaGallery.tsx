@@ -31,6 +31,7 @@ interface MediaGalleryProps {
   studyId: string;
   onDeleteMedia: (mediaId: string) => Promise<void>;
   onDownloadMedia: (mediaId: string, filename: string) => Promise<void>;
+  onMediaAdded?: (newMedia: MediaSummary) => void;
   loading?: boolean;
   error?: string | null;
 }
@@ -40,6 +41,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
   studyId,
   onDeleteMedia,
   onDownloadMedia,
+  onMediaAdded,
   loading = false,
   error = null,
 }) => {
@@ -135,6 +137,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
         <AnnotationsTab 
           media={{ ...selectedMedia!, id: mediaId } as MediaSummary}
           studyId={studyId}
+          onMediaAdded={onMediaAdded}
         />
       );
     }
@@ -264,7 +267,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
     <Box>
       <Grid container spacing={2}>
         {media.map((mediaItem) => (
-          <Grid item xs={12} sm={6} md={4} lg={3} key={mediaItem.id}>
+          <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={mediaItem.id}>
             <LazyMediaItem
               media={mediaItem}
               studyId={studyId}

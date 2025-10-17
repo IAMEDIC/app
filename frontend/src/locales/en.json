@@ -254,7 +254,10 @@
       "updateProfile": "Update Profile",
       "submitting": "Submitting...",
       "updating": "Updating...",
-      "registrationApprovedContactAdmin": "Your registration has been approved. Contact an administrator if you need to make changes."
+      "registrationApprovedContactAdmin": "Your registration has been approved. Contact an administrator if you need to make changes.",
+      "completeRegistrationMessage": "Please complete your doctor registration to access the dashboard.",
+      "authenticationIssue": "Authentication issue. Please try again.",
+      "failedToLoadProfile": "Failed to load doctor profile"
     },
     "annotations": {
       "usefulness": "Usefulness",
@@ -598,7 +601,47 @@
         "csvFile": "bounding_box_annotations.csv file",
         "mediaFolder": "media/ folder with all referenced files",
         "filenameMapping": "Proper filename mapping for analysis"
+      },
+      "contents": "Contents",
+      "boundingBoxCsvDetailedContents": {
+        "annotationIdTimestamps": "Annotation ID and timestamps",
+        "boundingBoxCoordinates": "Bounding box coordinates (x, y, width, height)",
+        "classLabelsConfidence": "Class labels and confidence scores",
+        "mediaFileReferences": "Media file references and usefulness ratings",
+        "userStudyInformation": "User and study information"
+      },
+      "boundingBoxZipDetailedContents": {
+        "annotationsCsv": "annotations.csv file with bounding box data",
+        "mediaFolder": "media/ folder with all referenced images/videos",
+        "filenameMapping": "Proper filename mapping for visual analysis",
+        "coordinateValidation": "Coordinate validation support"
       }
+    },
+    "hardDelete": {
+      "title": "Hard Delete Confirmation",
+      "warningTitle": "WARNING: This action is PERMANENT and IRREVERSIBLE!",
+      "warningDescription": "This will permanently delete all soft-deleted studies and media files from both the database and file system. This includes:",
+      "warningItems": {
+        "deletedStudies": "All studies marked as deleted",
+        "mediaFiles": "All media files in deleted studies",
+        "individualMedia": "All individually deleted media files",
+        "associatedData": "Associated frames, annotations, and predictions"
+      },
+      "confirmationPrompt": "To proceed, type DELETE in the field below:",
+      "confirmationLabel": "Type DELETE to confirm",
+      "confirmationPlaceholder": "DELETE",
+      "confirmationError": "Please type \"DELETE\" exactly to confirm",
+      "deletePermanently": "Delete Permanently",
+      "completed": "Completed!",
+      "failed": "Failed",
+      "deletingFiles": "Deleting files...",
+      "startingDeletion": "Starting deletion process...",
+      "itemsProgress": "{processed} / {total} items",
+      "errorsEncountered": "Errors encountered:",
+      "andMoreErrors": "... and {count} more errors",
+      "noItemsToDelete": "No items to delete",
+      "failedToGetUpdates": "Failed to get progress updates",
+      "failedToStart": "Failed to start hard delete operation"
     },
     "errors": {
       "failedToLoadData": "Failed to load admin data",

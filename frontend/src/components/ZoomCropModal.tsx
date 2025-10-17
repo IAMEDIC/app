@@ -21,6 +21,7 @@ import {
   RestartAlt as ResetIcon
 } from '@mui/icons-material';
 import { mediaService } from '@/services/api';
+import { MediaSummary } from '@/types';
 import { useTranslation } from '@/contexts/LanguageContext';
 
 interface ZoomCropModalProps {
@@ -29,7 +30,7 @@ interface ZoomCropModalProps {
   imageSrc: string;
   originalFilename: string;
   studyId: string;
-  onCropSaved?: (newMediaId: string) => void;
+  onCropSaved?: (newMedia: MediaSummary) => void;
 }
 
 interface CropArea {
@@ -203,9 +204,13 @@ export const ZoomCropModal: React.FC<ZoomCropModalProps> = ({
     if (!canvas) return { x: 0, y: 0 };
     
     const rect = canvas.getBoundingClientRect();
+    // Scale mouse coordinates from display size to canvas internal size
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
     return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY
     };
   }, []);
 
@@ -336,8 +341,19 @@ export const ZoomCropModal: React.FC<ZoomCropModalProps> = ({
       // Upload via media service
       const response = await mediaService.uploadMedia(studyId, file);
       
+      // Create MediaSummary from response
+      const newMedia: MediaSummary = {
+        id: response.media.id,
+        filename: response.media.filename,
+        file_size: response.media.file_size,
+        mime_type: response.media.mime_type,
+        media_type: response.media.media_type,
+        upload_status: response.media.upload_status,
+        created_at: response.media.created_at,
+      };
+      
       // Notify parent component
-      onCropSaved?.(response.media.id);
+      onCropSaved?.(newMedia);
       
       // Close modal
       onClose();
@@ -360,8 +376,10 @@ export const ZoomCropModal: React.FC<ZoomCropModalProps> = ({
       onClose={onClose}
       maxWidth="lg" 
       fullWidth
-      PaperProps={{
-        sx: { height: '90vh', maxHeight: '90vh' }
+      slotProps={{
+        paper: {
+          sx: { height: '90vh', maxHeight: '90vh' }
+        }
       }}
     >
       <DialogTitle>

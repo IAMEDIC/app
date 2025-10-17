@@ -166,7 +166,7 @@ export const FileManagementTab: React.FC = () => {
         
         <Grid container spacing={3}>
           {/* Total Storage Usage */}
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <StorageUsageCard
               totalStorageMb={stats.total_storage_mb}
               totalFiles={stats.active_files_count + stats.soft_deleted_files_count}
@@ -174,12 +174,12 @@ export const FileManagementTab: React.FC = () => {
           </Grid>
 
           {/* File Count Chart */}
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <FileCountChart {...fileCountData} />
           </Grid>
 
           {/* File Size Chart */}
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <FileSizeChart {...fileSizeData} />
           </Grid>
         </Grid>

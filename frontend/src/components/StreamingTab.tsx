@@ -803,9 +803,10 @@ export const StreamingTab: React.FC<StreamingTabProps> = ({
         />
       ) : (
         <Grid container spacing={3}>
-          {/* Video Preview and Controls */}
-          <Grid item xs={12} md={8}>
-            <Paper sx={{ p: 2 }}>
+          {/* Left Column: Video Preview and Confidence Plot */}
+          <Grid size={{ xs: 12, md: 8 }}>
+            {/* Video Preview and Controls */}
+            <Paper sx={{ p: 2, mb: 3 }}>
               <Box display="flex" justifyContent="between" alignItems="center" mb={2}>
                 <Typography variant="h6">
                   {t('streaming.livePreview')}
@@ -914,8 +915,6 @@ export const StreamingTab: React.FC<StreamingTabProps> = ({
                 <Typography variant="body2" color="text.secondary" sx={{ mr: 2 }}>
                   {t('streaming.fileSize')}: {formatFileSize(stats.fileSize)}
                 </Typography>
-
-                {/* Disconnect camera button moved next to Start Recording */}
               </Box>
 
               {/* Recording Progress */}
@@ -937,11 +936,17 @@ export const StreamingTab: React.FC<StreamingTabProps> = ({
                 </Box>
               )}
             </Paper>
+
+            {/* Real-time Confidence Plot */}
+            <RealtimeConfidencePlot 
+              data={confidenceData}
+              isRecording={stats.isRecording}
+            />
           </Grid>
 
-          {/* Frame Gallery */}
-          <Grid item xs={12} md={4}>
-            <Paper sx={{ p: 2 }}>
+          {/* Right Column: Frame Gallery */}
+          <Grid size={{ xs: 12, md: 4 }}>
+            <Paper sx={{ p: 2, height: 'fit-content' }}>
               <Box display="flex" justifyContent="between" alignItems="center" mb={2}>
                 <Typography variant="h6">
                   {t('streaming.extractedFrames')} ({frames.length})
@@ -964,43 +969,39 @@ export const StreamingTab: React.FC<StreamingTabProps> = ({
                   </Typography>
                 </Box>
               ) : (
-                <Grid container spacing={1}>
-                  {frames.map((frame) => (
-                    <Grid item xs={6} key={frame.id}>
-                      <Card
-                        sx={{ cursor: 'pointer' }}
-                        onClick={() => setSelectedFrame(frame)}
-                      >
-                        <Box
-                          component="img"
-                          src={`/api/frames/${frame.id}/file`}
-                          alt={`Frame ${frame.frame_number}`}
-                          sx={{
-                            width: '100%',
-                            height: 80,
-                            objectFit: 'cover',
-                          }}
-                        />
-                        <CardContent sx={{ p: 1, '&:last-child': { pb: 1 } }}>
-                          <Typography variant="caption" display="block">
-                            {formatDuration(Math.floor(frame.timestamp_seconds))}
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    </Grid>
-                  ))}
-                </Grid>
+                <Box sx={{ maxHeight: '80vh', overflowY: 'auto' }}>
+                  <Grid container spacing={1}>
+                    {frames.map((frame) => (
+                      <Grid size={{ xs: 6 }} key={frame.id}>
+                        <Card
+                          sx={{ cursor: 'pointer' }}
+                          onClick={() => setSelectedFrame(frame)}
+                        >
+                          <Box
+                            component="img"
+                            src={`/api/frames/${frame.id}/file`}
+                            alt={`Frame ${frame.frame_number}`}
+                            sx={{
+                              width: '100%',
+                              height: 80,
+                              objectFit: 'cover',
+                            }}
+                          />
+                          <CardContent sx={{ p: 1, '&:last-child': { pb: 1 } }}>
+                            <Typography variant="caption" display="block">
+                              {formatDuration(Math.floor(frame.timestamp_seconds))}
+                            </Typography>
+                          </CardContent>
+                        </Card>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Box>
               )}
             </Paper>
           </Grid>
         </Grid>
       )}
-
-      {/* Real-time Confidence Plot */}
-      <RealtimeConfidencePlot 
-        data={confidenceData}
-        isRecording={stats.isRecording}
-      />
 
       {/* Frame Annotation Dialog */}
       {selectedFrame && (

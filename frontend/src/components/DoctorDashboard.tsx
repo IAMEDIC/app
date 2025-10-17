@@ -197,8 +197,8 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = () => {
 
       <Grid container spacing={3}>
         {/* Create New Study Section */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, height: '100%' }}>
+        <Grid size={{ xs: 12 }}>
+          <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
               {t('studies.createNewStudy')}
             </Typography>
@@ -210,7 +210,6 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = () => {
               size="large"
               startIcon={<AddIcon />}
               onClick={handleCreateNewStudy}
-              fullWidth
               sx={{ mt: 2 }}
             >
               {t('studies.createNewStudy')}
@@ -219,7 +218,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = () => {
         </Grid>
 
         {/* Saved Studies Section */}
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
               {t('studies.yourStudies')} ({studies.length})
@@ -236,7 +235,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = () => {
             ) : (
               <Grid container spacing={2} sx={{ mt: 1 }}>
                 {studies.map((study) => (
-                  <Grid item xs={12} sm={6} md={4} key={study.id}>
+                  <Grid size={{ xs: 12, sm: 6, md: 4 }} key={study.id}>
                     <Card>
                       <CardContent>
                         <Box display="flex" justifyContent="space-between" alignItems="flex-start">

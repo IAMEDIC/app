@@ -299,9 +299,13 @@ export const StreamCropModal: React.FC<StreamCropModalProps> = ({
     if (!canvas) return { x: 0, y: 0 };
     
     const rect = canvas.getBoundingClientRect();
+    // Scale mouse coordinates from display size to canvas internal size
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
     return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY
     };
   }, []);
 
@@ -480,8 +484,10 @@ export const StreamCropModal: React.FC<StreamCropModalProps> = ({
       onClose={onClose}
       maxWidth="lg" 
       fullWidth
-      PaperProps={{
-        sx: { height: '90vh', maxHeight: '90vh' }
+      slotProps={{
+        paper: {
+          sx: { height: '90vh', maxHeight: '90vh' }
+        }
       }}
     >
       <DialogTitle>

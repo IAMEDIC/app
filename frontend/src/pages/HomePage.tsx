@@ -61,7 +61,7 @@ const HomePage: React.FC = () => {
             <Typography variant="h5" gutterBottom>
               {t('homepage.redirecting')}
             </Typography>
-            <Typography variant="body1" color="text.secondary" paragraph>
+            <Typography variant="body1" color="text.secondary" component="p">
               {t('homepage.settingUpAccess')}
             </Typography>
           </Card>
@@ -70,7 +70,7 @@ const HomePage: React.FC = () => {
           {(isAdmin || isDoctor) && (
             <Grid container spacing={2} justifyContent="center">
               {isAdmin && (
-                <Grid item>
+                <Grid>
                   <Button 
                     variant="contained" 
                     startIcon={<AdminIcon />}
@@ -82,7 +82,7 @@ const HomePage: React.FC = () => {
                 </Grid>
               )}
               {isDoctor && (
-                <Grid item>
+                <Grid>
                   <Button 
                     variant="contained" 
                     startIcon={<DoctorIcon />}

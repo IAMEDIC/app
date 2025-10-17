@@ -129,33 +129,37 @@ export const ClassificationExport: React.FC = () => {
           </Typography>
           
           <Grid container spacing={3} alignItems="center">
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <TextField
                 label={t('admin.dataExport.startDate')}
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                InputLabelProps={{
+                slotProps={{
+                inputLabel: {
                   shrink: true,
-                }}
+                },
+              }}
                 fullWidth
               />
             </Grid>
             
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4}}>
               <TextField
                 label={t('admin.dataExport.endDate')}
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                InputLabelProps={{
+                slotProps={{
+                inputLabel: {
                   shrink: true,
-                }}
+                },
+              }}
                 fullWidth
               />
             </Grid>
             
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <FormControlLabel
                 control={
                   <Switch
@@ -184,17 +188,17 @@ export const ClassificationExport: React.FC = () => {
 
         {/* Export Options */}
         <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
                   <CSVIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
                   {t('admin.dataExport.csvExportTitle')}
                 </Typography>
-                <Typography variant="body2" color="textSecondary" paragraph>
+                <Typography variant="body2" color="textSecondary" component="p">
                   {t('admin.dataExport.csvExportDescription')}
                 </Typography>
-                <Typography variant="body2" color="textSecondary" paragraph>
+                <Typography variant="body2" color="textSecondary" component="p">
                   <strong>{t('admin.dataExport.csvContentsTitle')}</strong>
                   <br />• {t('admin.dataExport.csvContents.annotationId')}
                   <br />• {t('admin.dataExport.csvContents.classificationLabels')}
@@ -214,17 +218,17 @@ export const ClassificationExport: React.FC = () => {
             </Card>
           </Grid>
 
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
                   <ArchiveIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
                   {t('admin.dataExport.zipExportTitle')}
                 </Typography>
-                <Typography variant="body2" color="textSecondary" paragraph>
+                <Typography variant="body2" color="textSecondary" component="p">
                   {t('admin.dataExport.zipExportDescription')}
                 </Typography>
-                <Typography variant="body2" color="textSecondary" paragraph>
+                <Typography variant="body2" color="textSecondary" component="p">
                   <strong>{t('admin.dataExport.csvContentsTitle')}</strong>
                   <br />• {t('admin.dataExport.zipContents.csvFile')}
                   <br />• {t('admin.dataExport.zipContents.mediaFolder')}

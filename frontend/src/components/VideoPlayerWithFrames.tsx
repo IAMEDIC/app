@@ -274,9 +274,9 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
       )}
 
       <Grid container spacing={3}>
-        {/* Auto Extraction Controls - Left Side */}
-        <Grid item xs={12} lg={3}>
-          <Card>
+        <Grid size={{ xs: 12 }}>
+          {/* 1. Automatic Frame Extraction */}
+          <Card sx={{ mb: 3 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 {t('components.videoPlayer.aiFrameExtraction')}
@@ -288,7 +288,6 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
                 onClick={autoExtractFrames}
                 disabled={autoExtracting}
                 startIcon={autoExtracting ? <CircularProgress size={20} /> : <AutoIcon />}
-                fullWidth
                 sx={{ mb: 2 }}
               >
                 {autoExtracting ? t('components.videoPlayer.extracting') : t('components.videoPlayer.autoExtractFrames')}
@@ -299,10 +298,10 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
                   <Typography variant="subtitle2">{t('components.videoPlayer.advancedSettings')}</Typography>
                 </AccordionSummary>
                 <AccordionDetails>
-                  <Box display="flex" flexDirection="column" gap={2}>
+                  <Grid container spacing={2}>
                     {/* Prediction Threshold */}
-                    <Box>
-                      <Box display="flex" alignItems="center" gap={1}>
+                    <Grid size={{ xs: 12, md: 3 }}>
+                      <Box display="flex" alignItems="center" gap={1} mb={1}>
                         <Typography variant="body2">{t('components.videoPlayer.predictionThreshold')}: {autoParams.prediction_threshold}</Typography>
                         <Tooltip title={t('components.videoPlayer.predictionThresholdDesc')}>
                           <InfoIcon fontSize="small" color="action" />
@@ -316,11 +315,11 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
                         step={0.05}
                         size="small"
                       />
-                    </Box>
+                    </Grid>
 
                     {/* Run Threshold */}
-                    <Box>
-                      <Box display="flex" alignItems="center" gap={1}>
+                    <Grid size={{ xs: 12, md: 3 }}>
+                      <Box display="flex" alignItems="center" gap={1} mb={1}>
                         <Typography variant="body2">{t('components.videoPlayer.runThreshold')}: {autoParams.run_threshold}</Typography>
                         <Tooltip title={t('components.videoPlayer.runThresholdDesc')}>
                           <InfoIcon fontSize="small" color="action" />
@@ -334,11 +333,11 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
                         step={0.05}
                         size="small"
                       />
-                    </Box>
+                    </Grid>
                     
                     {/* Min Run Length */}
-                    <Box>
-                      <Box display="flex" alignItems="center" gap={1}>
+                    <Grid size={{ xs: 12, md: 3 }}>
+                      <Box display="flex" alignItems="center" gap={1} mb={1}>
                         <Typography variant="body2">{t('components.videoPlayer.minRunLength')}</Typography>
                         <Tooltip title={t('components.videoPlayer.minRunLengthDesc')}>
                           <InfoIcon fontSize="small" color="action" />
@@ -350,13 +349,13 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
                         onChange={(e) => setAutoParams(prev => ({ ...prev, min_run_length: parseInt(e.target.value) || 1 }))}
                         size="small"
                         fullWidth
-                        inputProps={{ min: 1, max: 50 }}
+                        slotProps={{htmlInput: { min: 1, max: 50 }}}
                       />
-                    </Box>
+                    </Grid>
                     
                     {/* Patience */}
-                    <Box>
-                      <Box display="flex" alignItems="center" gap={1}>
+                    <Grid size={{ xs: 12, md: 3 }}>
+                      <Box display="flex" alignItems="center" gap={1} mb={1}>
                         <Typography variant="body2">{t('components.videoPlayer.patience')}</Typography>
                         <Tooltip title={t('components.videoPlayer.patienceDesc')}>
                           <InfoIcon fontSize="small" color="action" />
@@ -368,20 +367,21 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
                         onChange={(e) => setAutoParams(prev => ({ ...prev, patience: parseInt(e.target.value) || 0 }))}
                         size="small"
                         fullWidth
-                        inputProps={{ min: 0, max: 20 }}
+                        slotProps={{htmlInput: { min: 1, max: 20 }}}
                       />
-                    </Box>
-                  </Box>
+                    </Grid>
+                  </Grid>
                 </AccordionDetails>
               </Accordion>
             </CardContent>
           </Card>
-        </Grid>
 
-        {/* Video Player - Center */}
-        <Grid item xs={12} lg={6}>
-          <Card>
+          {/* 2. Video and Video Controls */}
+          <Card sx={{ mb: 3 }}>
             <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Video Player
+              </Typography>
               <video
                 ref={videoRef}
                 onTimeUpdate={handleTimeUpdate}
@@ -470,11 +470,38 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
               </Box>
             </CardContent>
           </Card>
-        </Grid>
 
-        {/* Extracted Frames - Right Side */}
-        <Grid item xs={12} lg={3}>
-          <Card sx={{ height: 'fit-content' }}>
+          {/* 3. Video Info */}
+          {videoMetadata && (
+            <Card sx={{ mb: 3 }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Video Information
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 6, md: 3 }}>
+                    <Typography variant="body2" color="text.secondary">Duration</Typography>
+                    <Typography variant="body1">{formatTime(videoMetadata.duration_seconds)}</Typography>
+                  </Grid>
+                  <Grid size={{ xs: 6, md: 3 }}>
+                    <Typography variant="body2" color="text.secondary">Resolution</Typography>
+                    <Typography variant="body1">{videoMetadata.width} × {videoMetadata.height}</Typography>
+                  </Grid>
+                  <Grid size={{ xs: 6, md: 3 }}>
+                    <Typography variant="body2" color="text.secondary">Frame Rate</Typography>
+                    <Typography variant="body1">{videoMetadata.fps.toFixed(1)} fps</Typography>
+                  </Grid>
+                  <Grid size={{ xs: 6, md: 3 }}>
+                    <Typography variant="body2" color="text.secondary">Total Frames</Typography>
+                    <Typography variant="body1">{videoMetadata.total_frames.toLocaleString()}</Typography>
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 4. Frame List */}
+          <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 {t('components.videoPlayer.extractedFrames')} ({frames.length})
@@ -487,7 +514,7 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
               ) : (
                 <Grid container spacing={2}>
                   {frames.map((frame) => (
-                    <Grid item xs={12} sm={6} key={frame.id}>
+                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={frame.id}>
                       <FrameCard
                         frame={frame}
                         onView={() => setSelectedFrame(frame)}

@@ -261,6 +261,18 @@ export const StudyView: React.FC = () => {
     }
   };
 
+  const handleMediaAdded = (newMedia: MediaSummary) => {
+    if (!study) return;
+    
+    setStudy({
+      ...study,
+      media: [...study.media, newMedia],
+    });
+    
+    // Refresh storage info after new media is added
+    refreshStorageInfo();
+  };
+
   const formatDate = (dateString: string): string => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -428,6 +440,7 @@ export const StudyView: React.FC = () => {
             studyId={study.id}
             onDeleteMedia={handleMediaDelete}
             onDownloadMedia={handleMediaDownload}
+            onMediaAdded={handleMediaAdded}
           />
         </TabPanel>
         

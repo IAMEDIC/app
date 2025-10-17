@@ -305,7 +305,7 @@ export const BoundingBoxStatistics: React.FC = () => {
           </Typography>
           
           <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={2}>
+            <Grid size={{ xs: 12, md: 2 }}>
               <FormControl fullWidth disabled={loadingVersions}>
                 <InputLabel id="bb-model-version-label">{t('admin.modelStatistics.modelVersion')}</InputLabel>
                 <Select
@@ -330,55 +330,76 @@ export const BoundingBoxStatistics: React.FC = () => {
               </FormControl>
             </Grid>
             
-            <Grid item xs={12} md={2}>
+            <Grid size={{ xs: 12, md: 2 }}>
               <TextField
                 label={t('admin.modelStatistics.startDate')}
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                InputLabelProps={{
+                slotProps={{
+                inputLabel: {
                   shrink: true,
-                }}
+                },
+              }}
                 fullWidth
               />
             </Grid>
             
-            <Grid item xs={12} md={2}>
+            <Grid size={{ xs: 12, md: 2 }}>
               <TextField
                 label={t('admin.modelStatistics.endDate')}
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                InputLabelProps={{
+                slotProps={{
+                inputLabel: {
                   shrink: true,
-                }}
+                },
+              }}
                 fullWidth
               />
             </Grid>
             
-            <Grid item xs={12} md={1}>
+            <Grid size={{ xs: 12, md: 1 }}>
               <TextField
                 label={t('admin.modelStatistics.iouThreshold')}
                 type="number"
                 value={iouThreshold}
                 onChange={(e) => setIouThreshold(parseFloat(e.target.value))}
-                inputProps={{ min: 0, max: 1, step: 0.1 }}
+                slotProps={{
+                  htmlInput: { min: 0, max: 1, step: 0.1 }
+                }}
                 fullWidth
               />
             </Grid>
             
-            <Grid item xs={12} md={1}>
+            <Grid size={{ xs: 12, md: 1 }}>
               <TextField
                 label={t('admin.modelStatistics.confidence')}
                 type="number"
                 value={confidenceThreshold}
                 onChange={(e) => setConfidenceThreshold(parseFloat(e.target.value))}
-                inputProps={{ min: 0, max: 1, step: 0.1 }}
+                slotProps={{
+                  htmlInput: { min: 0, max: 1, step: 0.1 }
+                }}
                 fullWidth
               />
             </Grid>
-            
-            <Grid item xs={12} md={2}>
+
+            <Grid size={{ xs: 12, md: 1 }}>
+              <TextField
+                label={t('admin.modelStatistics.confidence')}
+                type="number"
+                value={confidenceThreshold}
+                onChange={(e) => setConfidenceThreshold(parseFloat(e.target.value))}
+                slotProps={{
+                  htmlInput: { min: 0, max: 1, step: 0.1 }
+                }}
+                fullWidth
+              />
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 2 }}>
               <FormControlLabel
                 control={
                   <Switch
@@ -390,7 +411,7 @@ export const BoundingBoxStatistics: React.FC = () => {
               />
             </Grid>
             
-            <Grid item xs={12} md={2}>
+            <Grid size={{ xs: 12, md: 2 }}>
               <Button
                 variant="contained"
                 onClick={handleLoadStatistics}
@@ -415,7 +436,7 @@ export const BoundingBoxStatistics: React.FC = () => {
           <>
             {/* Summary Cards */}
             <Grid container spacing={3} sx={{ mb: 3 }}>
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Card>
                   <CardContent>
                     <Typography color="textSecondary" gutterBottom>
@@ -431,7 +452,7 @@ export const BoundingBoxStatistics: React.FC = () => {
                 </Card>
               </Grid>
               
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Card>
                   <CardContent>
                     <Typography color="textSecondary" gutterBottom>
@@ -444,7 +465,7 @@ export const BoundingBoxStatistics: React.FC = () => {
                 </Card>
               </Grid>
               
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Card>
                   <CardContent>
                     <Typography color="textSecondary" gutterBottom>
@@ -460,7 +481,7 @@ export const BoundingBoxStatistics: React.FC = () => {
 
             {/* Evaluation Settings */}
             <Grid container spacing={3} sx={{ mb: 3 }}>
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Card>
                   <CardContent>
                     <Typography color="textSecondary" gutterBottom>
@@ -473,7 +494,7 @@ export const BoundingBoxStatistics: React.FC = () => {
                 </Card>
               </Grid>
               
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Card>
                   <CardContent>
                     <Typography color="textSecondary" gutterBottom>
@@ -486,7 +507,7 @@ export const BoundingBoxStatistics: React.FC = () => {
                 </Card>
               </Grid>
               
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Card>
                   <CardContent>
                     <Typography color="textSecondary" gutterBottom>
@@ -505,14 +526,14 @@ export const BoundingBoxStatistics: React.FC = () => {
 
             {/* Main Metrics */}
             <Grid container spacing={3} sx={{ mb: 3 }}>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12}}>
                 {renderMAPScores()}
               </Grid>
             </Grid>
 
             {/* Class Distribution and Metrics */}
             <Grid container spacing={3} sx={{ mb: 3 }}>
-              <Grid item xs={12} lg={6}>
+              <Grid size={{ xs: 12, lg: 6 }}>
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>
@@ -520,7 +541,7 @@ export const BoundingBoxStatistics: React.FC = () => {
                     </Typography>
                     <Grid container spacing={2}>
                       {Object.entries(statistics.class_distribution).map(([className, count]) => (
-                        <Grid item xs={12} md={6} key={className}>
+                        <Grid size={{ xs: 12, md: 6 }} key={className}>
                           <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
                             <Typography variant="subtitle1" fontWeight="bold" sx={{ textTransform: 'capitalize' }}>
                               {className}
@@ -539,7 +560,7 @@ export const BoundingBoxStatistics: React.FC = () => {
                 </Card>
               </Grid>
               
-              <Grid item xs={12} lg={6}>
+              <Grid size={{ xs: 12, lg: 6 }}>
                 {renderClassMetrics()}
               </Grid>
             </Grid>

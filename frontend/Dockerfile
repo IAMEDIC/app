@@ -1,5 +1,5 @@
 # Multi-stage Dockerfile for React Frontend
-ARG NODE_VERSION=18
+ARG NODE_VERSION=22
 
 # Development stage
 FROM node:${NODE_VERSION}-alpine AS development

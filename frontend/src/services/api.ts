@@ -21,7 +21,6 @@ import {
 } from '@/types';
 import {
   FileManagementStats,
-  HardDeleteRequest,
   HardDeleteResponse,
   HardDeleteProgress
 } from '@/types/fileManagement';

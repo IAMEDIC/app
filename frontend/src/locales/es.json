@@ -254,7 +254,10 @@
       "updateProfile": "Actualizar Perfil",
       "submitting": "Enviando...",
       "updating": "Actualizando...",
-      "registrationApprovedContactAdmin": "Tu registro ha sido aprobado. Contacta a un administrador si necesitas hacer cambios."
+      "registrationApprovedContactAdmin": "Tu registro ha sido aprobado. Contacta a un administrador si necesitas hacer cambios.",
+      "completeRegistrationMessage": "Por favor completa tu registro de doctor para acceder al panel de control.",
+      "authenticationIssue": "Problema de autenticación. Por favor inténtalo de nuevo.",
+      "failedToLoadProfile": "Error al cargar el perfil del doctor"
     },
     "annotations": {
       "usefulness": "Utilidad",
@@ -598,7 +601,47 @@
         "csvFile": "archivo bounding_box_annotations.csv",
         "mediaFolder": "carpeta media/ con todos los archivos referenciados",
         "filenameMapping": "Mapeo apropiado de nombres de archivos para análisis"
+      },
+      "contents": "Contenido",
+      "boundingBoxCsvDetailedContents": {
+        "annotationIdTimestamps": "ID de anotación y marcas de tiempo",
+        "boundingBoxCoordinates": "Coordenadas de caja delimitadora (x, y, anchura, altura)",
+        "classLabelsConfidence": "Etiquetas de clase y puntuaciones de confianza",
+        "mediaFileReferences": "Referencias de archivos multimedia y calificaciones de utilidad",
+        "userStudyInformation": "Información de usuario y estudio"
+      },
+      "boundingBoxZipDetailedContents": {
+        "annotationsCsv": "archivo annotations.csv con datos de caja delimitadora",
+        "mediaFolder": "carpeta media/ con todas las imágenes/videos referenciados",
+        "filenameMapping": "Mapeo apropiado de nombres de archivos para análisis visual",
+        "coordinateValidation": "Soporte de validación de coordenadas"
       }
+    },
+    "hardDelete": {
+      "title": "Confirmación de Eliminación Permanente",
+      "warningTitle": "¡ADVERTENCIA: Esta acción es PERMANENTE e IRREVERSIBLE!",
+      "warningDescription": "Esto eliminará permanentemente todos los estudios y archivos multimedia marcados como eliminados tanto de la base de datos como del sistema de archivos. Esto incluye:",
+      "warningItems": {
+        "deletedStudies": "Todos los estudios marcados como eliminados",
+        "mediaFiles": "Todos los archivos multimedia en estudios eliminados",
+        "individualMedia": "Todos los archivos multimedia eliminados individualmente",
+        "associatedData": "Marcos, anotaciones y predicciones asociadas"
+      },
+      "confirmationPrompt": "Para continuar, escribe DELETE en el campo a continuación:",
+      "confirmationLabel": "Escribe DELETE para confirmar",
+      "confirmationPlaceholder": "DELETE",
+      "confirmationError": "Por favor escribe \"DELETE\" exactamente para confirmar",
+      "deletePermanently": "Eliminar Permanentemente",
+      "completed": "¡Completado!",
+      "failed": "Falló",
+      "deletingFiles": "Eliminando archivos...",
+      "startingDeletion": "Iniciando proceso de eliminación...",
+      "itemsProgress": "{processed} / {total} elementos",
+      "errorsEncountered": "Errores encontrados:",
+      "andMoreErrors": "... y {count} errores más",
+      "noItemsToDelete": "No hay elementos para eliminar",
+      "failedToGetUpdates": "Error al obtener actualizaciones de progreso",
+      "failedToStart": "Error al iniciar la operación de eliminación permanente"
     },
     "errors": {
       "failedToLoadData": "Error al cargar datos de administración",

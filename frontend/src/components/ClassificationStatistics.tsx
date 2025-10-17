@@ -260,7 +260,7 @@ export const ClassificationStatistics: React.FC = () => {
           </Typography>
           
           <Grid container spacing={3} alignItems="center">
-            <Grid item xs={12} md={2}>
+            <Grid size={{ xs: 12, md: 2 }}>
               <FormControl fullWidth disabled={loadingVersions}>
                 <InputLabel id="model-version-label">{t('admin.modelStatistics.modelVersion')}</InputLabel>
                 <Select
@@ -285,33 +285,37 @@ export const ClassificationStatistics: React.FC = () => {
               </FormControl>
             </Grid>
             
-            <Grid item xs={12} md={2}>
+            <Grid size={{ xs: 12, md: 2 }}>
               <TextField
                 label={t('admin.modelStatistics.startDate')}
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                InputLabelProps={{
+                slotProps={{
+                inputLabel: {
                   shrink: true,
-                }}
+                },
+              }}
                 fullWidth
               />
             </Grid>
             
-            <Grid item xs={12} md={2}>
+            <Grid size={{ xs: 12, md: 2 }}>
               <TextField
                 label={t('admin.modelStatistics.endDate')}
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                InputLabelProps={{
+                slotProps={{
+                inputLabel: {
                   shrink: true,
-                }}
+                },
+              }}
                 fullWidth
               />
             </Grid>
             
-            <Grid item xs={12} md={2}>
+            <Grid size={{ xs: 12, md: 2 }}>
               <FormControlLabel
                 control={
                   <Switch
@@ -323,7 +327,7 @@ export const ClassificationStatistics: React.FC = () => {
               />
             </Grid>
             
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Button
                 variant="contained"
                 onClick={handleLoadStatistics}
@@ -348,7 +352,7 @@ export const ClassificationStatistics: React.FC = () => {
           <>
             {/* Summary Cards */}
             <Grid container spacing={3} sx={{ mb: 3 }}>
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Card>
                   <CardContent>
                     <Typography color="textSecondary" gutterBottom>
@@ -364,7 +368,7 @@ export const ClassificationStatistics: React.FC = () => {
                 </Card>
               </Grid>
               
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Card>
                   <CardContent>
                     <Typography color="textSecondary" gutterBottom>
@@ -377,7 +381,7 @@ export const ClassificationStatistics: React.FC = () => {
                 </Card>
               </Grid>
               
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Card>
                   <CardContent>
                     <Typography color="textSecondary" gutterBottom>
@@ -393,7 +397,7 @@ export const ClassificationStatistics: React.FC = () => {
 
             {/* Additional Metrics */}
             <Grid container spacing={3} sx={{ mb: 3 }}>
-              <Grid item xs={12} md={3}>
+              <Grid size={{ xs: 12, md: 3 }}>
                 <Card>
                   <CardContent>
                     <Typography color="textSecondary" gutterBottom>
@@ -406,7 +410,7 @@ export const ClassificationStatistics: React.FC = () => {
                 </Card>
               </Grid>
               
-              <Grid item xs={12} md={3}>
+              <Grid size={{ xs: 12, md: 3 }}>
                 <Card>
                   <CardContent>
                     <Typography color="textSecondary" gutterBottom>
@@ -419,7 +423,7 @@ export const ClassificationStatistics: React.FC = () => {
                 </Card>
               </Grid>
               
-              <Grid item xs={12} md={3}>
+              <Grid size={{ xs: 12, md: 3 }}>
                 <Card>
                   <CardContent>
                     <Typography color="textSecondary" gutterBottom>
@@ -432,7 +436,7 @@ export const ClassificationStatistics: React.FC = () => {
                 </Card>
               </Grid>
               
-              <Grid item xs={12} md={3}>
+              <Grid size={{ xs: 12, md: 3 }}>
                 <Card>
                   <CardContent>
                     <Typography color="textSecondary" gutterBottom>
@@ -451,7 +455,7 @@ export const ClassificationStatistics: React.FC = () => {
 
             {/* Sample Distribution */}
             <Grid container spacing={3} sx={{ mb: 3 }}>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>
@@ -459,7 +463,7 @@ export const ClassificationStatistics: React.FC = () => {
                     </Typography>
                     <Grid container spacing={2}>
                       {Object.entries(statistics.sample_distribution).map(([className, count]) => (
-                        <Grid item xs={12} md={6} key={className}>
+                        <Grid size={{ xs: 12, md: 6 }} key={className}>
                           <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
                             <Typography variant="subtitle1" fontWeight="bold" sx={{ textTransform: 'capitalize' }}>
                               {className.replace('_', ' ')}
@@ -481,7 +485,7 @@ export const ClassificationStatistics: React.FC = () => {
 
             {/* Detailed Metrics */}
             <Grid container spacing={3}>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 {renderConfusionMatrix()}
               </Grid>
             </Grid>

@@ -82,7 +82,7 @@ export const BoundingBoxExport: React.FC = () => {
       // Download the file
       adminService.downloadBlob(blob, filename);
       
-      setSuccess(`CSV export completed: ${filename}`);
+      setSuccess(t('admin.dataExport.csvExportCompleted', { filename }));
     } catch (err: any) {
       setError(err.response?.data?.detail || t('admin.dataExport.failedToExportCsv'));
     } finally {
@@ -112,7 +112,7 @@ export const BoundingBoxExport: React.FC = () => {
       // Download the file
       adminService.downloadBlob(blob, filename);
       
-      setSuccess(`ZIP export completed: ${filename}`);
+      setSuccess(t('admin.dataExport.zipExportCompleted', { filename }));
     } catch (err: any) {
       setError(err.response?.data?.detail || t('admin.dataExport.failedToExportZip'));
     } finally {
@@ -131,33 +131,37 @@ export const BoundingBoxExport: React.FC = () => {
         </Typography>
         
         <Grid container spacing={3} alignItems="center">
-          <Grid item xs={12} md={3}>
+          <Grid size={{ xs: 12, md: 3 }}>
             <TextField
               label={t('admin.dataExport.startDate')}
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              InputLabelProps={{
-                shrink: true,
+              slotProps={{
+                inputLabel: {
+                  shrink: true,
+                },
               }}
               fullWidth
             />
           </Grid>
           
-          <Grid item xs={12} md={3}>
+          <Grid size={{ xs: 12, md: 3 }}>
             <TextField
               label={t('admin.dataExport.endDate')}
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              InputLabelProps={{
-                shrink: true,
+              slotProps={{
+                inputLabel: {
+                  shrink: true,
+                },
               }}
               fullWidth
             />
           </Grid>
           
-          <Grid item xs={12} md={3}>
+          <Grid size={{ xs: 12, md: 3 }}>
             <Box>
               <FormControlLabel
                 control={
@@ -198,24 +202,23 @@ export const BoundingBoxExport: React.FC = () => {
 
       {/* Export Options */}
       <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 <CSVIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-                CSV Export
+                {t('admin.dataExport.csvExportTitle')}
               </Typography>
-              <Typography variant="body2" color="textSecondary" paragraph>
-                Export bounding box annotation data as a CSV file containing 
-                coordinates, class labels, confidence scores, and metadata.
+              <Typography variant="body2" color="textSecondary" component="p">
+                {t('admin.dataExport.boundingBoxCsvDescription')}
               </Typography>
-              <Typography variant="body2" color="textSecondary" paragraph>
-                <strong>Contents:</strong>
-                <br />• Annotation ID and timestamps
-                <br />• Bounding box coordinates (x, y, width, height)
-                <br />• Class labels and confidence scores
-                <br />• Media file references and usefulness ratings
-                <br />• User and study information
+              <Typography variant="body2" color="textSecondary" component="p">
+                <strong>{t('admin.dataExport.contents')}:</strong>
+                <br />• {t('admin.dataExport.boundingBoxCsvDetailedContents.annotationIdTimestamps')}
+                <br />• {t('admin.dataExport.boundingBoxCsvDetailedContents.boundingBoxCoordinates')}
+                <br />• {t('admin.dataExport.boundingBoxCsvDetailedContents.classLabelsConfidence')}
+                <br />• {t('admin.dataExport.boundingBoxCsvDetailedContents.mediaFileReferences')}
+                <br />• {t('admin.dataExport.boundingBoxCsvDetailedContents.userStudyInformation')}
               </Typography>
               <Button
                 variant="contained"
@@ -224,29 +227,28 @@ export const BoundingBoxExport: React.FC = () => {
                 startIcon={csvLoading ? <CircularProgress size={20} /> : <DownloadIcon />}
                 fullWidth
               >
-                {csvLoading ? 'Exporting CSV...' : 'Download CSV'}
+                {csvLoading ? t('admin.dataExport.exportingCsv') : t('admin.dataExport.downloadCsv')}
               </Button>
             </CardContent>
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 <ArchiveIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-                ZIP Export (CSV + Media)
+                {t('admin.dataExport.zipExportTitle')}
               </Typography>
-              <Typography variant="body2" color="textSecondary" paragraph>
-                Export bounding box annotation data as CSV along with all associated 
-                media files packaged in a ZIP archive for complete analysis.
+              <Typography variant="body2" color="textSecondary" component="p">
+                {t('admin.dataExport.boundingBoxZipDescription')}
               </Typography>
-              <Typography variant="body2" color="textSecondary" paragraph>
-                <strong>Contents:</strong>
-                <br />• annotations.csv file with bounding box data
-                <br />• media/ folder with all referenced images/videos
-                <br />• Proper filename mapping for visual analysis
-                <br />• Coordinate validation support
+              <Typography variant="body2" color="textSecondary" component="p">
+                <strong>{t('admin.dataExport.contents')}:</strong>
+                <br />• {t('admin.dataExport.boundingBoxZipDetailedContents.annotationsCsv')}
+                <br />• {t('admin.dataExport.boundingBoxZipDetailedContents.mediaFolder')}
+                <br />• {t('admin.dataExport.boundingBoxZipDetailedContents.filenameMapping')}
+                <br />• {t('admin.dataExport.boundingBoxZipDetailedContents.coordinateValidation')}
               </Typography>
               <Button
                 variant="contained"
@@ -256,7 +258,7 @@ export const BoundingBoxExport: React.FC = () => {
                 startIcon={zipLoading ? <CircularProgress size={20} /> : <ArchiveIcon />}
                 fullWidth
               >
-                {zipLoading ? 'Creating ZIP...' : 'Download ZIP'}
+                {zipLoading ? t('admin.dataExport.creatingZip') : t('admin.dataExport.downloadZip')}
               </Button>
             </CardContent>
           </Card>
@@ -266,7 +268,7 @@ export const BoundingBoxExport: React.FC = () => {
       {/* Quick Actions */}
       <Paper sx={{ p: 2, mt: 3 }}>
         <Typography variant="subtitle2" gutterBottom>
-          Quick Export Options:
+          {t('admin.dataExport.quickExportOptions')}
         </Typography>
         <ButtonGroup variant="outlined" size="small">
           <Button
@@ -277,7 +279,7 @@ export const BoundingBoxExport: React.FC = () => {
             }}
             disabled={isLoading}
           >
-            Last 7 Days
+            {t('admin.dataExport.last7Days')}
           </Button>
           <Button
             onClick={() => {
@@ -287,7 +289,7 @@ export const BoundingBoxExport: React.FC = () => {
             }}
             disabled={isLoading}
           >
-            Last 30 Days
+            {t('admin.dataExport.last30Days')}
           </Button>
           <Button
             onClick={() => {
@@ -297,7 +299,7 @@ export const BoundingBoxExport: React.FC = () => {
             }}
             disabled={isLoading}
           >
-            Last 90 Days
+            {t('admin.dataExport.last90Days')}
           </Button>
         </ButtonGroup>
       </Paper>

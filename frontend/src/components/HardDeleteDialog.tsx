@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import { Warning, Delete } from '@mui/icons-material';
 import { HardDeleteProgress, HardDeleteResponse } from '../types/fileManagement';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface HardDeleteDialogProps {
   open: boolean;
@@ -28,6 +29,7 @@ const HardDeleteDialog: React.FC<HardDeleteDialogProps> = ({
   onConfirm,
   onProgress
 }) => {
+  const { t } = useTranslation();
   const [confirmationText, setConfirmationText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [progress, setProgress] = useState<HardDeleteProgress | null>(null);
@@ -44,7 +46,7 @@ const HardDeleteDialog: React.FC<HardDeleteDialogProps> = ({
 
   const handleConfirm = async () => {
     if (confirmationText !== 'DELETE') {
-      setError('Please type "DELETE" exactly to confirm');
+      setError(t('admin.hardDelete.confirmationError'));
       return;
     }
 
@@ -61,7 +63,7 @@ const HardDeleteDialog: React.FC<HardDeleteDialogProps> = ({
           progress: 1.0,
           processed_items: 0,
           total_items: 0,
-          current_operation: 'No items to delete',
+          current_operation: t('admin.hardDelete.noItemsToDelete'),
           errors: []
         });
         setIsDeleting(false);
@@ -82,7 +84,7 @@ const HardDeleteDialog: React.FC<HardDeleteDialogProps> = ({
             }
           } catch (err) {
             console.error('Error polling progress:', err);
-            setError('Failed to get progress updates');
+            setError(t('admin.hardDelete.failedToGetUpdates'));
             setIsDeleting(false);
           }
         };
@@ -90,7 +92,7 @@ const HardDeleteDialog: React.FC<HardDeleteDialogProps> = ({
         setTimeout(pollProgress, 500); // Start polling after 500ms
       }
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to start hard delete operation');
+      setError(err.response?.data?.detail || t('admin.hardDelete.failedToStart'));
       setIsDeleting(false);
     }
   };
@@ -112,40 +114,39 @@ const HardDeleteDialog: React.FC<HardDeleteDialogProps> = ({
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <Warning color="error" />
-        Hard Delete Confirmation
+        {t('admin.hardDelete.title')}
       </DialogTitle>
       
       <DialogContent>
         <Box sx={{ mb: 3 }}>
           <Alert severity="error" sx={{ mb: 2 }}>
             <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-              ⚠️ WARNING: This action is PERMANENT and IRREVERSIBLE!
+              ⚠️ {t('admin.hardDelete.warningTitle')}
             </Typography>
             <Typography variant="body2" sx={{ mt: 1 }}>
-              This will permanently delete all soft-deleted studies and media files from both 
-              the database and file system. This includes:
+              {t('admin.hardDelete.warningDescription')}
             </Typography>
             <ul style={{ margin: '8px 0 0 16px', padding: 0 }}>
-              <li>All studies marked as deleted</li>
-              <li>All media files in deleted studies</li>
-              <li>All individually deleted media files</li>
-              <li>Associated frames, annotations, and predictions</li>
+              <li>{t('admin.hardDelete.warningItems.deletedStudies')}</li>
+              <li>{t('admin.hardDelete.warningItems.mediaFiles')}</li>
+              <li>{t('admin.hardDelete.warningItems.individualMedia')}</li>
+              <li>{t('admin.hardDelete.warningItems.associatedData')}</li>
             </ul>
           </Alert>
 
           {!isDeleting && !progress && (
             <Box>
               <Typography variant="body2" sx={{ mb: 2 }}>
-                To proceed, type <strong>DELETE</strong> in the field below:
+                {t('admin.hardDelete.confirmationPrompt')}
               </Typography>
               <TextField
                 fullWidth
-                label="Type DELETE to confirm"
+                label={t('admin.hardDelete.confirmationLabel')}
                 value={confirmationText}
                 onChange={(e) => setConfirmationText(e.target.value)}
                 error={!!error}
                 helperText={error}
-                placeholder="DELETE"
+                placeholder={t('admin.hardDelete.confirmationPlaceholder')}
                 autoFocus
               />
             </Box>
@@ -154,16 +155,19 @@ const HardDeleteDialog: React.FC<HardDeleteDialogProps> = ({
           {(isDeleting || progress) && (
             <Box sx={{ mt: 2 }}>
               <Typography variant="h6" gutterBottom>
-                {progress?.status === 'completed' ? 'Completed!' : 
-                 progress?.status === 'failed' ? 'Failed' :
-                 'Deleting files...'}
+                {progress?.status === 'completed' ? t('admin.hardDelete.completed') : 
+                 progress?.status === 'failed' ? t('admin.hardDelete.failed') :
+                 t('admin.hardDelete.deletingFiles')}
               </Typography>
               
               {progress && (
                 <Box sx={{ mb: 2 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                     <Typography variant="body2">
-                      {progress.processed_items} / {progress.total_items} items
+                      {t('admin.hardDelete.itemsProgress', { 
+                        processed: progress.processed_items, 
+                        total: progress.total_items 
+                      })}
                     </Typography>
                     <Typography variant="body2">
                       {Math.round(progress.progress * 100)}%
@@ -181,7 +185,7 @@ const HardDeleteDialog: React.FC<HardDeleteDialogProps> = ({
                   {progress.errors.length > 0 && (
                     <Alert severity="warning" sx={{ mt: 2 }}>
                       <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                        Errors encountered:
+                        {t('admin.hardDelete.errorsEncountered')}
                       </Typography>
                       {progress.errors.slice(0, 5).map((error, index) => (
                         <Typography key={index} variant="body2" sx={{ fontSize: '0.8rem' }}>
@@ -190,7 +194,7 @@ const HardDeleteDialog: React.FC<HardDeleteDialogProps> = ({
                       ))}
                       {progress.errors.length > 5 && (
                         <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                          ... and {progress.errors.length - 5} more errors
+                          {t('admin.hardDelete.andMoreErrors', { count: progress.errors.length - 5 })}
                         </Typography>
                       )}
                     </Alert>
@@ -202,7 +206,7 @@ const HardDeleteDialog: React.FC<HardDeleteDialogProps> = ({
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   <CircularProgress size={24} />
                   <Typography variant="body2">
-                    Starting deletion process...
+                    {t('admin.hardDelete.startingDeletion')}
                   </Typography>
                 </Box>
               )}
@@ -216,7 +220,7 @@ const HardDeleteDialog: React.FC<HardDeleteDialogProps> = ({
           onClick={handleClose}
           disabled={isDeleting}
         >
-          {progress?.status === 'completed' ? 'Close' : 'Cancel'}
+          {progress?.status === 'completed' ? t('common.close') : t('common.cancel')}
         </Button>
         {!isDeleting && !progress && (
           <Button
@@ -226,7 +230,7 @@ const HardDeleteDialog: React.FC<HardDeleteDialogProps> = ({
             disabled={confirmationText !== 'DELETE'}
             startIcon={<Delete />}
           >
-            Delete Permanently
+            {t('admin.hardDelete.deletePermanently')}
           </Button>
         )}
       </DialogActions>

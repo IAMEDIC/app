@@ -5,8 +5,10 @@ import { DoctorRegistrationForm } from '@/components/DoctorRegistrationForm';
 import { DoctorProfile } from '@/types';
 import TopBar from '@/components/TopBar';
 import api from '@/services/api';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 const DoctorPage: React.FC = () => {
+  const { t } = useTranslation();
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,10 +30,10 @@ const DoctorPage: React.FC = () => {
       } else if (err.response?.status === 401 || err.response?.status === 403) {
         // Authentication issue - will be handled by axios interceptor
         
-        setError('Authentication issue. Please try again.');
+        setError(t('doctorRegistration.authenticationIssue'));
       } else {
         console.error('Failed to load doctor profile:', err);
-        setError('Failed to load doctor profile');
+        setError(t('doctorRegistration.failedToLoadProfile'));
       }
     } finally {
       setLoading(false);
@@ -60,14 +62,14 @@ const DoctorPage: React.FC = () => {
         <TopBar />
         <Box sx={{ p: 3 }}>
           <Alert severity="error">
-            <Typography variant="h6">Error</Typography>
+            <Typography variant="h6">{t('common.error')}</Typography>
             <Typography>{error}</Typography>
             <Button 
               variant="outlined" 
               onClick={loadDoctorProfile} 
               sx={{ mt: 2 }}
             >
-              Retry
+              {t('common.retry')}
             </Button>
           </Alert>
         </Box>
@@ -103,8 +105,8 @@ const DoctorPage: React.FC = () => {
       <TopBar />
       <Box sx={{ p: 3 }}>
         <Alert severity="info">
-          <Typography variant="h6">Doctor Registration</Typography>
-          <Typography>Please complete your doctor registration to access the dashboard.</Typography>
+          <Typography variant="h6">{t('doctorRegistration.doctorRegistration')}</Typography>
+          <Typography>{t('doctorRegistration.completeRegistrationMessage')}</Typography>
         </Alert>
       </Box>
     </>
