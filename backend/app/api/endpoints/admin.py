@@ -27,10 +27,18 @@ from app.schemas.admin_statistics import (
     StatisticsRequest
 )
 from app.schemas.csv_export import CSVExportRequest
+from app.schemas.file_management import (
+    FileManagementStats,
+    HardDeleteRequest,
+    HardDeleteResponse,
+    HardDeleteProgress
+)
 from app.services.admin_service import AdminService
 from app.services.admin_statistics_service import AdminStatisticsService
 from app.services.csv_export_service import CSVExportService
 from app.services.zip_export_service import ZipExportService
+from app.services.file_management_service import FileManagementService
+from app.core.task_manager import task_manager
 
 
 logger = logging.getLogger(__name__)
@@ -494,4 +502,142 @@ async def export_bounding_box_annotations_with_media(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to export bounding box annotations with media"
+        ) from e
+
+
+@router.get("/files/statistics", response_model=FileManagementStats)
+async def get_file_statistics(
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(require_admin_role)
+):
+    """Get system-wide file storage statistics (admin only)"""
+    logger.debug("📊 Admin %s requesting file storage statistics", current_user.email)
+    
+    try:
+        file_management_service = FileManagementService(db)
+        stats = file_management_service.get_storage_statistics()
+        
+        logger.info(
+            "📊 File statistics provided to admin %s: %.1fMB total, %d active files, %d soft-deleted files",
+            current_user.email, stats.total_storage_mb, stats.active_files_count, stats.soft_deleted_files_count
+        )
+        
+        return stats
+        
+    except Exception as e:
+        logger.error("❌ Error getting file statistics: %s", str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve file statistics"
+        ) from e
+
+
+@router.post("/files/hard-delete", response_model=HardDeleteResponse)
+async def start_hard_delete(
+    request: HardDeleteRequest,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(require_admin_role)
+):
+    """Start hard delete operation for all soft-deleted files (admin only)"""
+    logger.debug("🗑️ Admin %s requesting hard delete operation", current_user.email)
+    
+    try:
+        file_management_service = FileManagementService(db)
+        
+        # Validate confirmation text
+        if not file_management_service.validate_hard_delete_request(request.confirmation_text):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid confirmation text. Must be exactly 'DELETE'"
+            )
+        
+        # Check if there are any active hard delete tasks
+        active_tasks = task_manager.get_active_tasks_count()
+        if active_tasks > 0:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Another hard delete operation is already in progress"
+            )
+        
+        # Get analysis of what will be deleted
+        analysis = file_management_service.get_soft_deleted_items()
+        total_items = (
+            analysis["soft_deleted_studies"] + 
+            analysis["soft_deleted_media"] + 
+            analysis["media_in_deleted_studies"]
+        )
+        
+        if total_items == 0:
+            logger.info("✅ No soft-deleted items found for admin %s", current_user.email)
+            return HardDeleteResponse(
+                task_id="no-op",
+                message="No soft-deleted items found to delete"
+            )
+        
+        # Create a new session for the background task
+        def hard_delete_task(progress_callback):
+            from app.core.database import SessionLocal
+            with SessionLocal() as task_db:
+                task_service = FileManagementService(task_db)
+                return task_service.hard_delete_soft_deleted_items(progress_callback)
+        
+        # Start background task
+        task_id = task_manager.create_task(hard_delete_task)
+        
+        logger.info(
+            "🚀 Started hard delete task %s for admin %s: %d items to process",
+            task_id, current_user.email, total_items
+        )
+        
+        return HardDeleteResponse(
+            task_id=task_id,
+            message=f"Hard delete operation started. Processing {total_items} items."
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("❌ Error starting hard delete operation: %s", str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to start hard delete operation"
+        ) from e
+
+
+@router.get("/files/hard-delete/{task_id}", response_model=HardDeleteProgress)
+async def get_hard_delete_progress(
+    task_id: str,
+    current_user: UserModel = Depends(require_admin_role)
+):
+    """Get progress of hard delete operation (admin only)"""
+    logger.debug("📊 Admin %s checking progress of task %s", current_user.email, task_id)
+    
+    try:
+        # Handle special case for no-op tasks
+        if task_id == "no-op":
+            return HardDeleteProgress(
+                status="completed",
+                progress=1.0,
+                processed_items=0,
+                total_items=0,
+                current_operation="No items to delete",
+                errors=[]
+            )
+        
+        progress = task_manager.get_task_progress(task_id)
+        if not progress:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Task not found"
+            )
+        
+        return progress
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("❌ Error getting task progress: %s", str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve task progress"
         ) from e

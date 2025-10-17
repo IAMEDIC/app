@@ -112,6 +112,13 @@ from app.schemas.csv_export import (
     CSVExportRequest,
     CSVExportInfo
 )
+from app.schemas.file_management import (
+    FileManagementStats,
+    HardDeleteRequest,
+    HardDeleteProgress,
+    HardDeleteResponse,
+    HardDeleteSummary,
+)
 
 __all__ = [
     "User",
@@ -199,5 +206,11 @@ __all__ = [
     "StatisticsRequest",
     # CSV export
     "CSVExportRequest",
-    "CSVExportInfo"
+    "CSVExportInfo",
+    # File management
+    "FileManagementStats",
+    "HardDeleteRequest",
+    "HardDeleteProgress",
+    "HardDeleteResponse",
+    "HardDeleteSummary",
 ]
