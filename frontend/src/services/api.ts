@@ -19,6 +19,12 @@ import {
   AvailableModelVersions,
   ModelInfo
 } from '@/types';
+import {
+  FileManagementStats,
+  HardDeleteRequest,
+  HardDeleteResponse,
+  HardDeleteProgress
+} from '@/types/fileManagement';
 
 // Create axios instance with base configuration
 const api: AxiosInstance = axios.create({
@@ -364,6 +370,29 @@ export const adminService = {
     link.click();
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
+  },
+};
+
+// File management service for storage statistics and hard delete operations
+export const fileManagementService = {
+  // Get system-wide file storage statistics
+  getStatistics: async (): Promise<FileManagementStats> => {
+    const response = await api.get('/admin/files/statistics');
+    return response.data;
+  },
+
+  // Start hard delete operation for all soft-deleted files
+  startHardDelete: async (confirmationText: string): Promise<HardDeleteResponse> => {
+    const response = await api.post('/admin/files/hard-delete', {
+      confirmation_text: confirmationText
+    });
+    return response.data;
+  },
+
+  // Get progress of hard delete operation
+  getDeleteProgress: async (taskId: string): Promise<HardDeleteProgress> => {
+    const response = await api.get(`/admin/files/hard-delete/${taskId}`);
+    return response.data;
   },
 };
 

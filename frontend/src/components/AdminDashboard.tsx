@@ -24,6 +24,7 @@ import {
 import { User, DoctorProfile, DoctorProfileApproval } from '@/types';
 import { ModelStatisticsTab } from '@/components/ModelStatisticsTab';
 import { DataExportTab } from '@/components/DataExportTab';
+import { FileManagementTab } from '@/components/FileManagementTab';
 import api from '@/services/api';
 
 interface TabPanelProps {
@@ -160,14 +161,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
             aria-controls="admin-tabpanel-0"
           />
           <Tab 
-            label="Model Statistics"
+            label="Files Management"
             id="admin-tab-1"
             aria-controls="admin-tabpanel-1" 
           />
           <Tab 
-            label="Data Export"
+            label="Model Statistics"
             id="admin-tab-2"
             aria-controls="admin-tabpanel-2" 
+          />
+          <Tab 
+            label="Data Export"
+            id="admin-tab-3"
+            aria-controls="admin-tabpanel-3" 
           />
         </Tabs>
       </Box>
@@ -285,13 +291,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
       </Paper>
       </TabPanel>
 
-      {/* Model Statistics Tab */}
+      {/* Files Management Tab */}
       <TabPanel value={currentTab} index={1}>
+        <FileManagementTab />
+      </TabPanel>
+
+      {/* Model Statistics Tab */}
+      <TabPanel value={currentTab} index={2}>
         <ModelStatisticsTab />
       </TabPanel>
 
       {/* Data Export Tab */}
-      <TabPanel value={currentTab} index={2}>
+      <TabPanel value={currentTab} index={3}>
         <DataExportTab />
       </TabPanel>
 
