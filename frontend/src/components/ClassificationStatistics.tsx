@@ -29,6 +29,7 @@ import {
   StatisticsRequest
 } from '@/types';
 import { adminService } from '@/services/api';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 // No transformation needed - use backend data directly
 interface BackendClassificationStats {
@@ -57,6 +58,8 @@ interface BackendClassificationStats {
 }
 
 export const ClassificationStatistics: React.FC = () => {
+  const { t } = useTranslation();
+  
   // Helper function to format date for input
   const formatDateForInput = (date: Date): string => {
     const year = date.getFullYear();
@@ -144,7 +147,7 @@ export const ClassificationStatistics: React.FC = () => {
     } catch (err: any) {
       console.error('❌ Classification Statistics Error:', err);
       console.error('❌ Error Response:', err.response?.data);
-      setError(err.response?.data?.detail || 'Failed to load classification statistics');
+      setError(err.response?.data?.detail || t('admin.modelStatistics.failedToLoadStatistics'));
     } finally {
       setLoading(false);
     }
@@ -171,9 +174,9 @@ export const ClassificationStatistics: React.FC = () => {
         <Card>
           <CardContent>
             <Typography variant="h6" gutterBottom>
-              Confusion Matrix
+              {t('admin.modelStatistics.confusionMatrix')}
             </Typography>
-            <Typography color="textSecondary">No confusion matrix data available</Typography>
+            <Typography color="textSecondary">{t('admin.modelStatistics.noConfusionMatrixAvailable')}</Typography>
           </CardContent>
         </Card>
       );
@@ -195,13 +198,13 @@ export const ClassificationStatistics: React.FC = () => {
       <Card>
         <CardContent>
           <Typography variant="h6" gutterBottom>
-            Confusion Matrix
+            {t('admin.modelStatistics.confusionMatrix')}
           </Typography>
           <TableContainer>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Actual \\ Predicted</TableCell>
+                  <TableCell>{t('admin.modelStatistics.actualPredicted')}</TableCell>
                   {class_names.map((className) => (
                     <TableCell key={className} align="center">
                       {className}
@@ -253,28 +256,28 @@ export const ClassificationStatistics: React.FC = () => {
         {/* Controls */}
         <Paper sx={{ p: 3, mb: 3 }}>
           <Typography variant="h6" gutterBottom>
-            Classification Model Statistics
+            {t('admin.modelStatistics.classificationModel')}
           </Typography>
           
           <Grid container spacing={3} alignItems="center">
             <Grid item xs={12} md={2}>
               <FormControl fullWidth disabled={loadingVersions}>
-                <InputLabel id="model-version-label">Model Version</InputLabel>
+                <InputLabel id="model-version-label">{t('admin.modelStatistics.modelVersion')}</InputLabel>
                 <Select
                   labelId="model-version-label"
-                  label="Model Version"
+                  label={t('admin.modelStatistics.modelVersion')}
                   value={modelVersion}
                   onChange={(e) => setModelVersion(e.target.value)}
                 >
                   {loadingVersions ? (
                     <MenuItem disabled>
                       <CircularProgress size={16} sx={{ mr: 1 }} />
-                      Loading versions...
+                      {t('admin.modelStatistics.loadingVersions')}
                     </MenuItem>
                   ) : (
                     availableVersions.map((version) => (
                       <MenuItem key={version} value={version}>
-                        {version === 'champion' ? 'champion (current)' : version}
+                        {version === 'champion' ? t('admin.modelStatistics.champion') : version}
                       </MenuItem>
                     ))
                   )}
@@ -284,7 +287,7 @@ export const ClassificationStatistics: React.FC = () => {
             
             <Grid item xs={12} md={2}>
               <TextField
-                label="Start Date"
+                label={t('admin.modelStatistics.startDate')}
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
@@ -297,7 +300,7 @@ export const ClassificationStatistics: React.FC = () => {
             
             <Grid item xs={12} md={2}>
               <TextField
-                label="End Date"
+                label={t('admin.modelStatistics.endDate')}
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
@@ -316,7 +319,7 @@ export const ClassificationStatistics: React.FC = () => {
                     onChange={(e) => setIncludeSoftDeleted(e.target.checked)}
                   />
                 }
-                label="Include Soft Deleted"
+                label={t('admin.modelStatistics.includeSoftDeleted')}
               />
             </Grid>
             
@@ -327,7 +330,7 @@ export const ClassificationStatistics: React.FC = () => {
                 disabled={loading}
                 fullWidth
               >
-                Load Statistics
+                {t('admin.modelStatistics.loadStatistics')}
               </Button>
             </Grid>
           </Grid>
@@ -349,13 +352,13 @@ export const ClassificationStatistics: React.FC = () => {
                 <Card>
                   <CardContent>
                     <Typography color="textSecondary" gutterBottom>
-                      Model Version
+                      {t('admin.modelStatistics.modelVersion')}
                     </Typography>
                     <Typography variant="h6">
-                      {statistics.model_version?.split(' - ')[0] || 'Unknown'}
+                      {statistics.model_version?.split(' - ')[0] || t('admin.modelStatistics.unknown')}
                     </Typography>
                     <Typography variant="body2">
-                      {statistics.model_version || 'Unknown'}
+                      {statistics.model_version || t('admin.modelStatistics.unknown')}
                     </Typography>
                   </CardContent>
                 </Card>
@@ -365,7 +368,7 @@ export const ClassificationStatistics: React.FC = () => {
                 <Card>
                   <CardContent>
                     <Typography color="textSecondary" gutterBottom>
-                      Overall Accuracy
+                      {t('admin.modelStatistics.overallAccuracy')}
                     </Typography>
                     <Typography variant="h4" color="primary">
                       {formatPercentage(statistics.metrics.accuracy)}
@@ -378,7 +381,7 @@ export const ClassificationStatistics: React.FC = () => {
                 <Card>
                   <CardContent>
                     <Typography color="textSecondary" gutterBottom>
-                      Total Samples
+                      {t('admin.modelStatistics.totalSamples')}
                     </Typography>
                     <Typography variant="h4">
                       {formatNumber(statistics.metrics.total_samples)}
@@ -394,7 +397,7 @@ export const ClassificationStatistics: React.FC = () => {
                 <Card>
                   <CardContent>
                     <Typography color="textSecondary" gutterBottom>
-                      Precision
+                      {t('admin.modelStatistics.precision')}
                     </Typography>
                     <Typography variant="h5" color="secondary">
                       {formatPercentage(statistics.metrics.precision)}
@@ -407,7 +410,7 @@ export const ClassificationStatistics: React.FC = () => {
                 <Card>
                   <CardContent>
                     <Typography color="textSecondary" gutterBottom>
-                      Recall
+                      {t('admin.modelStatistics.recall')}
                     </Typography>
                     <Typography variant="h5" color="secondary">
                       {formatPercentage(statistics.metrics.recall)}
@@ -420,7 +423,7 @@ export const ClassificationStatistics: React.FC = () => {
                 <Card>
                   <CardContent>
                     <Typography color="textSecondary" gutterBottom>
-                      F1-Score
+                      {t('admin.modelStatistics.f1Score')}
                     </Typography>
                     <Typography variant="h5" color="secondary">
                       {formatPercentage(statistics.metrics.f1_score)}
@@ -433,13 +436,13 @@ export const ClassificationStatistics: React.FC = () => {
                 <Card>
                   <CardContent>
                     <Typography color="textSecondary" gutterBottom>
-                      Date Range
+                      {t('admin.modelStatistics.dateRange')}
                     </Typography>
                     <Typography variant="body2">
                       {statistics.date_range.start_date}
                     </Typography>
                     <Typography variant="body2">
-                      to {statistics.date_range.end_date}
+                      {t('admin.modelStatistics.to')} {statistics.date_range.end_date}
                     </Typography>
                   </CardContent>
                 </Card>
@@ -452,7 +455,7 @@ export const ClassificationStatistics: React.FC = () => {
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>
-                      Sample Distribution
+                      {t('admin.modelStatistics.sampleDistribution')}
                     </Typography>
                     <Grid container spacing={2}>
                       {Object.entries(statistics.sample_distribution).map(([className, count]) => (
@@ -465,7 +468,7 @@ export const ClassificationStatistics: React.FC = () => {
                               {formatNumber(count)}
                             </Typography>
                             <Typography variant="body2" color="textSecondary">
-                              {formatPercentage(count / statistics.metrics.total_samples)} of total
+                              {formatPercentage(count / statistics.metrics.total_samples)} {t('admin.modelStatistics.ofTotal')}
                             </Typography>
                           </Box>
                         </Grid>

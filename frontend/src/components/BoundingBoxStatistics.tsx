@@ -31,6 +31,7 @@ import {
   StatisticsRequest
 } from '@/types';
 import { adminService } from '@/services/api';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 // Backend data structure for bounding box statistics
 interface BackendBoundingBoxStats {
@@ -57,6 +58,8 @@ interface BackendBoundingBoxStats {
 }
 
 export const BoundingBoxStatistics: React.FC = () => {
+  const { t } = useTranslation();
+  
   // Helper function to format date for input
   const formatDateForInput = (date: Date): string => {
     const year = date.getFullYear();
@@ -158,7 +161,7 @@ export const BoundingBoxStatistics: React.FC = () => {
     } catch (err: any) {
       console.error('❌ Bounding Box Statistics Error:', err);
       console.error('❌ Error Response:', err.response?.data);
-      setError(err.response?.data?.detail || 'Failed to load bounding box statistics');
+      setError(err.response?.data?.detail || t('admin.modelStatistics.failedToLoadStatistics'));
     } finally {
       setLoading(false);
     }
@@ -190,9 +193,9 @@ export const BoundingBoxStatistics: React.FC = () => {
         <Card>
           <CardContent>
             <Typography variant="h6" gutterBottom>
-              Mean Average Precision (mAP) Scores
+              {t('admin.modelStatistics.mAPScores')}
             </Typography>
-            <Typography color="textSecondary">No mAP scores available</Typography>
+            <Typography color="textSecondary">{t('admin.modelStatistics.noMAPScoresAvailable')}</Typography>
           </CardContent>
         </Card>
       );
@@ -202,17 +205,17 @@ export const BoundingBoxStatistics: React.FC = () => {
       <Card>
         <CardContent>
           <Typography variant="h6" gutterBottom>
-            Mean Average Precision (mAP) Score
+            {t('admin.modelStatistics.mAPScore')}
           </Typography>
           <Box textAlign="center" sx={{ py: 2 }}>
             <Typography variant="h3" color="primary" sx={{ fontWeight: 'bold' }}>
               {formatDecimal(metrics.map_score)}
             </Typography>
             <Typography variant="body1" color="textSecondary">
-              Overall mAP Score
+              {t('admin.modelStatistics.overallMAPScore')}
             </Typography>
             <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-              IoU Threshold: {metrics.iou_threshold} | Confidence: {metrics.confidence_threshold}
+              {t('admin.modelStatistics.iouThreshold')}: {metrics.iou_threshold} | {t('admin.modelStatistics.confidence')}: {metrics.confidence_threshold}
             </Typography>
           </Box>
         </CardContent>
@@ -236,9 +239,9 @@ export const BoundingBoxStatistics: React.FC = () => {
         <Card>
           <CardContent>
             <Typography variant="h6" gutterBottom>
-              Per-Class Average Precision (AP)
+              {t('admin.modelStatistics.perClassAP')}
             </Typography>
-            <Typography color="textSecondary">No class metrics data available</Typography>
+            <Typography color="textSecondary">{t('admin.modelStatistics.noClassMetricsAvailable')}</Typography>
           </CardContent>
         </Card>
       );
@@ -248,15 +251,15 @@ export const BoundingBoxStatistics: React.FC = () => {
       <Card>
         <CardContent>
           <Typography variant="h6" gutterBottom>
-            Per-Class Average Precision (AP)
+            {t('admin.modelStatistics.perClassAP')}
           </Typography>
           <TableContainer>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Class</TableCell>
-                  <TableCell align="right">Average Precision</TableCell>
-                  <TableCell align="right">Annotations Count</TableCell>
+                  <TableCell>{t('admin.modelStatistics.class')}</TableCell>
+                  <TableCell align="right">{t('admin.modelStatistics.averagePrecision')}</TableCell>
+                  <TableCell align="right">{t('admin.modelStatistics.annotationsCount')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -298,28 +301,28 @@ export const BoundingBoxStatistics: React.FC = () => {
         {/* Controls */}
         <Paper sx={{ p: 3, mb: 3 }}>
           <Typography variant="h6" gutterBottom>
-            Bounding Box Model Statistics
+            {t('admin.modelStatistics.boundingBoxModel')}
           </Typography>
           
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} md={2}>
               <FormControl fullWidth disabled={loadingVersions}>
-                <InputLabel id="bb-model-version-label">Model Version</InputLabel>
+                <InputLabel id="bb-model-version-label">{t('admin.modelStatistics.modelVersion')}</InputLabel>
                 <Select
                   labelId="bb-model-version-label"
-                  label="Model Version"
+                  label={t('admin.modelStatistics.modelVersion')}
                   value={modelVersion}
                   onChange={(e) => setModelVersion(e.target.value)}
                 >
                   {loadingVersions ? (
                     <MenuItem disabled>
                       <CircularProgress size={16} sx={{ mr: 1 }} />
-                      Loading versions...
+                      {t('admin.modelStatistics.loadingVersions')}
                     </MenuItem>
                   ) : (
                     availableVersions.map((version) => (
                       <MenuItem key={version} value={version}>
-                        {version === 'champion' ? 'champion (current)' : version}
+                        {version === 'champion' ? t('admin.modelStatistics.champion') : version}
                       </MenuItem>
                     ))
                   )}
@@ -329,7 +332,7 @@ export const BoundingBoxStatistics: React.FC = () => {
             
             <Grid item xs={12} md={2}>
               <TextField
-                label="Start Date"
+                label={t('admin.modelStatistics.startDate')}
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
@@ -342,7 +345,7 @@ export const BoundingBoxStatistics: React.FC = () => {
             
             <Grid item xs={12} md={2}>
               <TextField
-                label="End Date"
+                label={t('admin.modelStatistics.endDate')}
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
@@ -355,7 +358,7 @@ export const BoundingBoxStatistics: React.FC = () => {
             
             <Grid item xs={12} md={1}>
               <TextField
-                label="IoU Threshold"
+                label={t('admin.modelStatistics.iouThreshold')}
                 type="number"
                 value={iouThreshold}
                 onChange={(e) => setIouThreshold(parseFloat(e.target.value))}
@@ -366,7 +369,7 @@ export const BoundingBoxStatistics: React.FC = () => {
             
             <Grid item xs={12} md={1}>
               <TextField
-                label="Confidence"
+                label={t('admin.modelStatistics.confidence')}
                 type="number"
                 value={confidenceThreshold}
                 onChange={(e) => setConfidenceThreshold(parseFloat(e.target.value))}
@@ -383,7 +386,7 @@ export const BoundingBoxStatistics: React.FC = () => {
                     onChange={(e) => setIncludeSoftDeleted(e.target.checked)}
                   />
                 }
-                label="Include Soft Deleted"
+                label={t('admin.modelStatistics.includeSoftDeleted')}
               />
             </Grid>
             
@@ -394,7 +397,7 @@ export const BoundingBoxStatistics: React.FC = () => {
                 disabled={loading}
                 fullWidth
               >
-                Load Statistics
+                {t('admin.modelStatistics.loadStatistics')}
               </Button>
             </Grid>
           </Grid>
@@ -416,13 +419,13 @@ export const BoundingBoxStatistics: React.FC = () => {
                 <Card>
                   <CardContent>
                     <Typography color="textSecondary" gutterBottom>
-                      Model Version
+                      {t('admin.modelStatistics.modelVersion')}
                     </Typography>
                     <Typography variant="h6">
-                      {statistics.model_version?.split(' - ')[0] || 'Unknown'}
+                      {statistics.model_version?.split(' - ')[0] || t('admin.modelStatistics.unknown')}
                     </Typography>
                     <Typography variant="body2">
-                      {statistics.model_version || 'Unknown'}
+                      {statistics.model_version || t('admin.modelStatistics.unknown')}
                     </Typography>
                   </CardContent>
                 </Card>
@@ -432,7 +435,7 @@ export const BoundingBoxStatistics: React.FC = () => {
                 <Card>
                   <CardContent>
                     <Typography color="textSecondary" gutterBottom>
-                      Total Annotations
+                      {t('admin.modelStatistics.totalAnnotations')}
                     </Typography>
                     <Typography variant="h4">
                       {formatNumber(statistics.metrics.total_annotations)}
@@ -445,7 +448,7 @@ export const BoundingBoxStatistics: React.FC = () => {
                 <Card>
                   <CardContent>
                     <Typography color="textSecondary" gutterBottom>
-                      Classes Detected
+                      {t('admin.modelStatistics.classesDetected')}
                     </Typography>
                     <Typography variant="h4" color="primary">
                       {Object.keys(statistics.metrics.per_class_ap || {}).length}
@@ -461,7 +464,7 @@ export const BoundingBoxStatistics: React.FC = () => {
                 <Card>
                   <CardContent>
                     <Typography color="textSecondary" gutterBottom>
-                      IoU Threshold
+                      {t('admin.modelStatistics.iouThreshold')}
                     </Typography>
                     <Typography variant="h5" color="secondary">
                       {formatDecimal(statistics.metrics.iou_threshold)}
@@ -474,7 +477,7 @@ export const BoundingBoxStatistics: React.FC = () => {
                 <Card>
                   <CardContent>
                     <Typography color="textSecondary" gutterBottom>
-                      Confidence Threshold
+                      {t('admin.modelStatistics.confidenceThreshold')}
                     </Typography>
                     <Typography variant="h5" color="secondary">
                       {formatDecimal(statistics.metrics.confidence_threshold)}
@@ -487,13 +490,13 @@ export const BoundingBoxStatistics: React.FC = () => {
                 <Card>
                   <CardContent>
                     <Typography color="textSecondary" gutterBottom>
-                      Date Range
+                      {t('admin.modelStatistics.dateRange')}
                     </Typography>
                     <Typography variant="body2">
                       {statistics.date_range.start_date}
                     </Typography>
                     <Typography variant="body2">
-                      to {statistics.date_range.end_date}
+                      {t('admin.modelStatistics.to')} {statistics.date_range.end_date}
                     </Typography>
                   </CardContent>
                 </Card>
@@ -513,7 +516,7 @@ export const BoundingBoxStatistics: React.FC = () => {
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>
-                      Class Distribution
+                      {t('admin.modelStatistics.classDistribution')}
                     </Typography>
                     <Grid container spacing={2}>
                       {Object.entries(statistics.class_distribution).map(([className, count]) => (
@@ -526,7 +529,7 @@ export const BoundingBoxStatistics: React.FC = () => {
                               {formatNumber(count)}
                             </Typography>
                             <Typography variant="body2" color="textSecondary">
-                              {formatPercentage(count / statistics.metrics.total_annotations)} of total
+                              {formatPercentage(count / statistics.metrics.total_annotations)} {t('admin.modelStatistics.ofTotal')}
                             </Typography>
                           </Box>
                         </Grid>

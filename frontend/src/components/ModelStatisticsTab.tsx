@@ -6,6 +6,7 @@ import {
 } from '@mui/material';
 import { ClassificationStatistics } from '@/components/ClassificationStatistics';
 import { BoundingBoxStatistics } from '@/components/BoundingBoxStatistics';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -30,6 +31,7 @@ function TabPanel(props: TabPanelProps) {
 }
 
 export const ModelStatisticsTab: React.FC = () => {
+  const { t } = useTranslation();
   const [currentTab, setCurrentTab] = useState(0);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
@@ -46,12 +48,12 @@ export const ModelStatisticsTab: React.FC = () => {
           aria-label="Model statistics tabs"
         >
           <Tab 
-            label="Classification Model" 
+            label={t('admin.modelStatistics.classificationModel')} 
             id="statistics-tab-0"
             aria-controls="statistics-tabpanel-0"
           />
           <Tab 
-            label="Bounding Box Model"
+            label={t('admin.modelStatistics.boundingBoxModel')}
             id="statistics-tab-1"
             aria-controls="statistics-tabpanel-1" 
           />

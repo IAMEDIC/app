@@ -18,12 +18,14 @@ import { StorageUsageCard } from './StorageUsageCard';
 import { FileCountChart } from './FileCountChart';
 import { FileSizeChart } from './FileSizeChart';
 import HardDeleteDialog from './HardDeleteDialog';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 /**
  * File Management Tab for Admin Dashboard
  * Displays storage statistics and provides file cleanup functionality
  */
 export const FileManagementTab: React.FC = () => {
+  const { t } = useTranslation();
   const [stats, setStats] = useState<FileManagementStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +38,7 @@ export const FileManagementTab: React.FC = () => {
       const data = await fileManagementService.getStatistics();
       setStats(data);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to load file statistics');
+      setError(err.response?.data?.detail || t('admin.fileManagement.failedToLoadStats'));
     } finally {
       setLoading(false);
     }
@@ -85,7 +87,7 @@ export const FileManagementTab: React.FC = () => {
             onClick={handleRefresh}
             startIcon={<RefreshIcon />}
           >
-            Retry
+            {t('common.retry')}
           </Button>
         }
       >
@@ -97,7 +99,7 @@ export const FileManagementTab: React.FC = () => {
   if (!stats) {
     return (
       <Alert severity="info">
-        No statistics available.
+        {t('admin.fileManagement.noStatsAvailable')}
       </Alert>
     );
   }
@@ -105,37 +107,37 @@ export const FileManagementTab: React.FC = () => {
   // Prepare chart data
   const fileCountData = {
     activeFiles: {
-      label: 'Active Files',
+      label: t('admin.fileManagement.activeFiles'),
       value: stats.active_files_count,
       percentage: stats.active_files_percentage,
       color: '#4caf50', // Green
     } as ChartData,
     softDeletedFiles: {
-      label: 'Soft-deleted Files',
+      label: t('admin.fileManagement.softDeletedFiles'),
       value: stats.soft_deleted_files_count,
       percentage: stats.soft_deleted_files_percentage,
       color: '#f44336', // Red
     } as ChartData,
-    title: 'Files by Count',
-    totalLabel: 'Total Files',
+    title: t('admin.fileManagement.filesByCount'),
+    totalLabel: t('admin.fileManagement.totalFiles'),
     totalValue: (stats.active_files_count + stats.soft_deleted_files_count).toLocaleString(),
   };
 
   const fileSizeData = {
     activeFiles: {
-      label: 'Active Files',
+      label: t('admin.fileManagement.activeFiles'),
       value: stats.active_files_mb,
       percentage: stats.active_storage_percentage,
       color: '#4caf50', // Green
     } as ChartData,
     softDeletedFiles: {
-      label: 'Soft-deleted Files',
+      label: t('admin.fileManagement.softDeletedFiles'),
       value: stats.soft_deleted_files_mb,
       percentage: stats.soft_deleted_storage_percentage,
       color: '#f44336', // Red
     } as ChartData,
-    title: 'Storage by Size',
-    totalLabel: 'Total Storage',
+    title: t('admin.fileManagement.storageBySize'),
+    totalLabel: t('admin.fileManagement.totalStorage'),
     totalValue: `${stats.total_storage_mb.toFixed(1)} MB`,
   };
 
@@ -144,7 +146,7 @@ export const FileManagementTab: React.FC = () => {
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h5" component="h2">
-          Files Management
+          {t('admin.fileManagement.title')}
         </Typography>
         <Button
           variant="outlined"
@@ -152,14 +154,14 @@ export const FileManagementTab: React.FC = () => {
           onClick={handleRefresh}
           disabled={loading}
         >
-          Refresh
+          {t('admin.fileManagement.refreshStatistics')}
         </Button>
       </Box>
 
       {/* Statistics Section */}
       <Paper sx={{ p: 3, mb: 4 }}>
         <Typography variant="h6" gutterBottom>
-          Storage Statistics
+          {t('admin.fileManagement.storageStatistics')}
         </Typography>
         
         <Grid container spacing={3}>
@@ -186,27 +188,29 @@ export const FileManagementTab: React.FC = () => {
       {/* Cleanup Section */}
       <Paper sx={{ p: 3 }}>
         <Typography variant="h6" gutterBottom>
-          File Cleanup
+          {t('admin.fileManagement.fileCleanup')}
         </Typography>
         
         {stats.soft_deleted_files_count > 0 ? (
           <Card sx={{ mb: 2, bgcolor: '#fff3e0' }}>
             <CardContent>
               <Typography variant="body1" gutterBottom>
-                <strong>Soft-deleted Files Found:</strong>
+                <strong>{t('admin.fileManagement.softDeletedFilesFound')}</strong>
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                • {stats.soft_deleted_files_count} soft-deleted files ({stats.soft_deleted_files_mb.toFixed(1)} MB)
+                • {t('admin.fileManagement.softDeletedFilesDetails', { 
+                  count: stats.soft_deleted_files_count, 
+                  size: stats.soft_deleted_files_mb.toFixed(1) 
+                })}
                 <br />
-                • These files are hidden from users but still consuming storage space
+                • {t('admin.fileManagement.hiddenFilesInfo')}
                 <br />
-                • Hard delete will permanently remove them from the database and file system
+                • {t('admin.fileManagement.hardDeleteInfo')}
               </Typography>
               
               <Alert severity="warning" sx={{ mb: 2 }}>
                 <Typography variant="body2">
-                  ⚠️ <strong>Warning:</strong> Hard delete is permanent and cannot be undone. 
-                  All soft-deleted files and their associated data will be completely removed.
+                  ⚠️ <strong>{t('admin.fileManagement.warningTitle')}</strong> {t('admin.fileManagement.warningMessage')}
                 </Typography>
               </Alert>
 
@@ -217,26 +221,24 @@ export const FileManagementTab: React.FC = () => {
                   startIcon={<DeleteIcon />}
                   onClick={() => setHardDeleteDialogOpen(true)}
                 >
-                  Hard Delete All Soft-deleted Files
+                  {t('admin.fileManagement.hardDeleteButton')}
                 </Button>
                 <Typography variant="body2" color="text.secondary">
-                  Will free up {stats.soft_deleted_files_mb.toFixed(1)} MB of storage
+                  {t('admin.fileManagement.willFreeStorage', { size: stats.soft_deleted_files_mb.toFixed(1) })}
                 </Typography>
               </Box>
             </CardContent>
           </Card>
         ) : (
           <Alert severity="success" sx={{ mb: 2 }}>
-            ✅ No soft-deleted files found. Your storage is clean!
+            {t('admin.fileManagement.noSoftDeletedFiles')}
           </Alert>
         )}
 
         <Divider sx={{ my: 2 }} />
         
         <Typography variant="body2" color="text.secondary">
-          <strong>Note:</strong> Soft-deleted files are created when users delete studies or media files. 
-          They remain in the system for potential recovery but consume storage space. 
-          Use hard delete to permanently remove them when recovery is no longer needed.
+          <strong>{t('admin.fileManagement.noteLabel')}</strong> {t('admin.fileManagement.softDeletedFilesNote')}
         </Typography>
       </Paper>
 

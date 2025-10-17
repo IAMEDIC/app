@@ -21,8 +21,11 @@ import {
 } from '@mui/icons-material';
 import { CSVExportRequest } from '@/types';
 import { adminService } from '@/services/api';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 export const BoundingBoxExport: React.FC = () => {
+  const { t } = useTranslation();
+  
   // Helper function to format date for input
   const formatDateForInput = (date: Date): string => {
     const year = date.getFullYear();
@@ -81,7 +84,7 @@ export const BoundingBoxExport: React.FC = () => {
       
       setSuccess(`CSV export completed: ${filename}`);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to export CSV');
+      setError(err.response?.data?.detail || t('admin.dataExport.failedToExportCsv'));
     } finally {
       setCsvLoading(false);
     }
@@ -111,7 +114,7 @@ export const BoundingBoxExport: React.FC = () => {
       
       setSuccess(`ZIP export completed: ${filename}`);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to export ZIP');
+      setError(err.response?.data?.detail || t('admin.dataExport.failedToExportZip'));
     } finally {
       setZipLoading(false);
     }
@@ -124,13 +127,13 @@ export const BoundingBoxExport: React.FC = () => {
       {/* Export Form */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" gutterBottom>
-          Export Bounding Box Annotations
+          {t('admin.dataExport.exportBoundingBoxAnnotations')}
         </Typography>
         
         <Grid container spacing={3} alignItems="center">
           <Grid item xs={12} md={3}>
             <TextField
-              label="Start Date"
+              label={t('admin.dataExport.startDate')}
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
@@ -143,7 +146,7 @@ export const BoundingBoxExport: React.FC = () => {
           
           <Grid item xs={12} md={3}>
             <TextField
-              label="End Date"
+              label={t('admin.dataExport.endDate')}
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
@@ -163,7 +166,7 @@ export const BoundingBoxExport: React.FC = () => {
                     onChange={(e) => setIncludeSoftDeleted(e.target.checked)}
                   />
                 }
-                label="Include Soft Deleted Records"
+                label={t('admin.dataExport.includeSoftDeletedRecords')}
               />
               <br />
               <FormControlLabel
@@ -173,7 +176,7 @@ export const BoundingBoxExport: React.FC = () => {
                     onChange={(e) => setIncludeHiddenAnnotations(e.target.checked)}
                   />
                 }
-                label="Include Hidden Annotations"
+                label={t('admin.dataExport.includeHiddenAnnotations')}
               />
             </Box>
           </Grid>

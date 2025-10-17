@@ -6,6 +6,7 @@ import {
 } from '@mui/material';
 import { ClassificationExport } from '@/components/ClassificationExport';
 import { BoundingBoxExport } from '@/components/BoundingBoxExport';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -30,6 +31,7 @@ function TabPanel(props: TabPanelProps) {
 }
 
 export const DataExportTab: React.FC = () => {
+  const { t } = useTranslation();
   const [currentTab, setCurrentTab] = useState(0);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
@@ -46,12 +48,12 @@ export const DataExportTab: React.FC = () => {
           aria-label="Data export tabs"
         >
           <Tab 
-            label="Classification Annotations" 
+            label={t('admin.dataExport.classificationAnnotations')} 
             id="export-tab-0"
             aria-controls="export-tabpanel-0"
           />
           <Tab 
-            label="Bounding Box Annotations"
+            label={t('admin.dataExport.boundingBoxAnnotations')}
             id="export-tab-1"
             aria-controls="export-tabpanel-1" 
           />

@@ -25,6 +25,7 @@ import { User, DoctorProfile, DoctorProfileApproval } from '@/types';
 import { ModelStatisticsTab } from '@/components/ModelStatisticsTab';
 import { DataExportTab } from '@/components/DataExportTab';
 import { FileManagementTab } from '@/components/FileManagementTab';
+import { useTranslation } from '@/contexts/LanguageContext';
 import api from '@/services/api';
 
 interface TabPanelProps {
@@ -52,6 +53,7 @@ function TabPanel(props: TabPanelProps) {
 interface AdminDashboardProps {}
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
+  const { t } = useTranslation();
   const [currentTab, setCurrentTab] = useState(0);
   const [users, setUsers] = useState<User[]>([]);
   const [pendingRegistrations, setPendingRegistrations] = useState<DoctorProfile[]>([]);
@@ -78,7 +80,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
       setUsers(usersResponse.data);
       setPendingRegistrations(registrationsResponse.data);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to load admin data');
+      setError(err.response?.data?.detail || t('admin.errors.failedToLoadData'));
     } finally {
       setLoading(false);
     }
@@ -108,7 +110,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
       setSelectedProfile(null);
       setApprovalNotes('');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to update registration');
+      setError(err.response?.data?.detail || t('admin.errors.failedToUpdateRegistration'));
     }
   };
 
@@ -145,7 +147,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" component="h1" gutterBottom>
-        Admin Dashboard
+        {t('admin.dashboard')}
       </Typography>
 
       {/* Main Tabs */}
@@ -156,22 +158,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
           aria-label="Admin dashboard tabs"
         >
           <Tab 
-            label="User Management" 
+            label={t('admin.tabs.userManagement')} 
             id="admin-tab-0"
             aria-controls="admin-tabpanel-0"
           />
           <Tab 
-            label="Files Management"
+            label={t('admin.tabs.filesManagement')}
             id="admin-tab-1"
             aria-controls="admin-tabpanel-1" 
           />
           <Tab 
-            label="Model Statistics"
+            label={t('admin.tabs.modelStatistics')}
             id="admin-tab-2"
             aria-controls="admin-tabpanel-2" 
           />
           <Tab 
-            label="Data Export"
+            label={t('admin.tabs.dataExport')}
             id="admin-tab-3"
             aria-controls="admin-tabpanel-3" 
           />
@@ -190,24 +192,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
         <Paper sx={{ mb: 4 }}>
           <Box sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
-              Pending Doctor Registrations ({pendingRegistrations.length})
+              {t('admin.userManagement.pendingRegistrations')} ({pendingRegistrations.length})
             </Typography>
             
             {pendingRegistrations.length === 0 ? (
               <Typography color="text.secondary">
-                No pending registrations
+                {t('admin.userManagement.noPendingRegistrations')}
               </Typography>
             ) : (
               <TableContainer>
                 <Table>
                   <TableHead>
                     <TableRow>
-                      <TableCell>Legal Name</TableCell>
-                      <TableCell>Email</TableCell>
-                      <TableCell>Matriculation ID</TableCell>
-                      <TableCell>Specialization</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Actions</TableCell>
+                      <TableCell>{t('admin.userManagement.legalName')}</TableCell>
+                      <TableCell>{t('admin.userManagement.email')}</TableCell>
+                      <TableCell>{t('admin.userManagement.matriculationId')}</TableCell>
+                      <TableCell>{t('admin.userManagement.specialization')}</TableCell>
+                      <TableCell>{t('admin.userManagement.status')}</TableCell>
+                      <TableCell>{t('admin.userManagement.actions')}</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -228,7 +230,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
                           onClick={() => handleApprovalAction(profile, 'approved')}
                           sx={{ mr: 1 }}
                         >
-                          Approve
+                          {t('admin.userManagement.approve')}
                         </Button>
                         <Button
                           variant="contained"
@@ -236,7 +238,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
                           size="small"
                           onClick={() => handleApprovalAction(profile, 'denied')}
                         >
-                          Deny
+                          {t('admin.userManagement.deny')}
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -252,7 +254,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
       <Paper>
         <Box sx={{ p: 3 }}>
           <Typography variant="h6" gutterBottom>
-            All Users ({users.length})
+            {t('admin.userManagement.allUsers')} ({users.length})
           </Typography>
           
           <TableContainer>
@@ -260,10 +262,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
               <TableHead>
                 <TableRow>
                   <TableCell>Name</TableCell>
-                  <TableCell>Email</TableCell>
-                  <TableCell>Roles</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Created</TableCell>
+                  <TableCell>{t('admin.userManagement.email')}</TableCell>
+                  <TableCell>{t('admin.userManagement.roles')}</TableCell>
+                  <TableCell>{t('admin.userManagement.status')}</TableCell>
+                  <TableCell>{t('admin.userManagement.created')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -274,7 +276,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
                     <TableCell>{getRoleChips(user.roles)}</TableCell>
                     <TableCell>
                       <Chip 
-                        label="Active" 
+                        label={t('admin.userManagement.active')} 
                         color="success" 
                         size="small" 
                       />
@@ -310,47 +312,47 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = () => {
       <Dialog open={approvalDialog} onClose={() => setApprovalDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>
           {selectedProfile ? 
-            `Review Registration: ${selectedProfile.legalName}` : 
-            'Review Registration'
+            t('admin.userManagement.approvalDialog.title', { name: selectedProfile.legalName }) : 
+            t('admin.userManagement.reviewRegistration')
           }
         </DialogTitle>
         <DialogContent>
           {selectedProfile && (
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                <strong>Matriculation ID:</strong> {selectedProfile.matriculationId}
+                <strong>{t('admin.userManagement.approvalDialog.matriculationLabel')}</strong> {selectedProfile.matriculationId}
               </Typography>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                <strong>Specialization:</strong> {selectedProfile.specialization}
+                <strong>{t('admin.userManagement.approvalDialog.specializationLabel')}</strong> {selectedProfile.specialization}
               </Typography>
             </Box>
           )}
           
           <TextField
-            label="Notes (optional)"
+            label={t('admin.userManagement.notes')}
             value={approvalNotes}
             onChange={(e) => setApprovalNotes(e.target.value)}
             multiline
             rows={3}
             fullWidth
-            placeholder="Add any notes about the approval/denial decision..."
+            placeholder={t('admin.userManagement.notesPlaceholder')}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setApprovalDialog(false)}>Cancel</Button>
+          <Button onClick={() => setApprovalDialog(false)}>{t('admin.userManagement.approvalDialog.cancel')}</Button>
           <Button 
             onClick={() => submitApproval('denied')} 
             color="error"
             variant="contained"
           >
-            Deny
+            {t('admin.userManagement.approvalDialog.deny')}
           </Button>
           <Button 
             onClick={() => submitApproval('approved')} 
             color="success"
             variant="contained"
           >
-            Approve
+            {t('admin.userManagement.approvalDialog.approve')}
           </Button>
         </DialogActions>
       </Dialog>

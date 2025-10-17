@@ -21,8 +21,11 @@ import {
 } from '@mui/icons-material';
 import { CSVExportRequest } from '@/types';
 import { adminService } from '@/services/api';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 export const ClassificationExport: React.FC = () => {
+  const { t } = useTranslation();
+  
   // Helper function to format date for input
   const formatDateForInput = (date: Date): string => {
     const year = date.getFullYear();
@@ -77,9 +80,9 @@ export const ClassificationExport: React.FC = () => {
       // Download the file
       adminService.downloadBlob(blob, filename);
       
-      setSuccess(`CSV export completed: ${filename}`);
+      setSuccess(t('admin.dataExport.csvExportCompleted', { filename }));
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to export CSV');
+      setError(err.response?.data?.detail || t('admin.dataExport.failedToExportCsv'));
     } finally {
       setCsvLoading(false);
     }
@@ -107,9 +110,9 @@ export const ClassificationExport: React.FC = () => {
       // Download the file
       adminService.downloadBlob(blob, filename);
       
-      setSuccess(`ZIP export completed: ${filename}`);
+      setSuccess(t('admin.dataExport.zipExportCompleted', { filename }));
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to export ZIP');
+      setError(err.response?.data?.detail || t('admin.dataExport.failedToExportZip'));
     } finally {
       setZipLoading(false);
     }
@@ -122,13 +125,13 @@ export const ClassificationExport: React.FC = () => {
         {/* Export Form */}
         <Paper sx={{ p: 3, mb: 3 }}>
           <Typography variant="h6" gutterBottom>
-            Export Classification Annotations
+            {t('admin.dataExport.exportClassificationAnnotations')}
           </Typography>
           
           <Grid container spacing={3} alignItems="center">
             <Grid item xs={12} md={4}>
               <TextField
-                label="Start Date"
+                label={t('admin.dataExport.startDate')}
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
@@ -141,7 +144,7 @@ export const ClassificationExport: React.FC = () => {
             
             <Grid item xs={12} md={4}>
               <TextField
-                label="End Date"
+                label={t('admin.dataExport.endDate')}
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
@@ -160,7 +163,7 @@ export const ClassificationExport: React.FC = () => {
                     onChange={(e) => setIncludeSoftDeleted(e.target.checked)}
                   />
                 }
-                label="Include Soft Deleted Records"
+                label={t('admin.dataExport.includeSoftDeletedRecords')}
               />
             </Grid>
           </Grid>
@@ -186,18 +189,17 @@ export const ClassificationExport: React.FC = () => {
               <CardContent>
                 <Typography variant="h6" gutterBottom>
                   <CSVIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-                  CSV Export
+                  {t('admin.dataExport.csvExportTitle')}
                 </Typography>
                 <Typography variant="body2" color="textSecondary" paragraph>
-                  Export annotation data as a CSV file containing classification 
-                  labels, confidence scores, media references, and metadata.
+                  {t('admin.dataExport.csvExportDescription')}
                 </Typography>
                 <Typography variant="body2" color="textSecondary" paragraph>
-                  <strong>Contents:</strong>
-                  <br />• Annotation ID and timestamps
-                  <br />• Classification labels and scores
-                  <br />• Media file references
-                  <br />• User and study information
+                  <strong>{t('admin.dataExport.csvContentsTitle')}</strong>
+                  <br />• {t('admin.dataExport.csvContents.annotationId')}
+                  <br />• {t('admin.dataExport.csvContents.classificationLabels')}
+                  <br />• {t('admin.dataExport.csvContents.mediaReferences')}
+                  <br />• {t('admin.dataExport.csvContents.userStudyInfo')}
                 </Typography>
                 <Button
                   variant="contained"
@@ -206,7 +208,7 @@ export const ClassificationExport: React.FC = () => {
                   startIcon={csvLoading ? <CircularProgress size={20} /> : <DownloadIcon />}
                   fullWidth
                 >
-                  {csvLoading ? 'Exporting CSV...' : 'Download CSV'}
+                  {csvLoading ? t('admin.dataExport.exportingCsv') : t('admin.dataExport.downloadCsv')}
                 </Button>
               </CardContent>
             </Card>
@@ -217,17 +219,16 @@ export const ClassificationExport: React.FC = () => {
               <CardContent>
                 <Typography variant="h6" gutterBottom>
                   <ArchiveIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-                  ZIP Export (CSV + Media)
+                  {t('admin.dataExport.zipExportTitle')}
                 </Typography>
                 <Typography variant="body2" color="textSecondary" paragraph>
-                  Export annotation data as CSV along with all associated media files 
-                  packaged in a ZIP archive for complete analysis.
+                  {t('admin.dataExport.zipExportDescription')}
                 </Typography>
                 <Typography variant="body2" color="textSecondary" paragraph>
-                  <strong>Contents:</strong>
-                  <br />• annotations.csv file
-                  <br />• media/ folder with all referenced files
-                  <br />• Proper filename mapping for analysis
+                  <strong>{t('admin.dataExport.csvContentsTitle')}</strong>
+                  <br />• {t('admin.dataExport.zipContents.csvFile')}
+                  <br />• {t('admin.dataExport.zipContents.mediaFolder')}
+                  <br />• {t('admin.dataExport.zipContents.filenameMapping')}
                 </Typography>
                 <Button
                   variant="contained"
@@ -237,7 +238,7 @@ export const ClassificationExport: React.FC = () => {
                   startIcon={zipLoading ? <CircularProgress size={20} /> : <ArchiveIcon />}
                   fullWidth
                 >
-                  {zipLoading ? 'Creating ZIP...' : 'Download ZIP'}
+                  {zipLoading ? t('admin.dataExport.creatingZip') : t('admin.dataExport.downloadZip')}
                 </Button>
               </CardContent>
             </Card>
@@ -247,7 +248,7 @@ export const ClassificationExport: React.FC = () => {
         {/* Quick Actions */}
         <Paper sx={{ p: 2, mt: 3 }}>
           <Typography variant="subtitle2" gutterBottom>
-            Quick Export Options:
+            {t('admin.dataExport.quickExportOptions')}
           </Typography>
           <ButtonGroup variant="outlined" size="small">
             <Button
@@ -258,7 +259,7 @@ export const ClassificationExport: React.FC = () => {
               }}
               disabled={isLoading}
             >
-              Last 7 Days
+              {t('admin.dataExport.last7Days')}
             </Button>
             <Button
               onClick={() => {
@@ -268,7 +269,7 @@ export const ClassificationExport: React.FC = () => {
               }}
               disabled={isLoading}
             >
-              Last 30 Days
+              {t('admin.dataExport.last30Days')}
             </Button>
             <Button
               onClick={() => {
@@ -278,7 +279,7 @@ export const ClassificationExport: React.FC = () => {
               }}
               disabled={isLoading}
             >
-              Last 90 Days
+              {t('admin.dataExport.last90Days')}
             </Button>
           </ButtonGroup>
         </Paper>

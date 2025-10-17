@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Typography, Card, CardContent } from '@mui/material';
 import { Storage as StorageIcon } from '@mui/icons-material';
+import { useTranslation } from '@/contexts/LanguageContext';
 
 interface StorageUsageCardProps {
   totalStorageMb: number;
@@ -14,6 +15,8 @@ export const StorageUsageCard: React.FC<StorageUsageCardProps> = ({
   totalStorageMb,
   totalFiles
 }) => {
+  const { t } = useTranslation();
+  
   // Format storage size
   const formatStorageSize = (mb: number): string => {
     if (mb >= 1024) {
@@ -28,7 +31,7 @@ export const StorageUsageCard: React.FC<StorageUsageCardProps> = ({
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <StorageIcon sx={{ mr: 1, color: 'primary.main' }} />
           <Typography variant="h6" component="h3">
-            Total Storage Usage
+            {t('admin.fileManagement.totalStorageUsage')}
           </Typography>
         </Box>
         
@@ -44,11 +47,11 @@ export const StorageUsageCard: React.FC<StorageUsageCardProps> = ({
           </Typography>
           
           <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
-            across {totalFiles.toLocaleString()} files
+            {t('admin.fileManagement.acrossFiles', { count: totalFiles.toLocaleString() })}
           </Typography>
           
           <Typography variant="body2" color="text.secondary">
-            System-wide storage utilization
+            {t('admin.fileManagement.systemWideUtilization')}
           </Typography>
         </Box>
       </CardContent>
