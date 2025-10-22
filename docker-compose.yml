@@ -56,6 +56,16 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+  media-storage-init:
+    image: alpine:latest
+    restart: "no"
+    volumes:
+      - media_storage:/app/media_storage
+    command: >
+      sh -c "
+        chown -R 1000:1000 /app/media_storage &&
+        chmod -R 755 /app/media_storage
+      "
   backend:
     environment:
       - MLFLOW_URI=http://host.docker.internal:8080
@@ -77,6 +87,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"  
     depends_on:
+      media-storage-init:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
