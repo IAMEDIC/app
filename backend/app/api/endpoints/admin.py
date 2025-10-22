@@ -192,6 +192,17 @@ async def delete_user(
     return {"message": "User deleted successfully"}
 
 
+@router.api_route("/mlflow", methods=["GET"])
+@router.api_route("/mlflow/", methods=["GET"])
+async def mlflow_root(
+    request: Request,
+    current_user: UserModel = Depends(require_admin_role)
+):
+    """Handle root MLflow requests"""
+    logger.info("📊 Admin %s accessing MLflow root", current_user.email)
+    return await mlflow_proxy("", request, current_user)
+
+
 @router.api_route("/mlflow/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
 # pylint: disable=line-too-long
 async def mlflow_proxy(
@@ -200,35 +211,59 @@ async def mlflow_proxy(
     current_user: UserModel = Depends(require_admin_role)
 ):
     """Proxy MLflow requests for admin users only"""
-    logger.debug("📊 Admin %s accessing MLflow path: %s", current_user.email, path)
+    logger.info("📊 Admin %s accessing MLflow path: %s", current_user.email, path)
     mlflow_url = f"{settings.mlflow_uri.rstrip('/')}/{path}"
     query_params = str(request.url.query)
     if query_params:
         mlflow_url += f"?{query_params}"
+    
+    logger.info("🔗 Proxying request to MLflow URL: %s", mlflow_url)
+    
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
+            # Prepare headers for forwarding
+            forward_headers = {k: v for k, v in request.headers.items()
+                             if k.lower() not in ['host', 'authorization', 'content-length']}
+            
             response = await client.request(
                 method=request.method,
                 url=mlflow_url,
-                headers={k: v for k, v in request.headers.items()
-                        if k.lower() not in ['host', 'authorization']},
+                headers=forward_headers,
                 content=await request.body() if request.method in ["POST", "PUT", "PATCH"] else None
             )
+            
+            logger.info("✅ MLflow response status: %s, content-type: %s", 
+                       response.status_code, response.headers.get('content-type'))
+            
+            # Prepare response headers
+            response_headers = {k: v for k, v in response.headers.items()
+                              if k.lower() not in ['content-encoding', 'transfer-encoding', 'connection']}
+            
+            # For HTML responses, rewrite relative static asset paths to work with the proxy
+            content = response.content
+            if response.headers.get('content-type', '').startswith('text/html'):
+                content_str = response.content.decode('utf-8')
+                # Rewrite relative paths to absolute paths that work through the proxy
+                content_str = content_str.replace('href="./static-files/', 'href="/mlflow/static-files/')
+                content_str = content_str.replace('src="static-files/', 'src="/mlflow/static-files/')
+                content_str = content_str.replace('href="static-files/', 'href="/mlflow/static-files/')
+                content = content_str.encode('utf-8')
+                response_headers['content-length'] = str(len(content))
+            
             return StreamingResponse(
-                iter([response.content]),
+                iter([content]),
                 status_code=response.status_code,
-                headers={k: v for k, v in response.headers.items()
-                        if k.lower() not in ['content-encoding', 'transfer-encoding', 'connection']},
+                headers=response_headers,
                 media_type=response.headers.get('content-type', 'application/octet-stream')
             )
         except httpx.RequestError as e:
-            logger.error("❌ MLflow proxy error: %s", str(e))
+            logger.error("❌ MLflow proxy error for path %s: %s", path, str(e))
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="MLflow service unavailable"
             ) from e
         except Exception as e: # pylint: disable=broad-except
-            logger.error("❌ Unexpected MLflow proxy error: %s", str(e))
+            logger.error("❌ Unexpected MLflow proxy error for path %s: %s", path, str(e))
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Internal server error"

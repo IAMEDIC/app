@@ -48,8 +48,8 @@ COPY --from=build /app/dist /usr/share/nginx/html
 # Copy logo to public assets
 COPY logo.jpg /usr/share/nginx/html/logo.jpg
 
-# Expose port 80
-EXPOSE 80
+# Expose ports 80 and 443
+EXPOSE 80 443
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

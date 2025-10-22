@@ -39,8 +39,10 @@ services:
       dockerfile: Dockerfile
       target: production
     restart: unless-stopped
+    volumes:
+      - ./frontend/ssl:/etc/nginx/ssl:ro
     ports:
-      - "80:80"
+      - "443:443"
     env_file:
       - frontend/.env
     networks:
