@@ -55,26 +55,6 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
   // Media cache management
   const { handleMediaDeleted } = useMediaCacheManager();
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return `0 ${t('storage.bytes')}`;
-    const k = 1024;
-    const sizes = [t('storage.bytes'), t('storage.kb'), t('storage.mb'), t('storage.gb')];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-
-
   const handleViewMedia = (mediaItem: MediaSummary) => {
     setSelectedMedia(mediaItem);
     setHasUnsavedChanges(false);
@@ -229,6 +209,10 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
         videoSrc={videoSrc}
         studyId={studyId}
         videoId={videoId}
+        filename={selectedMedia?.filename}
+        fileSize={selectedMedia?.file_size}
+        mimeType={selectedMedia?.mime_type}
+        createdAt={selectedMedia?.created_at}
       />
     );
   };
@@ -333,14 +317,6 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
                   videoId={selectedMedia.id}
                 />
               )}
-              
-              <Box mt={2}>
-                <Typography variant="body2" color="text.secondary">
-                  {t('storage.used')}: {formatFileSize(selectedMedia.file_size)} |
-                  {t('media.type', { defaultValue: 'Type' })}: {selectedMedia.mime_type} |
-                  {t('studyView.created')}: {formatDate(selectedMedia.created_at)}
-                </Typography>
-              </Box>
             </DialogContent>
           </>
         )}

@@ -53,9 +53,9 @@ class RealTimeStreamingService:
         
         # Frame processing parameters (adapted from AutoFrameService)
         self.frame_threshold = 0.8
-        self.min_run_length = 3  # Reduced for real-time processing
+        self.min_run_length = 10  # Reduced for real-time processing
         self.prediction_threshold = 0.95
-        self.patience = 2
+        self.patience = 5
 
     async def create_streaming_session(
         self,
@@ -293,7 +293,6 @@ class RealTimeStreamingService:
         - Return highest scoring frame and prevent future yields until score < 0.80
         """
         try:
-            predictions = self.session_manager.get_predictions(session_id)
             run_state = self.session_manager.get_run_state(session_id)
             
             is_above_threshold = confidence >= self.frame_threshold  # 0.8

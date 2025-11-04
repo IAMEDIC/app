@@ -49,18 +49,45 @@ interface VideoPlayerWithFramesProps {
   videoSrc: string;
   studyId: string;
   videoId: string;
+  filename?: string;
+  fileSize?: number;
+  mimeType?: string;
+  createdAt?: string;
 }
 
 export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
   videoSrc,
   studyId,
   videoId,
+  fileSize,
+  mimeType,
+  createdAt,
 }) => {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+
+  // Format file size
+  const formatFileSize = (bytes: number): string => {
+    if (!bytes) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  // Format date
+  const formatDate = (dateString: string): string => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
   const [videoMetadata, setVideoMetadata] = useState<VideoMetadata | null>(null);
   const [frames, setFrames] = useState<Frame[]>([]);
   const [loading, setLoading] = useState(false);
@@ -274,109 +301,9 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
       )}
 
       <Grid container spacing={3}>
-        <Grid size={{ xs: 12 }}>
-          {/* 1. Automatic Frame Extraction */}
-          <Card sx={{ mb: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                {t('components.videoPlayer.aiFrameExtraction')}
-              </Typography>
-              
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={autoExtractFrames}
-                disabled={autoExtracting}
-                startIcon={autoExtracting ? <CircularProgress size={20} /> : <AutoIcon />}
-                sx={{ mb: 2 }}
-              >
-                {autoExtracting ? t('components.videoPlayer.extracting') : t('components.videoPlayer.autoExtractFrames')}
-              </Button>
-              
-              <Accordion expanded={showAdvancedSettings} onChange={() => setShowAdvancedSettings(!showAdvancedSettings)}>
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Typography variant="subtitle2">{t('components.videoPlayer.advancedSettings')}</Typography>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Grid container spacing={2}>
-                    {/* Prediction Threshold */}
-                    <Grid size={{ xs: 12, md: 3 }}>
-                      <Box display="flex" alignItems="center" gap={1} mb={1}>
-                        <Typography variant="body2">{t('components.videoPlayer.predictionThreshold')}: {autoParams.prediction_threshold}</Typography>
-                        <Tooltip title={t('components.videoPlayer.predictionThresholdDesc')}>
-                          <InfoIcon fontSize="small" color="action" />
-                        </Tooltip>
-                      </Box>
-                      <Slider
-                        value={autoParams.prediction_threshold}
-                        onChange={(_, value) => setAutoParams(prev => ({ ...prev, prediction_threshold: value as number }))}
-                        min={0}
-                        max={1}
-                        step={0.05}
-                        size="small"
-                      />
-                    </Grid>
-
-                    {/* Run Threshold */}
-                    <Grid size={{ xs: 12, md: 3 }}>
-                      <Box display="flex" alignItems="center" gap={1} mb={1}>
-                        <Typography variant="body2">{t('components.videoPlayer.runThreshold')}: {autoParams.run_threshold}</Typography>
-                        <Tooltip title={t('components.videoPlayer.runThresholdDesc')}>
-                          <InfoIcon fontSize="small" color="action" />
-                        </Tooltip>
-                      </Box>
-                      <Slider
-                        value={autoParams.run_threshold}
-                        onChange={(_, value) => setAutoParams(prev => ({ ...prev, run_threshold: value as number }))}
-                        min={0}
-                        max={1}
-                        step={0.05}
-                        size="small"
-                      />
-                    </Grid>
-                    
-                    {/* Min Run Length */}
-                    <Grid size={{ xs: 12, md: 3 }}>
-                      <Box display="flex" alignItems="center" gap={1} mb={1}>
-                        <Typography variant="body2">{t('components.videoPlayer.minRunLength')}</Typography>
-                        <Tooltip title={t('components.videoPlayer.minRunLengthDesc')}>
-                          <InfoIcon fontSize="small" color="action" />
-                        </Tooltip>
-                      </Box>
-                      <TextField
-                        type="number"
-                        value={autoParams.min_run_length}
-                        onChange={(e) => setAutoParams(prev => ({ ...prev, min_run_length: parseInt(e.target.value) || 1 }))}
-                        size="small"
-                        fullWidth
-                        slotProps={{htmlInput: { min: 1, max: 50 }}}
-                      />
-                    </Grid>
-                    
-                    {/* Patience */}
-                    <Grid size={{ xs: 12, md: 3 }}>
-                      <Box display="flex" alignItems="center" gap={1} mb={1}>
-                        <Typography variant="body2">{t('components.videoPlayer.patience')}</Typography>
-                        <Tooltip title={t('components.videoPlayer.patienceDesc')}>
-                          <InfoIcon fontSize="small" color="action" />
-                        </Tooltip>
-                      </Box>
-                      <TextField
-                        type="number"
-                        value={autoParams.patience}
-                        onChange={(e) => setAutoParams(prev => ({ ...prev, patience: parseInt(e.target.value) || 0 }))}
-                        size="small"
-                        fullWidth
-                        slotProps={{htmlInput: { min: 1, max: 20 }}}
-                      />
-                    </Grid>
-                  </Grid>
-                </AccordionDetails>
-              </Accordion>
-            </CardContent>
-          </Card>
-
-          {/* 2. Video and Video Controls */}
+        {/* Left Container: Video Player and Info */}
+        <Grid size={{ xs: 12, lg: 7 }}>
+          {/* Video Player */}
           <Card sx={{ mb: 3 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -468,65 +395,174 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
                   }}
                 />
               </Box>
-            </CardContent>
-          </Card>
 
-          {/* 3. Video Info */}
-          {videoMetadata && (
-            <Card sx={{ mb: 3 }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Video Information
-                </Typography>
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 6, md: 3 }}>
-                    <Typography variant="body2" color="text.secondary">Duration</Typography>
-                    <Typography variant="body1">{formatTime(videoMetadata.duration_seconds)}</Typography>
-                  </Grid>
-                  <Grid size={{ xs: 6, md: 3 }}>
-                    <Typography variant="body2" color="text.secondary">Resolution</Typography>
-                    <Typography variant="body1">{videoMetadata.width} × {videoMetadata.height}</Typography>
-                  </Grid>
-                  <Grid size={{ xs: 6, md: 3 }}>
-                    <Typography variant="body2" color="text.secondary">Frame Rate</Typography>
-                    <Typography variant="body1">{videoMetadata.fps.toFixed(1)} fps</Typography>
-                  </Grid>
-                  <Grid size={{ xs: 6, md: 3 }}>
-                    <Typography variant="body2" color="text.secondary">Total Frames</Typography>
-                    <Typography variant="body1">{videoMetadata.total_frames.toLocaleString()}</Typography>
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* 4. Frame List */}
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                {t('components.videoPlayer.extractedFrames')} ({frames.length})
-              </Typography>
-              
-              {frames.length === 0 ? (
-                <Typography color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-                  {t('components.videoPlayer.noFramesExtracted')}
-                </Typography>
-              ) : (
-                <Grid container spacing={2}>
-                  {frames.map((frame) => (
-                    <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={frame.id}>
-                      <FrameCard
-                        frame={frame}
-                        onView={() => setSelectedFrame(frame)}
-                        onDelete={() => deleteFrame(frame.id)}
-                        onSeek={() => seekToTime(frame.timestamp_seconds)}
-                      />
-                    </Grid>
-                  ))}
-                </Grid>
+              {/* Video Metadata */}
+              {(fileSize || mimeType || createdAt) && (
+                <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
+                  <Typography variant="body2" color="text.secondary">
+                    {fileSize && `${t('storage.used')}: ${formatFileSize(fileSize)}`}
+                    {mimeType && ` | ${t('media.type', { defaultValue: 'Tipo' })}: ${mimeType}`}
+                    {createdAt && ` | ${t('studyView.created', { defaultValue: 'Creado' })}: ${formatDate(createdAt)}`}
+                  </Typography>
+                </Box>
               )}
             </CardContent>
           </Card>
+        </Grid>
+
+        {/* Right Container: Frame Extraction and Frame List (Scrollable) */}
+        <Grid size={{ xs: 12, lg: 5 }}>
+          <Box 
+            sx={{ 
+              maxHeight: 'calc(100vh - 200px)', 
+              overflowY: 'auto',
+              pr: 1,
+              '&::-webkit-scrollbar': {
+                width: '8px',
+              },
+              '&::-webkit-scrollbar-track': {
+                backgroundColor: 'grey.100',
+                borderRadius: '4px',
+              },
+              '&::-webkit-scrollbar-thumb': {
+                backgroundColor: 'grey.400',
+                borderRadius: '4px',
+                '&:hover': {
+                  backgroundColor: 'grey.500',
+                },
+              },
+            }}
+          >
+            {/* Automatic Frame Extraction */}
+            <Card sx={{ mb: 3 }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  {t('components.videoPlayer.aiFrameExtraction')}
+                </Typography>
+                
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={autoExtractFrames}
+                  disabled={autoExtracting}
+                  startIcon={autoExtracting ? <CircularProgress size={20} /> : <AutoIcon />}
+                  sx={{ mb: 2 }}
+                  fullWidth
+                >
+                  {autoExtracting ? t('components.videoPlayer.extracting') : t('components.videoPlayer.autoExtractFrames')}
+                </Button>
+                
+                <Accordion expanded={showAdvancedSettings} onChange={() => setShowAdvancedSettings(!showAdvancedSettings)}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Typography variant="subtitle2">{t('components.videoPlayer.advancedSettings')}</Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Grid container spacing={2}>
+                      {/* Prediction Threshold */}
+                      <Grid size={{ xs: 12 }}>
+                        <Box display="flex" alignItems="center" gap={1} mb={1}>
+                          <Typography variant="body2">{t('components.videoPlayer.predictionThreshold')}: {autoParams.prediction_threshold}</Typography>
+                          <Tooltip title={t('components.videoPlayer.predictionThresholdDesc')}>
+                            <InfoIcon fontSize="small" color="action" />
+                          </Tooltip>
+                        </Box>
+                        <Slider
+                          value={autoParams.prediction_threshold}
+                          onChange={(_, value) => setAutoParams(prev => ({ ...prev, prediction_threshold: value as number }))}
+                          min={0}
+                          max={1}
+                          step={0.05}
+                          size="small"
+                        />
+                      </Grid>
+
+                      {/* Run Threshold */}
+                      <Grid size={{ xs: 12 }}>
+                        <Box display="flex" alignItems="center" gap={1} mb={1}>
+                          <Typography variant="body2">{t('components.videoPlayer.runThreshold')}: {autoParams.run_threshold}</Typography>
+                          <Tooltip title={t('components.videoPlayer.runThresholdDesc')}>
+                            <InfoIcon fontSize="small" color="action" />
+                          </Tooltip>
+                        </Box>
+                        <Slider
+                          value={autoParams.run_threshold}
+                          onChange={(_, value) => setAutoParams(prev => ({ ...prev, run_threshold: value as number }))}
+                          min={0}
+                          max={1}
+                          step={0.05}
+                          size="small"
+                        />
+                      </Grid>
+                      
+                      {/* Min Run Length */}
+                      <Grid size={{ xs: 12 }}>
+                        <Box display="flex" alignItems="center" gap={1} mb={1}>
+                          <Typography variant="body2">{t('components.videoPlayer.minRunLength')}</Typography>
+                          <Tooltip title={t('components.videoPlayer.minRunLengthDesc')}>
+                            <InfoIcon fontSize="small" color="action" />
+                          </Tooltip>
+                        </Box>
+                        <TextField
+                          type="number"
+                          value={autoParams.min_run_length}
+                          onChange={(e) => setAutoParams(prev => ({ ...prev, min_run_length: parseInt(e.target.value) || 1 }))}
+                          size="small"
+                          fullWidth
+                          slotProps={{htmlInput: { min: 1, max: 50 }}}
+                        />
+                      </Grid>
+                      
+                      {/* Patience */}
+                      <Grid size={{ xs: 12 }}>
+                        <Box display="flex" alignItems="center" gap={1} mb={1}>
+                          <Typography variant="body2">{t('components.videoPlayer.patience')}</Typography>
+                          <Tooltip title={t('components.videoPlayer.patienceDesc')}>
+                            <InfoIcon fontSize="small" color="action" />
+                          </Tooltip>
+                        </Box>
+                        <TextField
+                          type="number"
+                          value={autoParams.patience}
+                          onChange={(e) => setAutoParams(prev => ({ ...prev, patience: parseInt(e.target.value) || 0 }))}
+                          size="small"
+                          fullWidth
+                          slotProps={{htmlInput: { min: 1, max: 20 }}}
+                        />
+                      </Grid>
+                    </Grid>
+                  </AccordionDetails>
+                </Accordion>
+              </CardContent>
+            </Card>
+
+            {/* Frame List */}
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  {t('components.videoPlayer.extractedFrames')} ({frames.length})
+                </Typography>
+                
+                {frames.length === 0 ? (
+                  <Typography color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                    {t('components.videoPlayer.noFramesExtracted')}
+                  </Typography>
+                ) : (
+                  <Grid container spacing={2}>
+                    {frames.map((frame) => (
+                      <Grid size={{ xs: 12, sm: 6 }} key={frame.id}>
+                        <FrameCard
+                          frame={frame}
+                          onView={() => setSelectedFrame(frame)}
+                          onDelete={() => deleteFrame(frame.id)}
+                          onSeek={() => seekToTime(frame.timestamp_seconds)}
+                        />
+                      </Grid>
+                    ))}
+                  </Grid>
+                )}
+              </CardContent>
+            </Card>
+          </Box>
         </Grid>
       </Grid>
 

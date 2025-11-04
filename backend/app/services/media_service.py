@@ -4,16 +4,21 @@ Media service for business logic operations.
 
 
 import logging
-from typing import List, Optional, Tuple
+import os
+import tempfile
+from typing import Optional, cast
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+import ffmpeg
+from PIL import Image as PILImage
 
 from app.models.media import Media, MediaType, UploadStatus
 from app.models.study import Study
 from app.schemas.media import MediaCreate, MediaUpdate
 from app.core.file_storage import FileStorageService, FileInfo
+from app.core.cache import RedisCache
 
 
 logger = logging.getLogger(__name__)
@@ -42,13 +47,13 @@ class MediaService:
         ).first()
         return study is not None
 
-    def get_doctor_file_ids(self, doctor_id: UUID) -> List[str]:
+    def get_doctor_file_ids(self, doctor_id: UUID) -> list[str]:
         """
         Get all file IDs for a doctor's active media.
         Args:
             doctor_id: ID of the doctor
         Returns:
-            List of file IDs
+            list of file IDs
         """
         media_files = self.db.query(Media.file_path).join(Study).filter(
             Study.doctor_id == doctor_id,
@@ -133,14 +138,14 @@ class MediaService:
             Media.is_active
         ).first()
 
-    def get_media_by_study(self, study_id: UUID, doctor_id: UUID) -> List[Media]:
+    def get_media_by_study(self, study_id: UUID, doctor_id: UUID) -> list[Media]:
         """
         Get all media for a study, ensuring study belongs to doctor.
         Args:
             study_id: ID of the study
             doctor_id: ID of the doctor
         Returns:
-            List of media objects
+            list of media objects
         """
         if not self.check_study_ownership(study_id, doctor_id):
             return []
@@ -193,14 +198,14 @@ class MediaService:
         logger.info("Soft deleted media %s", media_id)
         return True
 
-    def get_media_file(self, media_id: UUID, doctor_id: UUID) -> Optional[Tuple[bytes, str, str]]:
+    def get_media_file(self, media_id: UUID, doctor_id: UUID) -> Optional[tuple[bytes, str, str]]:
         """
         Get media file data.
         Args:
             media_id: ID of the media
             doctor_id: ID of the doctor
         Returns:
-            Tuple of (file_data, mime_type, filename) if found, None otherwise
+            tuple of (file_data, mime_type, filename) if found, None otherwise
         """
         db_media = self.get_media_by_id(media_id, doctor_id)
         if not db_media:
@@ -233,7 +238,7 @@ class MediaService:
             logger.error("Failed to read file chunks %s: %s", db_media.file_path, e)
             return None
 
-    def get_media_file_range(self, media_id: UUID, doctor_id: UUID, start: int, end: int) -> Optional[Tuple[bytes, str, str, int]]:
+    def get_media_file_range(self, media_id: UUID, doctor_id: UUID, start: int, end: int) -> Optional[tuple[bytes, str, str, int]]:
         """
         Get a specific range of bytes from a media file.
         Args:
@@ -242,7 +247,7 @@ class MediaService:
             start: Starting byte position (inclusive)
             end: Ending byte position (inclusive)
         Returns:
-            Tuple of (file_data, mime_type, filename, file_size) if found, None otherwise
+            tuple of (file_data, mime_type, filename, file_size) if found, None otherwise
         """
         db_media = self.get_media_by_id(media_id, doctor_id)
         if not db_media:
@@ -250,24 +255,24 @@ class MediaService:
         try:
             file_data = self.file_storage.read_file_range(str(db_media.file_path), start, end)
             # Use stored mime type from database for consistency
-            return file_data, db_media.mime_type, str(db_media.filename), db_media.file_size
+            return file_data, cast(str, db_media.mime_type), str(db_media.filename), cast(int, db_media.file_size)
         except Exception as e: # pylint: disable=broad-except
             logger.error("Failed to read file range %s: %s", db_media.file_path, e)
             return None
 
-    def get_media_info(self, media_id: UUID, doctor_id: UUID) -> Optional[Tuple[str, str, int]]:
+    def get_media_info(self, media_id: UUID, doctor_id: UUID) -> Optional[tuple[str, str, int]]:
         """
         Get media file information without reading the file.
         Args:
             media_id: ID of the media
             doctor_id: ID of the doctor
         Returns:
-            Tuple of (mime_type, filename, file_size) if found, None otherwise
+            tuple of (mime_type, filename, file_size) if found, None otherwise
         """
         db_media = self.get_media_by_id(media_id, doctor_id)
         if not db_media:
             return None
-        return db_media.mime_type, str(db_media.filename), db_media.file_size
+        return cast(str, db_media.mime_type), str(db_media.filename), cast(int, db_media.file_size)
 
     def get_storage_info(self, doctor_id: UUID) -> dict:
         """
@@ -296,3 +301,140 @@ class MediaService:
             Media.study_id == study_id,
             Media.media_type.in_([MediaType.IMAGE, MediaType.VIDEO])  # Exclude frames
         ).scalar()
+
+    def get_video_preview_frame(
+        self, 
+        media_id: UUID, 
+        doctor_id: UUID,
+        cache: Optional[RedisCache] = None
+    ) -> Optional[bytes]:
+        """
+        Get a preview frame for a video at 0.5s timestamp.
+        Uses Redis + filesystem caching for performance.
+        
+        Args:
+            media_id: ID of the video media
+            doctor_id: ID of the doctor (for access control)
+            cache: Optional RedisCache instance for caching
+        
+        Returns:
+            JPEG bytes of the preview frame, or None if extraction fails
+        """
+        # Check ownership and verify it's a video
+        db_media = self.get_media_by_id(media_id, doctor_id)
+        if not db_media or db_media.media_type.value != MediaType.VIDEO.value:
+            logger.warning("Media %s not found or not a video", media_id)
+            return None
+        
+        # Cache key for Redis
+        redis_cache_key = f"video_preview:{media_id}"
+        
+        # Filesystem cache path
+        preview_cache_dir = "media_storage/previews"
+        os.makedirs(preview_cache_dir, exist_ok=True)
+        preview_cache_path = os.path.join(preview_cache_dir, f"{media_id}.jpg")
+        
+        # 1. Try Redis cache first (fastest)
+        if cache:
+            try:
+                cached_data = cache.get(redis_cache_key)
+                if cached_data:
+                    logger.debug("✅ Preview frame cache hit (Redis): %s", media_id)
+                    return cached_data
+            except Exception as e:
+                logger.warning("Redis cache lookup failed: %s", e)
+        
+        # 2. Try filesystem cache (fallback)
+        if os.path.exists(preview_cache_path):
+            try:
+                with open(preview_cache_path, 'rb') as f:
+                    preview_data = f.read()
+                logger.debug("✅ Preview frame cache hit (filesystem): %s", media_id)
+                
+                # Update Redis cache if available
+                if cache:
+                    try:
+                        cache.set(redis_cache_key, preview_data, ttl=86400)  # 24 hours
+                    except Exception as e:
+                        logger.warning("Failed to update Redis cache: %s", e)
+                
+                return preview_data
+            except Exception as e:
+                logger.warning("Failed to read cached preview: %s", e)
+        
+        # 3. Extract new preview frame
+        try:
+            logger.debug("🎬 Extracting preview frame for video %s", media_id)
+            
+            # Get video file data
+            file_data, _ = self.file_storage.read_file(str(db_media.file_path))
+            
+            # Create temporary files for processing
+            with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as video_temp:
+                video_temp.write(file_data)
+                video_temp_path = video_temp.name
+            
+            frame_temp_path = tempfile.mktemp(suffix='.jpg')
+            
+            try:
+                # Get video duration to ensure 0.5s is valid
+                probe = ffmpeg.probe(video_temp_path)
+                duration = float(probe['format']['duration'])
+                
+                # Use 0.5s if video is long enough, otherwise use 10% of duration
+                timestamp = 0.5 if duration > 0.5 else max(0.1, duration * 0.1)
+                
+                logger.debug("Video duration: %.2fs, extracting at %.2fs", duration, timestamp)
+                
+                # Extract frame using ffmpeg
+                stream = ffmpeg.input(video_temp_path, ss=timestamp)
+                stream = ffmpeg.output(
+                    stream,
+                    frame_temp_path,
+                    vframes=1,
+                    format='mjpeg',
+                    **{'q:v': '5'}  # Quality 5 for smaller file size
+                )
+                ffmpeg.run(stream, capture_stderr=True, overwrite_output=True, quiet=True)
+                
+                # Resize to thumbnail size (320x240 max) to reduce file size
+                with PILImage.open(frame_temp_path) as img:
+                    # Calculate dimensions maintaining aspect ratio
+                    img.thumbnail((320, 240), PILImage.Resampling.LANCZOS)
+                    
+                    # Save optimized thumbnail
+                    img.save(frame_temp_path, 'JPEG', quality=75, optimize=True)
+                
+                # Read the generated thumbnail
+                with open(frame_temp_path, 'rb') as f:
+                    preview_data = f.read()
+                
+                logger.info("✅ Preview frame extracted: %s (%.1f KB)", 
+                           media_id, len(preview_data) / 1024)
+                
+                # Cache to filesystem
+                try:
+                    with open(preview_cache_path, 'wb') as f:
+                        f.write(preview_data)
+                except Exception as e:
+                    logger.warning("Failed to cache preview to filesystem: %s", e)
+                
+                # Cache to Redis
+                if cache:
+                    try:
+                        cache.set(redis_cache_key, preview_data, ttl=86400)  # 24 hours
+                    except Exception as e:
+                        logger.warning("Failed to cache preview to Redis: %s", e)
+                
+                return preview_data
+                
+            finally:
+                # Cleanup temp files
+                if os.path.exists(video_temp_path):
+                    os.unlink(video_temp_path)
+                if os.path.exists(frame_temp_path):
+                    os.unlink(frame_temp_path)
+                    
+        except Exception as e:
+            logger.error("Failed to extract preview frame for %s: %s", media_id, e)
+            return None

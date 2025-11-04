@@ -19,6 +19,7 @@ from app.schemas.media import (
     Media, MediaUpdate, MediaListResponse, MediaUploadResponse, MediaSummary
 )
 from app.services.media_service import MediaService
+from app.core.cache import get_redis_cache
 
 
 logger = logging.getLogger(__name__)
@@ -572,3 +573,61 @@ async def get_video_thumbnails(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate video thumbnails"
         )
+
+
+@router.get("/studies/{study_id}/media/{media_id}/preview-frame")
+async def get_video_preview_frame(
+    study_id: UUID,
+    media_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(require_doctor_role)
+):
+    """
+    Get a preview frame thumbnail for a video (extracted at 0.5s).
+    Returns a small JPEG thumbnail (max 320x240) with browser caching headers.
+    Uses Redis + filesystem caching for performance.
+    """
+    logger.debug("🖼️ Doctor %s requesting preview frame for video %s", current_user.email, media_id)
+    
+    media_service = MediaService(db)
+    doctor_id = cast(UUID, current_user.id)
+    
+    # Verify media belongs to the correct study
+    media = media_service.get_media_by_id(media_id, doctor_id)
+    if not media:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Media not found or access denied"
+        )
+    if str(media.study_id) != str(study_id):
+        logger.warning("❌ Media %s belongs to study %s, not %s", media_id, media.study_id, study_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Media not found in the specified study"
+        )
+    
+    # Get Redis cache instance
+    cache = get_redis_cache()
+    
+    # Extract or retrieve cached preview frame
+    preview_data = media_service.get_video_preview_frame(media_id, doctor_id, cache)
+    
+    if not preview_data:
+        # Silent failure - return 404 so frontend can fallback to icon
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Preview frame not available"
+        )
+    
+    logger.debug("✅ Serving preview frame for video %s (%.1f KB)", media_id, len(preview_data) / 1024)
+    
+    # Return JPEG with aggressive browser caching
+    return Response(
+        content=preview_data,
+        media_type="image/jpeg",
+        headers={
+            "Cache-Control": "public, max-age=86400, immutable",  # Cache for 24 hours
+            "X-Content-Type-Options": "nosniff",
+            "Content-Length": str(len(preview_data))
+        }
+    )
