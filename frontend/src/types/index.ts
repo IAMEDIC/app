@@ -125,6 +125,7 @@ export interface MediaSummary {
   media_type: MediaType;
   upload_status: UploadStatus;
   created_at: string;
+  has_annotations?: boolean; // Optional: indicates if media has any annotations
 }
 
 export interface MediaUploadResponse {

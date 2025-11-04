@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import require_doctor_role
+from app.core.cache import get_redis_cache
 from app.models.user import User as UserModel
 from app.schemas.study import (
     Study, StudyCreate, StudyUpdate, StudyListResponse, StudyWithMedia
@@ -75,7 +76,8 @@ async def list_studies(
 async def get_study(
     study_id: UUID,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_doctor_role)
+    current_user: UserModel = Depends(require_doctor_role),
+    cache = Depends(get_redis_cache)
 ):
     """Get a specific study with its media"""
     logger.info("🔬 Doctor %s requesting study %s", current_user.email, study_id)
@@ -89,7 +91,17 @@ async def get_study(
             detail="Study not found"
         )
     media_list = media_service.get_media_by_study(study_id, doctor_id)
-    media_summaries = [MediaSummary.model_validate(media) for media in media_list]
+    
+    # Build media summaries with annotation status
+    media_summaries = []
+    for media in media_list:
+        media_dict = MediaSummary.model_validate(media).model_dump()
+        # Populate has_annotations field
+        media_dict["has_annotations"] = media_service.check_has_annotations(
+            cast(UUID, media.id), doctor_id, cache
+        )
+        media_summaries.append(MediaSummary(**media_dict))
+    
     study_dict = Study.model_validate(study).model_dump()
     study_dict["media"] = media_summaries
     return StudyWithMedia(**study_dict)

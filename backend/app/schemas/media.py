@@ -63,6 +63,7 @@ class MediaSummary(BaseModel):
     media_type: MediaType
     upload_status: UploadStatus
     created_at: datetime
+    has_annotations: Optional[bool] = Field(default=None, description="Whether media has any annotations")
 
 
 class MediaInDB(MediaInDBBase):

@@ -184,23 +184,10 @@ export const StudyView: React.FC = () => {
       setUploadLoading(true);
       setUploadError(null);
       
-      const response = await mediaService.uploadMedia(study.id, file);
+      await mediaService.uploadMedia(study.id, file);
       
-      // Add the new media to the study
-      const newMedia: MediaSummary = {
-        id: response.media.id,
-        filename: response.media.filename,
-        file_size: response.media.file_size,
-        mime_type: response.media.mime_type,
-        media_type: response.media.media_type,
-        upload_status: response.media.upload_status,
-        created_at: response.media.created_at,
-      };
-      
-      setStudy({
-        ...study,
-        media: [...study.media, newMedia],
-      });
+      // Refetch study to get complete and fresh data from backend
+      await loadStudy();
 
       // Refresh storage info after upload
       await refreshStorageInfo();
@@ -441,6 +428,10 @@ export const StudyView: React.FC = () => {
             onDeleteMedia={handleMediaDelete}
             onDownloadMedia={handleMediaDownload}
             onMediaAdded={handleMediaAdded}
+            onAnnotationsSaved={() => {
+              // Refetch study to get updated annotation status
+              loadStudy();
+            }}
           />
         </TabPanel>
         

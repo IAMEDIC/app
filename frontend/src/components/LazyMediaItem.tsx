@@ -29,6 +29,7 @@ interface LazyMediaItemProps {
   onDownload: (mediaId: string, filename: string) => void;
   rootMargin?: string; // For intersection observer
   threshold?: number;
+  refreshTrigger?: number; // Increment this to force refetch of annotation status
 }
 
 export const LazyMediaItem: React.FC<LazyMediaItemProps> = ({
@@ -39,11 +40,15 @@ export const LazyMediaItem: React.FC<LazyMediaItemProps> = ({
   onDownload,
   rootMargin = '50px',
   threshold = 0.1,
+  refreshTrigger = 0,
 }) => {
   const { t } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
-  const [hasAnnotations, setHasAnnotations] = useState<boolean | null>(null); // null = loading
+  // Initialize from media prop if available, otherwise null (loading)
+  const [hasAnnotations, setHasAnnotations] = useState<boolean | null>(
+    media.has_annotations !== undefined ? media.has_annotations : null
+  );
   const elementRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -73,9 +78,16 @@ export const LazyMediaItem: React.FC<LazyMediaItemProps> = ({
     };
   }, [hasLoaded, rootMargin, threshold]);
 
-  // Fetch annotation status when component becomes visible
+  // Fetch annotation status when component becomes visible or refreshTrigger changes
+  // Only fetch if not already provided in media prop
   useEffect(() => {
     if (!isVisible) return;
+    
+    // If has_annotations is provided in media prop, use it and don't fetch
+    if (media.has_annotations !== undefined) {
+      setHasAnnotations(media.has_annotations);
+      return;
+    }
 
     let isMounted = true;
 
@@ -99,7 +111,7 @@ export const LazyMediaItem: React.FC<LazyMediaItemProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [isVisible, media.id]);
+  }, [isVisible, media.id, media.has_annotations, refreshTrigger]);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return `0 ${t('storage.bytes')}`;

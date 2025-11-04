@@ -48,6 +48,7 @@ interface AnnotationsTabProps {
   media: MediaSummary;
   studyId: string;
   onMediaAdded?: (newMedia: MediaSummary) => void;
+  onAnnotationsSaved?: () => void;
 }
 
 const COLORS = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F'];
@@ -57,7 +58,7 @@ const generateUniqueId = (prefix: string): string => {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
 
-export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId, onMediaAdded }) => {
+export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId, onMediaAdded, onAnnotationsSaved }) => {
   const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -927,6 +928,9 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId, 
       
       // Save completed successfully
       setSavingStatus('saved');
+      
+      // Notify parent that annotations were saved
+      onAnnotationsSaved?.();
     } catch (error) {
       console.error('❌ Auto-save failed:', error);
       // On error, clear the saving status
@@ -934,7 +938,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId, 
     } finally {
       setIsSaving(false);
     }
-  }, [media.id, usefulness, boundingBoxes, isSaving]);
+  }, [media.id, usefulness, boundingBoxes, isSaving, onAnnotationsSaved]);
 
   // Ref for debounced auto-save timeout
   const autoSaveTimeoutRef = useRef<number>(0);

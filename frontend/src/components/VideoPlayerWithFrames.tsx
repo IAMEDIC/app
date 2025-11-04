@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Box,
   Button,
@@ -55,6 +55,7 @@ interface VideoPlayerWithFramesProps {
   fileSize?: number;
   mimeType?: string;
   createdAt?: string;
+  onAnnotationsSaved?: () => void;
 }
 
 export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
@@ -64,6 +65,7 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
   fileSize,
   mimeType,
   createdAt,
+  onAnnotationsSaved,
 }) => {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -96,11 +98,35 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [extracting, setExtracting] = useState(false);
   const [selectedFrame, setSelectedFrame] = useState<Frame | null>(null);
+  const [frameAnnotationRefresh, setFrameAnnotationRefresh] = useState(0);
+  const [frameAnnotationsChanged, setFrameAnnotationsChanged] = useState(false);
   
   // Auto extraction state
   const [autoExtracting, setAutoExtracting] = useState(false);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
   const [autoParams, setAutoParams] = useState<AutoExtractionParams>(DEFAULT_AUTO_EXTRACTION_PARAMS);
+
+  // Callback to track when frame annotations are saved
+  const handleFrameAnnotationsSaved = useCallback(() => {
+    console.log('🎯 Frame annotations saved, setting flag');
+    setFrameAnnotationsChanged(true);
+  }, []);
+
+  // Handle closing frame annotation dialog
+  const handleCloseFrameDialog = useCallback(() => {
+    console.log('🚪 Closing frame dialog, frameAnnotationsChanged:', frameAnnotationsChanged);
+    setSelectedFrame(null);
+    // Trigger refresh of frame annotation statuses
+    setFrameAnnotationRefresh(prev => prev + 1);
+    // Notify parent to reload study only if annotations were changed
+    if (frameAnnotationsChanged) {
+      console.log('✅ Calling parent onAnnotationsSaved');
+      onAnnotationsSaved?.();
+      setFrameAnnotationsChanged(false);
+    } else {
+      console.log('⏭️ Skipping parent callback (no changes)');
+    }
+  }, [frameAnnotationsChanged, onAnnotationsSaved]);
 
   // Load video metadata and existing frames
   useEffect(() => {
@@ -251,6 +277,8 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
     try {
       await frameService.deleteFrame(frameId);
       setFrames(prev => prev.filter(f => f.id !== frameId));
+      // Trigger parent reload to update video annotation status
+      onAnnotationsSaved?.();
     } catch (err) {
       console.error('Failed to delete frame:', err);
       setError('Failed to delete frame. Please try again.');
@@ -557,6 +585,7 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
                           onView={() => setSelectedFrame(frame)}
                           onDelete={() => deleteFrame(frame.id)}
                           onSeek={() => seekToTime(frame.timestamp_seconds)}
+                          refreshTrigger={frameAnnotationRefresh}
                         />
                       </Grid>
                     ))}
@@ -571,7 +600,7 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
       {/* Frame Annotation Modal */}
       <Dialog
         open={!!selectedFrame}
-        onClose={() => setSelectedFrame(null)}
+        onClose={handleCloseFrameDialog}
         maxWidth="xl"
         fullWidth
       >
@@ -582,7 +611,7 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
                 <Typography variant="h6">
                   Frame Annotations - {selectedFrame.timestamp_seconds.toFixed(3)}s
                 </Typography>
-                <IconButton onClick={() => setSelectedFrame(null)}>
+                <IconButton onClick={handleCloseFrameDialog}>
                   <CloseIcon />
                 </IconButton>
               </Box>
@@ -601,6 +630,7 @@ export const VideoPlayerWithFrames: React.FC<VideoPlayerWithFramesProps> = ({
                   is_active: true
                 } as any}
                 studyId={studyId}
+                onAnnotationsSaved={handleFrameAnnotationsSaved}
               />
             </DialogContent>
           </>
@@ -616,9 +646,10 @@ interface FrameCardProps {
   onView: () => void;
   onDelete: () => void;
   onSeek: () => void;
+  refreshTrigger: number;
 }
 
-const FrameCard: React.FC<FrameCardProps> = ({ frame, onView, onDelete, onSeek }) => {
+const FrameCard: React.FC<FrameCardProps> = ({ frame, onView, onDelete, onSeek, refreshTrigger }) => {
   const [imageSrc, setImageSrc] = useState<string>('');
   const [imageLoading, setImageLoading] = useState(true);
   const [hasAnnotations, setHasAnnotations] = useState<boolean | null>(null);
@@ -661,7 +692,7 @@ const FrameCard: React.FC<FrameCardProps> = ({ frame, onView, onDelete, onSeek }
     };
 
     fetchAnnotationStatus();
-  }, [frame.frame_media_id]);
+  }, [frame.frame_media_id, refreshTrigger]);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
