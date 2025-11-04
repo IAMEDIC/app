@@ -227,7 +227,15 @@
       "unsavedChangesMessage": "You have unsaved changes. Are you sure you want to close without saving?",
       "discardChanges": "Discard Changes",
       "imageLoadError": "Failed to load image",
-      "videoLoadError": "Failed to load video"
+      "videoLoadError": "Failed to load video",
+      "rename": "Rename",
+      "renameMedia": "Rename Media",
+      "renamePrompt": "Enter new filename (without extension):",
+      "newFilename": "New filename",
+      "renameSuccess": "Media renamed successfully",
+      "renameError": "Failed to rename media",
+      "filenameTooLong": "Filename must be less than 450 characters",
+      "filenameRequired": "Filename cannot be empty"
     },
     "errorBoundary": {
       "somethingWentWrong": "Something went wrong",

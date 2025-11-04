@@ -432,6 +432,10 @@ export const StudyView: React.FC = () => {
               // Refetch study to get updated annotation status
               loadStudy();
             }}
+            onMediaRenamed={() => {
+              // Refetch study to ensure all data is in sync
+              loadStudy();
+            }}
           />
         </TabPanel>
         

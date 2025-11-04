@@ -227,7 +227,15 @@
       "unsavedChangesMessage": "Tienes cambios sin guardar. ¿Estás seguro de que quieres cerrar sin guardar?",
       "discardChanges": "Descartar Cambios",
       "imageLoadError": "Error al cargar la imagen",
-      "videoLoadError": "Error al cargar el video"
+      "videoLoadError": "Error al cargar el video",
+      "rename": "Renombrar",
+      "renameMedia": "Renombrar Archivo",
+      "renamePrompt": "Ingrese el nuevo nombre del archivo (sin extensión):",
+      "newFilename": "Nuevo nombre",
+      "renameSuccess": "Archivo renombrado exitosamente",
+      "renameError": "Error al renombrar el archivo",
+      "filenameTooLong": "El nombre del archivo debe tener menos de 450 caracteres",
+      "filenameRequired": "El nombre del archivo no puede estar vacío"
     },
     "errorBoundary": {
       "somethingWentWrong": "Algo salió mal",

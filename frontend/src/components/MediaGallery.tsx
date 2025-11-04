@@ -12,10 +12,12 @@ import {
   CircularProgress,
   Alert,
   IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   VideoFile as VideoIcon,
   Close as CloseIcon,
+  Edit as EditIcon,
 } from '@mui/icons-material';
 import { MediaSummary } from '@/types';
 import { AnnotationsTab } from './AnnotationsTab';
@@ -118,6 +120,7 @@ interface MediaGalleryProps {
   onDownloadMedia: (mediaId: string, filename: string) => Promise<void>;
   onMediaAdded?: (newMedia: MediaSummary) => void;
   onAnnotationsSaved?: (mediaId: string) => void;
+  onMediaRenamed?: (mediaId: string, newFilename: string) => void;
   loading?: boolean;
   error?: string | null;
 }
@@ -129,6 +132,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
   onDownloadMedia,
   onMediaAdded,
   onAnnotationsSaved,
+  onMediaRenamed,
   loading = false,
   error = null,
 }) => {
@@ -140,6 +144,24 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [annotationsChanged, setAnnotationsChanged] = useState(false);
+  
+  // Local state to track media list updates without parent refresh
+  const [localMedia, setLocalMedia] = useState<MediaSummary[]>(media);
+  
+  // Sync local media with parent media prop
+  useEffect(() => {
+    setLocalMedia(media);
+  }, [media]);
+  
+  // Keep selectedMedia in sync with localMedia changes (e.g., after rename)
+  useEffect(() => {
+    if (selectedMedia) {
+      const updatedMedia = localMedia.find(m => m.id === selectedMedia.id);
+      if (updatedMedia && updatedMedia.filename !== selectedMedia.filename) {
+        setSelectedMedia(updatedMedia);
+      }
+    }
+  }, [localMedia, selectedMedia]);
   
   // Media cache management
   const { handleMediaDeleted } = useMediaCacheManager();
@@ -215,6 +237,36 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
     }
   };
 
+  const handleRenameMedia = async (mediaId: string, newFilename: string) => {
+    try {
+      setActionLoading(`rename-${mediaId}`);
+      
+      // Import mediaService
+      const { mediaService } = await import('@/services/api');
+      await mediaService.updateMedia(mediaId, { filename: newFilename });
+      
+      // Update local media state immediately (no parent refresh needed)
+      setLocalMedia(prevMedia => 
+        prevMedia.map(m => 
+          m.id === mediaId ? { ...m, filename: newFilename } : m
+        )
+      );
+      
+      // If the renamed media is currently selected, update its state
+      if (selectedMedia && selectedMedia.id === mediaId) {
+        setSelectedMedia({ ...selectedMedia, filename: newFilename });
+      }
+      
+      // Notify parent component about the rename
+      onMediaRenamed?.(mediaId, newFilename);
+    } catch (error) {
+      console.error('Rename failed:', error);
+      throw error; // Re-throw to let LazyMediaItem handle the error
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" p={4}>
@@ -231,7 +283,7 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
     );
   }
 
-  if (media.length === 0) {
+  if (localMedia.length === 0) {
     return (
       <Box textAlign="center" p={4}>
         <VideoIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
@@ -248,24 +300,25 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
   return (
     <Box>
       <Grid container spacing={2}>
-        {media.map((mediaItem) => (
+        {localMedia.map((mediaItem) => (
           <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={mediaItem.id}>
             <LazyMediaItem
               media={mediaItem}
               studyId={studyId}
               onView={handleViewMedia}
               onDelete={(mediaId) => {
-                const mediaToDelete = media.find(m => m.id === mediaId);
+                const mediaToDelete = localMedia.find(m => m.id === mediaId);
                 if (mediaToDelete) {
                   setDeleteDialog(mediaToDelete);
                 }
               }}
               onDownload={(mediaId, _filename) => {
-                const mediaToDownload = media.find(m => m.id === mediaId);
+                const mediaToDownload = localMedia.find(m => m.id === mediaId);
                 if (mediaToDownload) {
                   handleDownloadMedia(mediaToDownload);
                 }
               }}
+              onRename={handleRenameMedia}
               rootMargin="100px" // Start loading when 100px away from viewport
               threshold={0.1}
               refreshTrigger={refreshTrigger}
@@ -285,14 +338,49 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
           <>
             <DialogTitle>
               <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Box>
+                <Box display="flex" alignItems="center" flexGrow={1} gap={1}>
                   <Typography variant="h6">{selectedMedia.filename}</Typography>
+                  <Tooltip title={t('components.mediaGallery.rename')}>
+                    <IconButton 
+                      size="small" 
+                      onClick={async () => {
+                        const getFileExtension = (filename: string): string => {
+                          const lastDot = filename.lastIndexOf('.');
+                          return lastDot > 0 ? filename.slice(lastDot) : '';
+                        };
+                        
+                        const getFilenameWithoutExtension = (filename: string): string => {
+                          const lastDot = filename.lastIndexOf('.');
+                          return lastDot > 0 ? filename.slice(0, lastDot) : filename;
+                        };
+                        
+                        const nameWithoutExt = getFilenameWithoutExtension(selectedMedia.filename);
+                        const extension = getFileExtension(selectedMedia.filename);
+                        
+                        const newName = prompt(
+                          t('components.mediaGallery.renamePrompt'),
+                          nameWithoutExt
+                        );
+                        
+                        if (newName && newName.trim() && newName !== nameWithoutExt) {
+                          try {
+                            const newFilename = newName.trim() + extension;
+                            await handleRenameMedia(selectedMedia.id, newFilename);
+                          } catch (error) {
+                            console.error('Failed to rename:', error);
+                            alert(t('components.mediaGallery.renameError'));
+                          }
+                        }
+                      }}
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                   {hasUnsavedChanges && (
                     <Chip 
                       label={t('components.mediaGallery.unsavedChanges')} 
                       size="small" 
-                      color="warning" 
-                      sx={{ ml: 1 }}
+                      color="warning"
                     />
                   )}
                 </Box>

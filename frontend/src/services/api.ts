@@ -9,6 +9,8 @@ import {
   StudyUpdate,
   StudyWithMedia,
   StudyListResponse,
+  Media,
+  MediaUpdate,
   MediaUploadResponse,
   MediaListResponse,
   StorageInfo,
@@ -274,6 +276,12 @@ export const mediaService = {
       });
       return response.data;
     }
+  },
+
+  // Update media (e.g., rename)
+  updateMedia: async (mediaId: string, data: MediaUpdate): Promise<Media> => {
+    const response = await api.put(`/media/${mediaId}`, data);
+    return response.data;
   },
 
   // Delete media

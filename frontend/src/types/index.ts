@@ -128,6 +128,11 @@ export interface MediaSummary {
   has_annotations?: boolean; // Optional: indicates if media has any annotations
 }
 
+export interface MediaUpdate {
+  filename?: string;
+  upload_status?: UploadStatus;
+}
+
 export interface MediaUploadResponse {
   media: Media;
   message: string;

@@ -8,11 +8,16 @@ import {
   Tooltip,
   Box,
   Skeleton,
+  TextField,
+  CircularProgress,
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
   Download as DownloadIcon,
   Visibility as ViewIcon,
+  Edit as EditIcon,
+  Check as CheckIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { MediaSummary } from '@/types';
 import { CachedMediaImage } from './CachedMediaImage';
@@ -27,6 +32,7 @@ interface LazyMediaItemProps {
   onView: (media: MediaSummary) => void;
   onDelete: (mediaId: string) => void;
   onDownload: (mediaId: string, filename: string) => void;
+  onRename: (mediaId: string, newFilename: string) => Promise<void>;
   rootMargin?: string; // For intersection observer
   threshold?: number;
   refreshTrigger?: number; // Increment this to force refetch of annotation status
@@ -38,6 +44,7 @@ export const LazyMediaItem: React.FC<LazyMediaItemProps> = ({
   onView,
   onDelete,
   onDownload,
+  onRename,
   rootMargin = '50px',
   threshold = 0.1,
   refreshTrigger = 0,
@@ -50,6 +57,13 @@ export const LazyMediaItem: React.FC<LazyMediaItemProps> = ({
     media.has_annotations !== undefined ? media.has_annotations : null
   );
   const elementRef = useRef<HTMLDivElement>(null);
+  
+  // Rename state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedFilename, setEditedFilename] = useState('');
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const element = elementRef.current;
@@ -112,6 +126,76 @@ export const LazyMediaItem: React.FC<LazyMediaItemProps> = ({
       isMounted = false;
     };
   }, [isVisible, media.id, media.has_annotations, refreshTrigger]);
+
+  // Helper functions for filename manipulation
+  const getFileExtension = (filename: string): string => {
+    const lastDot = filename.lastIndexOf('.');
+    return lastDot > 0 ? filename.slice(lastDot) : '';
+  };
+
+  const getFilenameWithoutExtension = (filename: string): string => {
+    const lastDot = filename.lastIndexOf('.');
+    return lastDot > 0 ? filename.slice(0, lastDot) : filename;
+  };
+
+  const handleStartEdit = () => {
+    setEditedFilename(getFilenameWithoutExtension(media.filename));
+    setIsEditing(true);
+    setRenameError(null);
+    // Focus input after state update
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditedFilename('');
+    setRenameError(null);
+  };
+
+  const handleSaveEdit = async () => {
+    const trimmedName = editedFilename.trim();
+    
+    // Validation
+    if (!trimmedName) {
+      setRenameError(t('components.mediaGallery.filenameRequired'));
+      return;
+    }
+    
+    if (trimmedName.length > 450) { // Leave room for extension
+      setRenameError(t('components.mediaGallery.filenameTooLong'));
+      return;
+    }
+
+    const extension = getFileExtension(media.filename);
+    const newFilename = trimmedName + extension;
+
+    // Check if unchanged
+    if (newFilename === media.filename) {
+      setIsEditing(false);
+      return;
+    }
+
+    setIsRenaming(true);
+    setRenameError(null);
+    
+    try {
+      await onRename(media.id, newFilename);
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Failed to rename media:', error);
+      setRenameError(t('components.mediaGallery.renameError'));
+    } finally {
+      setIsRenaming(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveEdit();
+    } else if (e.key === 'Escape') {
+      handleCancelEdit();
+    }
+  };
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return `0 ${t('storage.bytes')}`;
@@ -191,12 +275,67 @@ export const LazyMediaItem: React.FC<LazyMediaItemProps> = ({
       </Box>
       
       <CardContent sx={{ flexGrow: 1, pb: 1, pt: 1 }}>
-        <Typography variant="body2" noWrap title={media.filename}>
-          {media.filename}
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          {formatFileSize(media.file_size)} • {formatDate(media.created_at)}
-        </Typography>
+        {isEditing ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <TextField
+              inputRef={inputRef}
+              value={editedFilename}
+              onChange={(e) => setEditedFilename(e.target.value)}
+              onKeyDown={handleKeyDown}
+              size="small"
+              fullWidth
+              disabled={isRenaming}
+              error={!!renameError}
+              helperText={renameError}
+              placeholder={t('components.mediaGallery.newFilename')}
+              InputProps={{
+                endAdornment: getFileExtension(media.filename),
+              }}
+              sx={{ mb: renameError ? 0 : 1 }}
+            />
+            <Tooltip title={t('common.save')}>
+              <span>
+                <IconButton 
+                  size="small" 
+                  onClick={handleSaveEdit}
+                  disabled={isRenaming}
+                  color="primary"
+                >
+                  {isRenaming ? <CircularProgress size={20} /> : <CheckIcon />}
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title={t('common.cancel')}>
+              <IconButton 
+                size="small" 
+                onClick={handleCancelEdit}
+                disabled={isRenaming}
+              >
+                <CloseIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        ) : (
+          <>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Typography variant="body2" noWrap title={media.filename} sx={{ flexGrow: 1 }}>
+                {media.filename}
+              </Typography>
+              <Tooltip title={t('components.mediaGallery.rename')}>
+                <IconButton 
+                  size="small" 
+                  onClick={handleStartEdit}
+                  sx={{ padding: '2px' }}
+                >
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+            <Typography variant="caption" color="text.secondary">
+              {formatFileSize(media.file_size)} • {formatDate(media.created_at)}
+            </Typography>
+          </>
+        )}
       </CardContent>
 
       <CardActions sx={{ pt: 0 }}>
