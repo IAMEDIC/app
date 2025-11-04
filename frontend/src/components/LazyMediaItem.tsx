@@ -17,7 +17,9 @@ import {
 import { MediaSummary } from '@/types';
 import { CachedMediaImage } from './CachedMediaImage';
 import { VideoPreview } from './VideoPreview';
+import { AnnotationStatusChip } from './AnnotationStatusChip';
 import { useTranslation } from '@/contexts/LanguageContext';
+import api from '@/services/api';
 
 interface LazyMediaItemProps {
   media: MediaSummary;
@@ -41,6 +43,7 @@ export const LazyMediaItem: React.FC<LazyMediaItemProps> = ({
   const { t } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [hasAnnotations, setHasAnnotations] = useState<boolean | null>(null); // null = loading
   const elementRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -69,6 +72,34 @@ export const LazyMediaItem: React.FC<LazyMediaItemProps> = ({
       observer.disconnect();
     };
   }, [hasLoaded, rootMargin, threshold]);
+
+  // Fetch annotation status when component becomes visible
+  useEffect(() => {
+    if (!isVisible) return;
+
+    let isMounted = true;
+
+    const fetchAnnotationStatus = async () => {
+      try {
+        const response = await api.get(`/media/${media.id}/has-annotations`);
+        if (isMounted) {
+          setHasAnnotations(response.data.has_annotations);
+        }
+      } catch (error) {
+        console.error('Failed to fetch annotation status:', error);
+        // On error, assume no annotations
+        if (isMounted) {
+          setHasAnnotations(false);
+        }
+      }
+    };
+
+    fetchAnnotationStatus();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isVisible, media.id]);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return `0 ${t('storage.bytes')}`;
@@ -142,7 +173,12 @@ export const LazyMediaItem: React.FC<LazyMediaItemProps> = ({
     >
       {renderMediaContent()}
       
-      <CardContent sx={{ flexGrow: 1, pb: 1 }}>
+      {/* Annotation Status Chip - below preview */}
+      <Box sx={{ px: 1, pt: 1 }}>
+        <AnnotationStatusChip hasAnnotations={hasAnnotations} size="small" />
+      </Box>
+      
+      <CardContent sx={{ flexGrow: 1, pb: 1, pt: 1 }}>
         <Typography variant="body2" noWrap title={media.filename}>
           {media.filename}
         </Typography>

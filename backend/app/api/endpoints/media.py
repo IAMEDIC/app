@@ -264,12 +264,27 @@ async def delete_study_media(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Media not found in the specified study"
         )
+    # Check if this is a frame, get parent video before deletion
+    from app.models.frame import Frame
+    frame = db.query(Frame).filter(Frame.frame_media_id == media_id).first()
+    parent_video_id = cast(UUID, frame.video_media_id) if frame else None
+    
     success = media_service.delete_media(media_id, doctor_id)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Media not found"
         )
+    
+    # Invalidate annotation cache
+    cache = get_redis_cache()
+    MediaService.invalidate_annotation_cache(media_id, cache)
+    
+    # If this was a frame, also invalidate parent video cache
+    if parent_video_id:
+        MediaService.invalidate_annotation_cache(parent_video_id, cache)
+        logger.debug("🗑️ Also invalidated parent video cache: %s", parent_video_id)
+    
     logger.info("🗑️ Media deleted successfully: %s", media_id)
     return {"message": "Media deleted successfully"}
 
@@ -631,3 +646,41 @@ async def get_video_preview_frame(
             "Content-Length": str(len(preview_data))
         }
     )
+
+
+@router.get("/media/{media_id}/has-annotations")
+async def check_media_has_annotations(
+    media_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(require_doctor_role)
+):
+    """
+    Check if a media item has classification annotations.
+    For images/frames: checks direct annotations.
+    For videos: checks if any extracted frame has annotations.
+    
+    Uses Redis caching for performance.
+    """
+    logger.debug("🔍 Doctor %s checking annotation status for media %s", current_user.email, media_id)
+    
+    media_service = MediaService(db)
+    doctor_id = cast(UUID, current_user.id)
+    cache = get_redis_cache()
+    
+    # Check if media exists and user has access
+    media = media_service.get_media_by_id(media_id, doctor_id)
+    if not media:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Media not found or access denied"
+        )
+    
+    # Get annotation status (with caching)
+    has_annotations = media_service.check_has_annotations(media_id, doctor_id, cache)
+    
+    logger.debug("✅ Media %s annotation status: %s", media_id, has_annotations)
+    
+    return {
+        "media_id": str(media_id),
+        "has_annotations": has_annotations
+    }

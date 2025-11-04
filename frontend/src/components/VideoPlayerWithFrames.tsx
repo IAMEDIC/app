@@ -39,6 +39,8 @@ import { frameService } from '@/services/frameService';
 import { useTranslation } from '@/contexts/LanguageContext';
 import { Frame, VideoMetadata } from '@/types/frame';
 import { AnnotationsTab } from './AnnotationsTab';
+import { AnnotationStatusChip } from './AnnotationStatusChip';
+import api from '@/services/api';
 import { 
   AutoExtractionParams, 
   AutoExtractionRequest,
@@ -619,6 +621,7 @@ interface FrameCardProps {
 const FrameCard: React.FC<FrameCardProps> = ({ frame, onView, onDelete, onSeek }) => {
   const [imageSrc, setImageSrc] = useState<string>('');
   const [imageLoading, setImageLoading] = useState(true);
+  const [hasAnnotations, setHasAnnotations] = useState<boolean | null>(null);
 
   useEffect(() => {
     let blobUrl: string | null = null;
@@ -643,6 +646,22 @@ const FrameCard: React.FC<FrameCardProps> = ({ frame, onView, onDelete, onSeek }
       }
     };
   }, [frame.id]);
+
+  useEffect(() => {
+    const fetchAnnotationStatus = async () => {
+      try {
+        const response = await api.get<{ media_id: string; has_annotations: boolean }>(
+          `/media/${frame.frame_media_id}/has-annotations`
+        );
+        setHasAnnotations(response.data.has_annotations);
+      } catch (error) {
+        console.error('Failed to fetch annotation status:', error);
+        setHasAnnotations(false);
+      }
+    };
+
+    fetchAnnotationStatus();
+  }, [frame.frame_media_id]);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -688,6 +707,10 @@ const FrameCard: React.FC<FrameCardProps> = ({ frame, onView, onDelete, onSeek }
             />
           </Box>
         )}
+        
+        <Box sx={{ px: 1, pt: 1 }}>
+          <AnnotationStatusChip hasAnnotations={hasAnnotations} size="small" />
+        </Box>
         
         <Box sx={{ mt: 1 }}>
           <Typography variant="caption" display="block">

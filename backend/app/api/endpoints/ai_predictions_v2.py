@@ -123,6 +123,11 @@ async def save_classification_annotation(
 ) -> SaveAnnotationResponse:
     """Save user's classification annotation"""
     logger.debug("💾 Doctor %s saving classification annotation for media %s", current_user.email, media_id)
+    
+    from app.core.cache import get_redis_cache
+    from app.services.media_service import MediaService
+    from app.models.frame import Frame
+    
     ai_service = AIPredictionService(db)
     result = ai_service.save_classification_annotation(media_id, request)
     if not result.success:
@@ -130,6 +135,19 @@ async def save_classification_annotation(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=result.message
         )
+    
+    # Invalidate annotation cache for this media
+    cache = get_redis_cache()
+    MediaService.invalidate_annotation_cache(media_id, cache)
+    
+    # If this is a frame, also invalidate the parent video's cache
+    frame = db.query(Frame).filter(Frame.frame_media_id == media_id).first()
+    if frame:
+        from typing import cast
+        video_id = cast(UUID, frame.video_media_id)
+        MediaService.invalidate_annotation_cache(video_id, cache)
+        logger.debug("🗑️ Also invalidated parent video cache: %s", video_id)
+    
     return result
 
 

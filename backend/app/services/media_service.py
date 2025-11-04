@@ -16,6 +16,8 @@ from PIL import Image as PILImage
 
 from app.models.media import Media, MediaType, UploadStatus
 from app.models.study import Study
+from app.models.frame import Frame
+from app.models.picture_classification_annotation import PictureClassificationAnnotation
 from app.schemas.media import MediaCreate, MediaUpdate
 from app.core.file_storage import FileStorageService, FileInfo
 from app.core.cache import RedisCache
@@ -438,3 +440,101 @@ class MediaService:
         except Exception as e:
             logger.error("Failed to extract preview frame for %s: %s", media_id, e)
             return None
+
+    def check_has_annotations(
+        self, 
+        media_id: UUID, 
+        doctor_id: UUID,
+        cache: Optional[RedisCache] = None
+    ) -> bool:
+        """
+        Check if a media item has classification annotations.
+        For images/frames: checks direct annotations.
+        For videos: checks if any extracted frame has annotations.
+        
+        Uses Redis caching for performance.
+        
+        Args:
+            media_id: ID of the media
+            doctor_id: ID of the doctor (for access control)
+            cache: Optional RedisCache instance
+        
+        Returns:
+            True if media has annotations, False otherwise
+        """
+        # Check ownership
+        db_media = self.get_media_by_id(media_id, doctor_id)
+        if not db_media:
+            logger.warning("Media %s not found for doctor %s", media_id, doctor_id)
+            return False
+        
+        # Redis cache key
+        cache_key = f"media_has_annotations:{media_id}"
+        
+        # Check cache first
+        if cache:
+            try:
+                cached_value = cache.get(cache_key)
+                if cached_value is not None:
+                    # Decode bytes to string and check
+                    result = cached_value.decode('utf-8') == '1'
+                    logger.debug("✅ Annotation status cache hit: %s = %s", media_id, result)
+                    return result
+            except Exception as e:
+                logger.warning("Redis cache lookup failed for %s: %s", media_id, e)
+        
+        # Compute annotation status
+        has_annotations = False
+        
+        if db_media.media_type.value in [MediaType.IMAGE.value, MediaType.FRAME.value]:
+            # For images and frames, check direct classification annotation
+            annotation = self.db.query(PictureClassificationAnnotation).filter(
+                PictureClassificationAnnotation.media_id == media_id
+            ).first()
+            has_annotations = annotation is not None
+            
+        elif db_media.media_type.value == MediaType.VIDEO.value:
+            # For videos, check if any frame has classification annotations
+            # Query: frames of this video -> their media records -> check for annotations
+            frame_with_annotation = self.db.query(Frame).join(
+                PictureClassificationAnnotation,
+                Frame.frame_media_id == PictureClassificationAnnotation.media_id
+            ).filter(
+                Frame.video_media_id == media_id,
+                Frame.is_active == True  # noqa: E712
+            ).first()
+            
+            has_annotations = frame_with_annotation is not None
+        
+        logger.debug("🔍 Computed annotation status for %s (%s): %s", 
+                    media_id, db_media.media_type.value, has_annotations)
+        
+        # Cache the result
+        if cache:
+            try:
+                # Store as '1' or '0' string bytes
+                cache_value = b'1' if has_annotations else b'0'
+                cache.set(cache_key, cache_value, ttl=86400)  # 24 hours TTL
+            except Exception as e:
+                logger.warning("Failed to cache annotation status for %s: %s", media_id, e)
+        
+        return has_annotations
+
+    @staticmethod
+    def invalidate_annotation_cache(media_id: UUID, cache: Optional[RedisCache] = None) -> None:
+        """
+        Invalidate the annotation status cache for a media item.
+        
+        Args:
+            media_id: ID of the media to invalidate
+            cache: Optional RedisCache instance
+        """
+        if not cache:
+            return
+        
+        cache_key = f"media_has_annotations:{media_id}"
+        try:
+            cache.delete(cache_key)
+            logger.debug("🗑️ Invalidated annotation cache for media %s", media_id)
+        except Exception as e:
+            logger.warning("Failed to invalidate annotation cache for %s: %s", media_id, e)

@@ -147,14 +147,37 @@ async def delete_frame(
 ):
     """Delete a frame and its associated file"""
     logger.debug("🗑️ Doctor %s deleting frame %s", current_user.email, frame_id)
+    
+    from app.core.cache import get_redis_cache
+    from app.services.media_service import MediaService
+    
     frame_service = FrameService(db)
     doctor_id = cast(UUID, current_user.id)
+    
+    # Get frame details before deletion
+    frame = frame_service.get_frame(frame_id, doctor_id)
+    if not frame:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Frame not found (or access denied)"
+        )
+    
+    frame_media_id = cast(UUID, frame.frame_media_id)
+    video_media_id = cast(UUID, frame.video_media_id)
+    
     success = frame_service.delete_frame(frame_id, doctor_id)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Frame not found (or access denied)"
         )
+    
+    # Invalidate annotation caches
+    cache = get_redis_cache()
+    MediaService.invalidate_annotation_cache(frame_media_id, cache)
+    MediaService.invalidate_annotation_cache(video_media_id, cache)
+    logger.debug("🗑️ Invalidated annotation cache for frame %s and video %s", frame_media_id, video_media_id)
+    
     return {"message": "Frame deleted successfully"}
 
 
