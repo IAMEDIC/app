@@ -173,10 +173,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId, 
         // Store available classes for creating new bounding boxes
         if (modelInfo.classes) {
           setAvailableClasses(modelInfo.classes);
-          // Set first class as default selection
-          if (modelInfo.classes.length > 0 && !selectedClass) {
-            setSelectedClass(modelInfo.classes[0]);
-          }
+          // Don't auto-select any class - let user choose
         }
         // Store class titles for hover tooltips
         if (modelInfo.class_titles) {
@@ -197,9 +194,10 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId, 
         className => !boundingBoxes.some(box => box.class === className)
       );
       
-      // If current selectedClass is no longer available, switch to first available or empty
+      // If current selectedClass is no longer available, clear it
       if (!availableUniqueClasses.includes(selectedClass)) {
-        setSelectedClass(availableUniqueClasses[0] || '');
+        setSelectedClass('');
+        setIsCreatingBox(false);
       }
     }
   }, [boundingBoxes, selectedClass, availableClasses]);
@@ -467,6 +465,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId, 
         setDragStart({ x: imageCoords.x - clickedBox.x, y: imageCoords.y - clickedBox.y });
       }
     } else {
+      // Clicked outside any box
       setSelectedBoxId(null);
     }
   };
@@ -1168,7 +1167,7 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId, 
                       return (
                         <Box sx={{ mb: 2, p: 2, border: '1px solid #eee', borderRadius: 1, bgcolor: '#f9f9f9' }}>
                           <Typography variant="subtitle2" color="text.secondary">
-                            {t('components.annotations.allClassesPresent')}
+                            {t('components.annotations.noMoreClassesAvailable')}
                           </Typography>
                         </Box>
                       );
@@ -1180,32 +1179,49 @@ export const AnnotationsTab: React.FC<AnnotationsTabProps> = ({ media, studyId, 
                           {t('components.annotations.createNewBox')}
                         </Typography>
                         
-                        <FormControl fullWidth size="small" sx={{ mb: 1 }}>
-                          <Select
-                            value={selectedClass}
-                            onChange={(e) => setSelectedClass(e.target.value)}
-                            displayEmpty
-                          >
-                            <MenuItem value="" disabled>
-                              {t('components.annotations.selectClass')}
-                            </MenuItem>
-                            {availableUniqueClasses.map(className => (
-                              <MenuItem key={className} value={className}>
-                                {className}
+                        <Box display="flex" gap={1} alignItems="center">
+                          <FormControl fullWidth size="small">
+                            <Select
+                              value={selectedClass}
+                              onChange={(e) => {
+                                const newClass = e.target.value;
+                                setSelectedClass(newClass);
+                                // Auto-activate drawing mode when class is selected
+                                if (newClass) {
+                                  setIsCreatingBox(true);
+                                } else {
+                                  setIsCreatingBox(false);
+                                }
+                              }}
+                              displayEmpty
+                            >
+                              <MenuItem value="" disabled>
+                                {t('components.annotations.selectClassToStartDrawing')}
                               </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-                        
-                        <Button
-                          variant={isCreatingBox ? 'contained' : 'outlined'}
-                          onClick={() => setIsCreatingBox(!isCreatingBox)}
-                          disabled={!selectedClass}
-                          fullWidth
-                          size="small"
-                        >
-                          {isCreatingBox ? t('common.cancel') : t('components.annotations.startDrawing')}
-                        </Button>
+                              {availableUniqueClasses.map(className => (
+                                <MenuItem key={className} value={className}>
+                                  {className}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                          
+                          {isCreatingBox && (
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              onClick={() => {
+                                setIsCreatingBox(false);
+                                setSelectedClass('');
+                                setNewBoxStart(null);
+                                setCurrentMousePos(null);
+                              }}
+                              sx={{ minWidth: 'auto', px: 2 }}
+                            >
+                              {t('common.cancel')}
+                            </Button>
+                          )}
+                        </Box>
                         
                         {isCreatingBox && (
                           <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>

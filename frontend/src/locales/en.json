@@ -282,6 +282,8 @@
       "annotations": "Annotations",
       "addClass": "Add Class",
       "selectClass": "Select class to create new bounding box",
+      "selectClassToStartDrawing": "Select class to start drawing",
+      "noMoreClassesAvailable": "No more classes available",
       "confidence": "Confidence",
       "usefulnessScore": "Usefulness Score",
       "useful": "Useful",

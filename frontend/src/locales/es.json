@@ -282,6 +282,8 @@
       "annotations": "Anotaciones",
       "addClass": "Agregar Clase",
       "selectClass": "Selecciona clase para crear nueva caja delimitadora",
+      "selectClassToStartDrawing": "Selecciona clase para comenzar a dibujar",
+      "noMoreClassesAvailable": "No hay más clases disponibles",
       "confidence": "Confianza",
       "usefulnessScore": "Puntuación de Utilidad",
       "useful": "Útil",
