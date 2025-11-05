@@ -383,13 +383,52 @@ export const StudyView: React.FC = () => {
       {/* Tabs */}
       <Paper sx={{ width: '100%' }}>
         <Tabs value={currentTab} onChange={(_, newValue) => setCurrentTab(newValue)}>
-          <Tab label={t('studyView.studyDetails')} />
           <Tab label={t('studyView.mediaFilesTab', { count: study.media.length })} />
           <Tab label={t('studyView.uploadMediaTab')} />
           <Tab label={t('studyView.streamingTab')} />
+          <Tab label={t('studyView.studyDetails')} />
         </Tabs>
         
         <TabPanel value={currentTab} index={0}>
+          <MediaGallery
+            media={study.media}
+            studyId={study.id}
+            onDeleteMedia={handleMediaDelete}
+            onDownloadMedia={handleMediaDownload}
+            onMediaAdded={handleMediaAdded}
+            onAnnotationsSaved={() => {
+              // Refetch study to get updated annotation status
+              loadStudy();
+            }}
+            onMediaRenamed={() => {
+              // Refetch study to ensure all data is in sync
+              loadStudy();
+            }}
+          />
+        </TabPanel>
+        
+        <TabPanel value={currentTab} index={1}>
+          <MediaUpload
+            onUpload={handleMediaUpload}
+            uploading={uploadLoading}
+            error={uploadError}
+            success={uploadSuccess}
+            storageInfo={storageInfo}
+          />
+        </TabPanel>
+        
+        <TabPanel value={currentTab} index={2}>
+          <StreamingTab
+            studyId={study.id}
+            isActive={currentTab === 2}
+            onNewVideo={() => {
+              // Refresh the study to show the new video
+              loadStudy();
+            }}
+          />
+        </TabPanel>
+        
+        <TabPanel value={currentTab} index={3}>
           {/* Study Information Tab */}
           <Paper sx={{ p: 3 }}>
             <Box display="flex" gap={4} flexWrap="wrap">
@@ -419,45 +458,6 @@ export const StudyView: React.FC = () => {
               </Box>
             </Box>
           </Paper>
-        </TabPanel>
-        
-        <TabPanel value={currentTab} index={1}>
-          <MediaGallery
-            media={study.media}
-            studyId={study.id}
-            onDeleteMedia={handleMediaDelete}
-            onDownloadMedia={handleMediaDownload}
-            onMediaAdded={handleMediaAdded}
-            onAnnotationsSaved={() => {
-              // Refetch study to get updated annotation status
-              loadStudy();
-            }}
-            onMediaRenamed={() => {
-              // Refetch study to ensure all data is in sync
-              loadStudy();
-            }}
-          />
-        </TabPanel>
-        
-        <TabPanel value={currentTab} index={2}>
-          <MediaUpload
-            onUpload={handleMediaUpload}
-            uploading={uploadLoading}
-            error={uploadError}
-            success={uploadSuccess}
-            storageInfo={storageInfo}
-          />
-        </TabPanel>
-        
-        <TabPanel value={currentTab} index={3}>
-          <StreamingTab
-            studyId={study.id}
-            isActive={currentTab === 3}
-            onNewVideo={() => {
-              // Refresh the study to show the new video
-              loadStudy();
-            }}
-          />
         </TabPanel>
       </Paper>
 
